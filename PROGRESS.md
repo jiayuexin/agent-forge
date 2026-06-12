@@ -1,8 +1,8 @@
 # AgentForge 开发进度
 
 > 最后更新: 2026-06-12
-> 当前阶段: M-3 @agentforge/sdk
-> 下一步: AgentFramework + Pipeline + EventBus + ModelRegistry
+> 当前阶段: M-4 @agentforge/cli + M-5 http-server
+> 下一步: 实现 CLI 6个命令 + HTTP/WebSocket 服务
 
 ---
 
@@ -14,7 +14,7 @@
 | M-0 项目初始化 | ✅ 完成 | 2026-06-12 | 2026-06-12 | git+pnpm+6包骨架+CLAUDE.md |
 | M-1 types 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 10个类型文件, 53个定义, 17.5KB d.ts |
 | M-2 core 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | BaseAgent+3Providers+Plugin+Generator, 44测试 |
-| M-3 sdk 包 | ⬜ 未开始 | - | - | |
+| M-3 sdk 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | Framework+Pipeline+EventBus, 31测试 |
 | M-4 cli 包 | ⬜ 未开始 | - | - | |
 | M-5 http-server 包 | ⬜ 未开始 | - | - | |
 | M-6 dashboard 包 | ⬜ 未开始 | - | - | |

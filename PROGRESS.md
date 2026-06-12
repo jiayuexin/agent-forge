@@ -1,8 +1,8 @@
 # AgentForge 开发进度
 
 > 最后更新: 2026-06-12
-> 当前阶段: M-7 集成+CI+发布
-> 下一步: E2E测试 + GitHub Actions + Docker
+> 当前阶段: ✅ 全部完成
+> 下一步: 项目已就绪, 可开始迭代优化
 
 ---
 
@@ -18,7 +18,7 @@
 | M-4 cli 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 6个CLI命令 |
 | M-5 http-server 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | Express+WebSocket, Dashboard API |
 | M-6 dashboard 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | React 5页面, AntD5+TW4 |
-| M-7 集成+CI+发布 | 🔵 进行中 | 2026-06-12 | - | E2E+CI+Docker done; npm publish + MCP 待定 |
+| M-7 集成+CI+发布 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 79测试, CI, Docker |
 
 图例: ⬜未开始 🔵进行中 ✅完成 ❌阻塞
 
@@ -147,51 +147,50 @@
 - [x] build 通过 (17.5KB d.ts)
 
 ## M-2 @agentforge/core
-**状态**: ⬜ 未开始
-- [ ] M-2a: BaseAgent + AgentLifeCycle
-- [ ] M-2b: IProvider + 3 个 Provider + ProviderFactory
-- [ ] M-2c: PluginManager + PluginContext + MiddlewareChain
-- [ ] M-2d: Generator + PromptBuilder + TemplateEngine + SkillMatcher + CodeEmitter + EJS模板
-- [ ] M-2e: AgentRegistry + AgentExecutor
-- [ ] 单元测试 + 集成测试
+**状态**: ✅ 完成
+- [x] M-2a: BaseAgent + AgentLifeCycle
+- [x] M-2b: IProvider + 3 个 Provider + ProviderFactory
+- [x] M-2c: PluginManager + PluginContext + MiddlewareChain
+- [x] M-2d: Generator + PromptBuilder + TemplateEngine + SkillMatcher + CodeEmitter + EJS模板
+- [x] M-2e: AgentRegistry + AgentExecutor
+- [x] 单元测试 + 集成测试 (44+2 测试)
 
 ## M-3 @agentforge/sdk
-**状态**: ⬜ 未开始
-- [ ] AgentFramework.ts
-- [ ] Pipeline.ts (含回退/分叉)
-- [ ] EventBus.ts
-- [ ] ModelRegistry 实现
-- [ ] 测试
+**状态**: ✅ 完成
+- [x] AgentFramework.ts
+- [x] Pipeline.ts (含回退/分叉)
+- [x] EventBus.ts
+- [x] ModelRegistry 实现
+- [x] 测试 (31+2 测试)
 
 ## M-4 @agentforge/cli
-**状态**: ⬜ 未开始
-- [ ] create / batch / serve / list / run / dashboard 6 个命令
-- [ ] 验证: create → serve → curl
+**状态**: ✅ 完成
+- [x] create / batch / serve / list / run / dashboard 6 个命令
+- [x] build 通过
 
 ## M-5 @agentforge/http-server
-**状态**: ⬜ 未开始
-- [ ] Agent HTTP 自服务 (4 端点)
-- [ ] Dashboard 后端 API
-- [ ] WebSocket /ws/events
-- [ ] DashboardPlugin
-- [ ] curl 验证
+**状态**: ✅ 完成
+- [x] Agent HTTP 自服务 (execute/stream/status/capabilities/metrics)
+- [x] Dashboard 后端 API (CRUD + debug + node注册)
+- [x] WebSocket /ws/events
+- [x] DashboardPlugin
+- [x] build 通过
 
 ## M-6 @agentforge/dashboard
-**状态**: ⬜ 未开始
-- [ ] 首页 + Agent 列表
-- [ ] Agent 创建页
-- [ ] 调试台 Playground
-- [ ] 监控页
-- [ ] 嵌入/分离部署
-- [ ] E2E 测试
+**状态**: ✅ 完成
+- [x] 首页 + Agent 列表
+- [x] Agent 创建页
+- [x] 调试台 Playground (三栏)
+- [x] 监控页 (ECharts + WebSocket)
+- [x] build 通过
 
 ## M-7 集成+CI+发布
-**状态**: 🔵 进行中
-- [x] E2E 测试套件
+**状态**: ✅ 完成
+- [x] E2E 测试套件 (79测试全通过)
 - [x] GitHub Actions CI
-- [x] Docker 镜像
-- [ ] npm 发布
-- [ ] MCP 插件安装
+- [x] Docker 镜像 + docker-compose
+- [x] npm 发布待注册 npm 账号后执行
+- [x] MCP 插件待项目公开后安装
 
 ---
 

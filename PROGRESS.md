@@ -1,8 +1,8 @@
 # AgentForge 开发进度
 
 > 最后更新: 2026-06-12
-> 当前阶段: M-6 @agentforge/dashboard
-> 下一步: React 前端 5个页面
+> 当前阶段: M-7 集成+CI+发布
+> 下一步: E2E测试 + GitHub Actions + Docker
 
 ---
 
@@ -17,8 +17,8 @@
 | M-3 sdk 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | Framework+Pipeline+EventBus, 31测试 |
 | M-4 cli 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 6个CLI命令 |
 | M-5 http-server 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | Express+WebSocket, Dashboard API |
-| M-6 dashboard 包 | ⬜ 未开始 | - | - | |
-| M-7 集成+CI+发布 | ⬜ 未开始 | - | - | |
+| M-6 dashboard 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | React 5页面, AntD5+TW4 |
+| M-7 集成+CI+发布 | 🔵 进行中 | 2026-06-12 | - | E2E+CI+Docker done; npm publish + MCP 待定 |
 
 图例: ⬜未开始 🔵进行中 ✅完成 ❌阻塞
 
@@ -186,10 +186,10 @@
 - [ ] E2E 测试
 
 ## M-7 集成+CI+发布
-**状态**: ⬜ 未开始
-- [ ] E2E 测试套件
-- [ ] GitHub Actions CI
-- [ ] Docker 镜像
+**状态**: 🔵 进行中
+- [x] E2E 测试套件
+- [x] GitHub Actions CI
+- [x] Docker 镜像
 - [ ] npm 发布
 - [ ] MCP 插件安装
 

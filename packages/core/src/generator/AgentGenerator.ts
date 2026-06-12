@@ -52,12 +52,15 @@ export class AgentGenerator {
     // 2. Match template (defaults to 'general')
     const templateId = input.templateId ?? this.matchTemplate(parsed);
 
-    // 3. Build system prompt
-    const tools = this.skillMatcher.match(parsed.title, parsed.capabilities);
+    // 3. Build system prompt — match tools by title first, fall back to templateId
+    let tools = this.skillMatcher.match(parsed.title, parsed.capabilities);
+    if (tools.length === 0 && templateId) {
+      tools = this.skillMatcher.match(templateId, parsed.capabilities);
+    }
     const systemPrompt = this.promptBuilder.build(parsed, tools);
 
     // 4. Match tools (already done above for prompt)
-    // Tools are matched based on role
+    // Tools are matched based on role, with templateId as fallback
 
     // 5. Render templates
     const agentName = parsed.title.toLowerCase().replace(/\s+/g, '-');
@@ -67,6 +70,7 @@ export class AgentGenerator {
       agentName,
       agentRole: parsed.title,
       systemPrompt,
+      capabilities: parsed.capabilities,
       tools: tools.map((t) => ({
         name: t.name,
         description: t.description,

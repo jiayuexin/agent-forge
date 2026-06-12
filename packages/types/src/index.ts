@@ -1,4 +1,11 @@
 /** @agentforge/types — Pure type definitions, zero runtime dependencies */
-// Types will be populated in M-1 milestone
-// For now, export an empty object to make build pass
-export {};
+export * from './agent';
+export * from './config';
+export * from './task';
+export * from './result';
+export * from './provider';
+export * from './plugin';
+export * from './pipeline';
+export * from './framework';
+export * from './debug';
+export * from './data-model';

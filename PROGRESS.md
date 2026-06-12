@@ -1,8 +1,8 @@
 # AgentForge 开发进度
 
 > 最后更新: 2026-06-12
-> 当前阶段: M-0 项目初始化
-> 下一步: git init + Monorepo 骨架搭建
+> 当前阶段: M-1 @agentforge/types
+> 下一步: 实现 agent.ts 类型文件
 
 ---
 
@@ -11,7 +11,7 @@
 | 阶段 | 状态 | 开始日期 | 完成日期 | 备注 |
 |---|---|---|---|---|
 | D-1 ~ D-8 文档整改 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 60个问题全部修复 |
-| M-0 项目初始化 | ⬜ 未开始 | - | - | |
+| M-0 项目初始化 | ✅ 完成 | 2026-06-12 | 2026-06-12 | git+pnpm+6包骨架+CLAUDE.md |
 | M-1 types 包 | ⬜ 未开始 | - | - | |
 | M-2 core 包 | ⬜ 未开始 | - | - | |
 | M-3 sdk 包 | ⬜ 未开始 | - | - | |
@@ -121,15 +121,15 @@
 ---
 
 ## M-0 项目初始化
-**状态**: ⬜ 未开始
-- [ ] git init + 首次 commit
-- [ ] pnpm-workspace.yaml
-- [ ] 根 package.json + tsconfig.base.json
-- [ ] 6 个包骨架目录
-- [ ] templates/ 和 examples/ 目录
-- [ ] 安装共享依赖
-- [ ] pnpm -r build 通过
-- [ ] /init 生成 CLAUDE.md
+**状态**: ✅ 完成
+- [x] git init + 首次 commit
+- [x] pnpm-workspace.yaml
+- [x] 根 package.json + tsconfig.base.json
+- [x] 6 个包骨架目录
+- [x] templates/ 和 examples/ 目录
+- [x] 安装共享依赖
+- [x] pnpm -r build 通过
+- [x] /init 生成 CLAUDE.md
 
 ## M-1 @agentforge/types
 **状态**: ⬜ 未开始

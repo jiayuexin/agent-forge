@@ -1,0 +1,9 @@
+{
+  "name": "@agentforge/dashboard",
+  "version": "0.1.0",
+  "description": "AgentForge Dashboard — React web management panel",
+  "private": true,
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },
+  "dependencies": { "react": "^18.3.0", "react-dom": "^18.3.0", "react-router-dom": "^6.23.0", "antd": "^5.18.0", "@ant-design/icons": "^5.3.0", "zustand": "^4.5.0", "@monaco-editor/react": "^4.6.0", "echarts": "^5.5.0", "echarts-for-react": "^3.0.2", "dayjs": "^1.11.0", "axios": "^1.7.0" },
+  "devDependencies": { "typescript": "^5.5.0", "@types/react": "^18.3.0", "@types/react-dom": "^18.3.0", "vite": "^5.3.0", "@vitejs/plugin-react": "^4.3.0", "tailwindcss": "^4.0.0-alpha.20", "postcss": "^8.4.0", "autoprefixer": "^10.4.0" }
+}

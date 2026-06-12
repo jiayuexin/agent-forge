@@ -1,8 +1,8 @@
 # AgentForge 开发进度
 
 > 最后更新: 2026-06-12
-> 当前阶段: M-1 @agentforge/types
-> 下一步: 实现 agent.ts 类型文件
+> 当前阶段: M-2 @agentforge/core
+> 下一步: M-2a BaseAgent + AgentLifeCycle
 
 ---
 
@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | D-1 ~ D-8 文档整改 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 60个问题全部修复 |
 | M-0 项目初始化 | ✅ 完成 | 2026-06-12 | 2026-06-12 | git+pnpm+6包骨架+CLAUDE.md |
-| M-1 types 包 | ⬜ 未开始 | - | - | |
+| M-1 types 包 | ✅ 完成 | 2026-06-12 | 2026-06-12 | 10个类型文件, 53个定义, 17.5KB d.ts |
 | M-2 core 包 | ⬜ 未开始 | - | - | |
 | M-3 sdk 包 | ⬜ 未开始 | - | - | |
 | M-4 cli 包 | ⬜ 未开始 | - | - | |
@@ -132,19 +132,19 @@
 - [x] /init 生成 CLAUDE.md
 
 ## M-1 @agentforge/types
-**状态**: ⬜ 未开始
-- [ ] agent.ts
-- [ ] config.ts
-- [ ] task.ts
-- [ ] result.ts
-- [ ] provider.ts
-- [ ] plugin.ts
-- [ ] pipeline.ts
-- [ ] framework.ts
-- [ ] debug.ts
-- [ ] data-model.ts
-- [ ] index.ts
-- [ ] build 通过
+**状态**: ✅ 完成
+- [x] agent.ts (IAgent, AgentStatus, AgentEvent, EventHandler, AgentStreamChunk)
+- [x] config.ts (AgentConfig, ModelConfig 4变体, ToolDefinition, MiddlewareConfig)
+- [x] task.ts (AgentTask, Message)
+- [x] result.ts (AgentResult, Artifact, ToolCallRecord, AgentMetrics)
+- [x] provider.ts (IProvider, ChatParams/Response/Chunk, ModelRegistry, ToolCallRequest)
+- [x] plugin.ts (IPlugin, PluginContext, Middleware, Logger)
+- [x] pipeline.ts (PipelineControlSignal, StepSnapshot, BacktrackEvent, PipelineResult, etc.)
+- [x] framework.ts (FrameworkConfig, AgentFramework)
+- [x] debug.ts (DebugConfig, JSONSchema, CallTrace)
+- [x] data-model.ts (AgentMeta, AgentTemplate, ExecutionRecord, AgentNode)
+- [x] index.ts (统一 re-export)
+- [x] build 通过 (17.5KB d.ts)
 
 ## M-2 @agentforge/core
 **状态**: ⬜ 未开始

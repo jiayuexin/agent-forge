@@ -1,12 +1,12 @@
 # AgentForge 使用文档
 
-> ⚠️ **目标行为文档**：本文描述 v1 预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
+> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
 >
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 使用指南
-> **文档状态**: 草案
+> **文档状态**: 已定稿
 > **文档版本**: docs-v0.3
-> **最后更新**: 2026-06-18
+> **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 
 ## 快速开始
@@ -61,9 +61,8 @@ agentforge create <description> [options]
 |---|---|---|
 | `<description>` | Agent 的自然语言描述（必填） | — |
 | `-t, --template <template>` | 指定模板 ID | 自动匹配 |
-| `-p, --provider <provider>` | LLM Provider | `openai` |
 | `-m, --model <model>` | 模型名称 | `gpt-4o` |
-| `-o, --output <path>` | 输出目录 | `./agents` |
+| `-o, --output <path>` | 输出目录 | `./agents/<name>` |
 
 **可用模板:**
 
@@ -72,7 +71,7 @@ agentforge create <description> [options]
 | `customer-service` | 客服助手 | query-order, create-refund, send-notification |
 | `sales-assistant` | 销售助手 | recommend-product, calculate-price, create-order |
 | `code-reviewer` | 代码审查 | read-file, run-tests, check-style |
-| `content-writer` | 内容写作 | search-web, check-grammar, generate-outline |
+| `content-writer` | 内容写作 | 无 |
 | `data-analyst` | 数据分析 | db-query, chart-generate, export-report |
 | `general` | 通用（回退） | 无预置工具 |
 
@@ -92,13 +91,12 @@ agentforge create "代码审查机器人" -o ./my-agents/reviewer
 **生成结果:**
 
 ```
-./agents/agent-<role>/
+./agents/<name>/
 ├── src/
 │   ├── index.ts       # Agent 入口
 │   ├── prompts.ts     # System Prompt
 │   ├── tools.ts       # 工具定义
-│   ├── types.ts       # 类型定义
-│   └── config.ts      # 默认配置
+│   └── types.ts       # 类型定义
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -190,7 +188,7 @@ agentforge serve
 
 ### `agentforge run`
 
-交互式运行 Agent（REPL 模式），适合调试和快速体验。
+启动 Agent 客户端运行时，连接到 Dashboard 控制中心，等待远程派发任务。
 
 ```bash
 agentforge run <agent-path> [options]
@@ -199,23 +197,21 @@ agentforge run <agent-path> [options]
 | 参数 | 说明 | 默认值 |
 |---|---|---|
 | `<agent-path>` | Agent 目录路径（必填） | — |
-| `-p, --provider <provider>` | LLM Provider | `openai` |
-| `-m, --model <model>` | 模型名称 | `gpt-4o` |
+| `--connect <dashboard-url>` | Dashboard WebSocket 端点 | `wss://dashboard.example.com` |
+| `--token <auth-token>` | 节点认证令牌 | — |
+| `--node-name <name>` | 节点显示名称 | 自动生成 |
+| `--heartbeat <ms>` | 心跳间隔 | `30000` |
 
-**交互:**
+**示例:**
 
-```
-$ agentforge run ./agents/agent-customer-service
-
-you> 我的订单 ORD-001 到哪了？
-agent> 您好！我来帮您查询订单 ORD-001 的状态。
-     您的订单已发货，预计明天送达。物流公司：顺丰速运，运单号：SF1234567890。
-
-you> exit
-再见！
+```bash
+agentforge run ./agents/agent-customer-service \
+  --connect wss://dashboard.example.com \
+  --token $AGENTFORGE_NODE_TOKEN \
+  --node-name cs-node-01
 ```
 
-输入 `exit` 或按 `Ctrl+C` 退出。
+运行后，该节点会在 Dashboard 的节点列表中注册，可通过 Dashboard 或 HTTP API 向其派发任务。按 `Ctrl+C` 停止运行并注销节点。
 
 ---
 
@@ -224,12 +220,8 @@ you> exit
 列出已生成的所有 Agent。
 
 ```bash
-agentforge list [options]
+agentforge list
 ```
-
-| 参数 | 说明 | 默认值 |
-|---|---|---|
-| `-d, --dir <path>` | Agent 目录 | `./agents` |
 
 **输出示例:**
 
@@ -349,38 +341,50 @@ Agent 能力声明。
 { "id": "agent-customer-service", "name": "客服助手", "role": "customer-service", "version": "1.0.0", "capabilities": [...] }
 ```
 
-### Dashboard 后端端点
+### Dashboard 控制中心端点
 
-Dashboard 通过 `agentforge dashboard` 启动后，暴露以下端点:
+Dashboard 通过 `agentforge dashboard` 启动后，暴露以下端点（基础路径 `http://localhost:8080/api`）:
+
+**节点管理**
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/agents` | 列出所有 Agent |
-| POST | `/api/agents` | 注册 Agent |
-| GET | `/api/agents/:id` | Agent 详情 |
-| POST | `/api/agents/:id/init` | 初始化 Agent |
-| POST | `/api/agents/:id/execute` | 执行任务 |
-| POST | `/api/agents/:id/stream` | 流式执行 |
-| DELETE | `/api/agents/:id` | 销毁 Agent |
-| POST | `/api/debug/:id/chat` | 调试对话（SSE） |
-| GET | `/api/debug/:id/trace/:sessionId` | 获取调用链路 |
-| GET | `/api/debug/:id/tools` | 列出已加载工具 |
-| POST | `/api/debug/:id/tools/inject` | 注入临时工具 |
-| GET | `/api/nodes` | 列出注册的 Agent 节点 |
-| POST | `/api/nodes/register` | 注册 Agent 节点 |
-| POST | `/api/nodes/:name/heartbeat` | 心跳上报 |
+| GET | `/nodes` | 列出所有已注册客户端节点 |
+| GET | `/nodes/:id` | 获取节点详情 |
+| POST | `/nodes/:id/execute` | 向指定节点下发执行任务 |
+| POST | `/nodes/:id/stream` | 向指定节点下发流式任务 |
+| POST | `/nodes/:id/config` | 更新节点运行时配置 |
+| DELETE | `/nodes/:id` | 注销节点 |
 
-### WebSocket 事件
+**Agent 模板管理**
 
-连接 `ws://localhost:8080/ws/events` 接收实时事件:
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/agents` | 列出所有 Agent 模板/生成记录 |
+| GET | `/agents/:id` | 获取 Agent 详情 |
+| POST | `/agents` | 创建 Agent |
+| POST | `/agents/:id/generate` | 生成/重新生成 Agent 代码 |
+
+**健康检查**
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/health` | Dashboard 服务探活 |
+| GET | `/metrics` | Prometheus 指标 |
+
+### WebSocket 控制通道
+
+Dashboard 与客户端节点通过 `/ws/nodes/:nodeId` 建立双向 WebSocket 连接，下发控制命令并接收事件/结果上报:
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws/events');
+const ws = new WebSocket('ws://localhost:8080/ws/nodes/node-001?token=AUTH_TOKEN');
+
 ws.onmessage = (e) => {
   const payload = JSON.parse(e.data);
   console.log(payload.type, payload.data);
 };
-// 事件类型: agent:created, agent:destroyed, tool:injected, node:registered
+// 下行消息类型: execute, stream, config-update, ping, stop
+// 上行消息类型: heartbeat, status, result, error, event
 ```
 
 ---

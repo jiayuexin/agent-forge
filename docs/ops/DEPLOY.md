@@ -1,12 +1,12 @@
 # AgentForge 部署文档
 
-> ⚠️ **目标行为文档**：本文描述 v1 预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
+> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
 >
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 部署手册
-> **文档状态**: 草案
+> **文档状态**: 已定稿
 > **文档版本**: docs-v0.3
-> **最后更新**: 2026-06-18
+> **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 
 ## 部署模式总览
@@ -17,7 +17,7 @@
 | HTTP 服务 | 非 Node.js 项目 | 低 | `agentforge serve` 启动 REST+SSE |
 | Docker 容器 | 生产环境 | 中 | Dockerfile 多阶段构建 |
 | Docker Compose | 多 Agent + Dashboard | 中 | Dashboard + 多个 Agent 节点 |
-| Kubernetes | 大规模生产 | 高 | Helm + 自动扩缩容（v2 规划） |
+| Kubernetes | 大规模生产 | 高 | Helm + 自动扩缩容 |
 
 ---
 
@@ -158,12 +158,14 @@ server {
         chunked_transfer_encoding off;
     }
 
-    # WebSocket
-    location /ws/ {
+    # Dashboard 与客户端节点的 WebSocket 控制通道
+    location ~ ^/ws/nodes/ {
         proxy_pass http://agentforge_customer;
         proxy_http_version 1.1;
+        proxy_set_header Host $host;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
     }
 }
 ```
@@ -261,47 +263,30 @@ services:
 
   agent-customer:
     build: .
-    command: serve ./agents/agent-customer-service --port 3001 --host 0.0.0.0
-    ports:
-      - "3001:3001"
+    command: run ./agents/agent-customer-service --connect ws://dashboard:8080 --node-name agent-customer
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENTFORGE_NODE_TOKEN=${AGENTFORGE_NODE_TOKEN}
 
   agent-sales:
     build: .
-    command: serve ./agents/agent-sales-assistant --port 3002 --host 0.0.0.0
-    ports:
-      - "3002:3002"
+    command: run ./agents/agent-sales-assistant --connect ws://dashboard:8080 --node-name agent-sales
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENTFORGE_NODE_TOKEN=${AGENTFORGE_NODE_TOKEN}
 
   # 新增数据分析 Agent
   agent-data:
     build: .
-    command: serve ./agents/agent-data-analyst --port 3003 --host 0.0.0.0
-    ports:
-      - "3003:3003"
+    command: run ./agents/agent-data-analyst --connect ws://dashboard:8080 --node-name agent-data
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENTFORGE_NODE_TOKEN=${AGENTFORGE_NODE_TOKEN}
 ```
 
 ### Agent 节点注册到 Dashboard
 
-各 Agent 启动后需向 Dashboard 注册:
-
-```bash
-# 在 Agent 容器内或外部调用
-curl -X POST http://dashboard:8080/api/nodes/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "agent-customer",
-    "url": "http://agent-customer:3001",
-    "tags": ["customer-service"],
-    "capabilities": [{"name":"query-order","description":"查询订单"}]
-  }'
-```
-
-Dashboard 会每 30 秒检查心跳，90 秒无心跳标记为 `dead`。
+各 Agent 通过 `agentforge run` 启动时会自动向 Dashboard 注册为节点，并通过 WebSocket 控制通道维持心跳。Dashboard 每 30 秒检查心跳，90 秒无心跳标记为 `dead`。
 
 ---
 
@@ -330,8 +315,9 @@ pnpm --filter @agentforge/dashboard dev
 
 ```bash
 # 完整构建 + 类型检查
-pnpm typecheck
-pnpm build
+pnpm run lint
+pnpm run type-check
+pnpm run build
 
 # 验证
 pnpm test
@@ -349,7 +335,7 @@ pnpm test
 | `ANTHROPIC_API_KEY` | 全局 | 使用 Anthropic 时 | Anthropic API 密钥 |
 | `NODE_ENV` | 全局 | ❌ | `production` / `development` |
 | `AGENTFORGE_PORT` | serve 命令 | ❌ | 默认 `3001` |
-| `AGENTFORGE_LOG_LEVEL` | 全局 | ❌ | `debug` / `info` / `warn` / `error` |
+| `LOG_LEVEL` | 全局 | ❌ | `debug` / `info` / `warn` / `error` |
 
 ### 配置文件
 
@@ -421,21 +407,27 @@ services:
 
 ### 指标
 
-`GET /api/metrics` 返回基础指标:
+`GET /api/metrics` 返回 Prometheus exposition 格式指标，例如:
 
-```json
-{
-  "id": "agent-customer-service",
-  "name": "客服助手",
-  "status": "ready"
-}
+```
+# HELP agentforge_agent_executions_total Total number of agent executions
+# TYPE agentforge_agent_executions_total counter
+agentforge_agent_executions_total{agent="agent-customer-service"} 42
+
+# HELP agentforge_agent_execution_duration_seconds Agent execution duration
+# TYPE agentforge_agent_execution_duration_seconds histogram
+agentforge_agent_execution_duration_seconds_bucket{agent="agent-customer-service",le="0.5"} 12
+agentforge_agent_execution_duration_seconds_bucket{agent="agent-customer-service",le="1.0"} 35
+agentforge_agent_execution_duration_seconds_bucket{agent="agent-customer-service",le="+Inf"} 42
+agentforge_agent_execution_duration_seconds_sum{agent="agent-customer-service"} 28.5
+agentforge_agent_execution_duration_seconds_count{agent="agent-customer-service"} 42
 ```
 
-> 完整 Prometheus 指标（QPS、延迟分位、Token 用量）将在集成 OpenTelemetry 后提供（见 TECH-DESIGN §16）。
+> 完整指标名与标签集合参见 `docs/design/TECH-DESIGN.md §16.3`。
 
 ### WebSocket 实时事件
 
-连接 `ws://host:8080/ws/events` 接收实时事件推送，Dashboard 前端已内置监听。
+Dashboard 与客户端节点通过 `ws://host:8080/ws/nodes/:nodeId` 建立双向控制通道，下发命令并接收事件/结果推送。
 
 ---
 
@@ -486,11 +478,11 @@ agentforge serve ./agents/xxx --host 0.0.0.0
 
 ```bash
 # 方式一: CLI 参数
-agentforge create "助手" -p anthropic -m claude-sonnet-4-6
+agentforge create "助手" -m claude-sonnet-4-6
 
 # 方式二: 环境变量
 export ANTHROPIC_API_KEY=sk-ant-xxx
-agentforge serve ./agents/xxx -p anthropic -m claude-sonnet-4-6
+agentforge serve ./agents/xxx -m claude-sonnet-4-6
 ```
 
 ### Q: 如何使用本地 Ollama 模型?
@@ -499,14 +491,15 @@ agentforge serve ./agents/xxx -p anthropic -m claude-sonnet-4-6
 # 确保 Ollama 已启动
 ollama serve
 
-# 生成 Agent 时指定 Ollama
-agentforge create "数据分析助手" -p ollama -m qwen2.5:14b
+# 生成 Agent 时指定 Ollama 模型
+agentforge create "数据分析助手" -m qwen2.5:14b
 ```
 
 Ollama 无需 API Key，默认连接 `http://localhost:11434`。
 
 ### Q: Dashboard 无法连接 Agent 节点?
 
-1. 确认 Agent 的 `--host` 为 `0.0.0.0`（非 `localhost`）
-2. 确认 Agent 已通过 `/api/nodes/register` 注册到 Dashboard
-3. 检查心跳：Agent 每 30 秒发送心跳，90 秒无心跳标记为 `dead`
+1. 确认 Agent 已通过 `agentforge run --connect <dashboard-url>` 启动
+2. 确认 `--token` 有效且可访问该 nodeId
+3. 检查网络：Dashboard 与 Agent 之间的 WebSocket 端口（默认 8080）是否互通
+4. 检查心跳：Agent 每 30 秒发送心跳，90 秒无心跳标记为 `dead`

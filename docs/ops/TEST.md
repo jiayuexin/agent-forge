@@ -1,12 +1,12 @@
 # AgentForge 测试文档
 
-> ⚠️ **目标行为文档**：本文描述 v1 预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [TECH-DESIGN.md §12](../design/TECH-DESIGN.md)。
+> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)；测试策略细节参见 [TECH-DESIGN.md §13](../design/TECH-DESIGN.md#13-测试策略)。
 >
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 测试策略
-> **文档状态**: 草案
+> **文档状态**: 已定稿
 > **文档版本**: docs-v0.3
-> **最后更新**: 2026-06-18
+> **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 
 ## 测试总览
@@ -16,7 +16,7 @@ AgentForge 使用 **Vitest** 作为测试框架，采用分层测试策略覆盖
 | 统计项 | 数值 |
 |---|---|
 | 测试框架 | Vitest ^2.0 |
-| 总测试数 | 79 |
+| 目标测试数 | 79 |
 | 覆盖包 | `@agentforge/core`、`@agentforge/sdk` |
 
 ### 测试分层
@@ -185,7 +185,7 @@ UNINITIALIZED → INITIALIZING → READY ⇄ RUNNING
 
 | 测试 | 说明 |
 |---|---|
-| 单个 Agent 生成 | 从描述 "电商客服助手" + `customer-service` 模板生成，验证生成的 9 个文件（index.ts、prompts.ts、tools.ts、config.ts、types.ts、package.json、tsconfig.json、README.md）全部存在且内容合理 |
+| 单个 Agent 生成 | 从描述 "电商客服助手" + `customer-service` 模板生成，验证生成的 8 个文件（index.ts、prompts.ts、tools.ts、types.ts、package.json、tsconfig.json、README.md、.agentforge.json）全部存在且内容合理 |
 | 批量生成 | 一次生成 2 个 Agent（sales-assistant + code-reviewer），验证各自的 templateId 和文件数量 |
 
 ---
@@ -276,7 +276,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 8
       - uses: actions/setup-node@v4
@@ -285,23 +285,25 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm build
+      - run: pnpm run lint
+      - run: pnpm run type-check
+      - run: pnpm run build
       - run: pnpm test
 ```
 
 ### CI 执行顺序
 
 ```
-install → typecheck → build → test
+install → lint → type-check → build → test
 ```
 
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1 | `pnpm install --frozen-lockfile` | 严格按 lockfile 安装依赖 |
-| 2 | `pnpm typecheck` | 全包 TypeScript 类型检查（`tsc --noEmit`） |
-| 3 | `pnpm build` | 全包构建（tsup 后端 + vite 前端） |
-| 4 | `pnpm test` | 运行 Vitest 全部测试 |
+| 2 | `pnpm run lint` | ESLint 全仓代码检查 |
+| 3 | `pnpm run type-check` | 全包 TypeScript 类型检查（`tsc --noEmit`） |
+| 4 | `pnpm run build` | 全包构建（tsup 后端 + vite 前端） |
+| 5 | `pnpm test` | 运行 Vitest 全部测试 |
 
 > **注意:** 测试在 build 之后运行，因为部分测试依赖编译产物。
 

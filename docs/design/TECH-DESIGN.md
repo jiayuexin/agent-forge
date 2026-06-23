@@ -2,8 +2,8 @@
 
 > **文档层级**: 第二层 · 设计规格
 > **文档类型**: 设计规格
-> **文档状态**: 已定稿
-> **文档版本**: docs-v0.3
+> **文档状态**: 重构中
+> **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 > **配套文档**: [PRD.md](../product/PRD.md)（产品需求）、[01-核心设计.md](./01-核心设计.md)（接口定义）
@@ -31,16 +31,16 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │  用户交互层                                           │
-│  CLI (commander)  │  Dashboard (React)  │  npm install │
+│  CLI (commander)  │  Capability Hub (React)         │
 ├─────────────────────────────────────────────────────┤
-│  产品包层（独立发布）                                   │
-│  @agentforge/cli  │  @agentforge/sdk  │  dashboard  │
+│  平台层                                              │
+│  @agentforge/cli  │  @agentforge/sdk  │  dashboard │
 ├─────────────────────────────────────────────────────┤
-│  基础层（所有包共享）                                   │
-│  @agentforge/core  │  @agentforge/types              │
+│  运行时层                                            │
+│  @agentforge/core  │  @agentforge/runtime-client    │
 ├─────────────────────────────────────────────────────┤
-│  Agent 产出层（用户按需发布）                            │
-│  agent-customer-service  │  agent-code-reviewer  │ ... │
+│  基础层                                              │
+│  @agentforge/types                                   │
 ├─────────────────────────────────────────────────────┤
 │  外部 Provider                                       │
 │  OpenAI  │  Anthropic  │  Ollama  │  Custom API     │
@@ -51,19 +51,30 @@
 
 ```mermaid
 flowchart TB
-    subgraph Cloud["云端控制面"]
-        DashUI["Dashboard React 面板"]
-        DashBE["Dashboard 后端"]
+    subgraph Cloud["Capability Hub 控制面"]
+        HubUI["Capability Hub React 面板"]
+        HubBE["Capability Hub 后端"]
+        CapStore["能力仓库"]
     end
 
     subgraph Users["用户/开发者"]
         U_CLI["CLI 用户"]
-        U_DASH["Dashboard 用户"]
+        U_HUB["Hub 用户"]
+        U_SDK["SDK 开发者"]
     end
 
-    subgraph Core["@agentforge/core（生成时）"]
+    subgraph Core["@agentforge/core"]
         Gen["AgentGenerator"]
         PF["ProviderFactory"]
+        BA["BaseAgent"]
+    end
+
+    subgraph SDK["@agentforge/sdk"]
+        AF["AgentFramework"]
+        CR["CapabilityRegistry"]
+        Planner["PlannerAgent"]
+        PE["PlanExecutor"]
+        PL["Pipeline"]
     end
 
     subgraph Providers["Provider 适配器"]
@@ -78,34 +89,46 @@ flowchart TB
         OLL_API["Ollama API"]
     end
 
-    subgraph Client1["客户端节点 1"]
+    subgraph Client1["ClientAgent 节点 1"]
         ARC1["AgentRuntimeClient"]
-        Agent1["生成的 Agent"]
+        CA1["ClientAgent"]
+        Cache1["本地能力缓存"]
     end
 
-    subgraph Client2["客户端节点 2"]
+    subgraph Client2["ClientAgent 节点 2"]
         ARC2["AgentRuntimeClient"]
-        Agent2["生成的 Agent"]
+        CA2["ClientAgent"]
+        Cache2["本地能力缓存"]
     end
 
     U_CLI --> CLI
     CLI --> Gen
-    Gen --> Agent1
-    Gen --> Agent2
+    Gen --> CA1
+    Gen --> CA2
 
-    U_DASH --> DashUI
-    DashUI --> DashBE
-    DashBE <-->|"WebSocket 控制 + 事件"| ARC1
-    DashBE <-->|"WebSocket 控制 + 事件"| ARC2
+    U_HUB --> HubUI
+    HubUI --> HubBE
+    HubBE --> CapStore
+    HubBE <-->|"WebSocket 控制 + 能力下发 + 事件"| ARC1
+    HubBE <-->|"WebSocket 控制 + 能力下发 + 事件"| ARC2
 
-    ARC1 --> Agent1
-    ARC2 --> Agent2
+    ARC1 --> CA1
+    ARC2 --> CA2
+    CA1 --> Cache1
+    CA2 --> Cache2
 
-    Agent1 --> PF
-    Agent2 --> PF
+    CA1 --> PF
+    CA2 --> PF
     PF --> OpenAI
     PF --> Anthropic
     PF --> Ollama
+
+    U_SDK --> AF
+    AF --> CR
+    CR --> Planner
+    Planner --> PE
+    PE --> PL
+    PL --> BA
 
     OpenAI --> OAI_API
     Anthropic --> ANT_API
@@ -119,36 +142,45 @@ agentforge/
 ├── packages/
 │   ├── core/                  # 核心运行时
 │   │   └── src/
-│   │       ├── agent/         # IAgent 接口 + BaseAgent 抽象类
-│   │       ├── runtime/       # AgentRegistry, AgentExecutor, MiddlewareChain
+│   │       ├── agent/         # IAgent + BaseAgent + ClientAgent + StatelessAgent
+│   │       ├── runtime/       # MiddlewareChain, PluginManager
 │   │       ├── provider/      # IProvider + OpenAI/Anthropic/Ollama 实现
-│   │       ├── plugin/        # IPlugin + PluginManager
+│   │       ├── plugin/        # IPlugin
 │   │       └── generator/     # AgentGenerator + PromptBuilder + TemplateEngine
 │   ├── types/                 # 纯类型定义（零运行时依赖）
 │   ├── sdk/                   # 编排 SDK
 │   │   └── src/
 │   │       ├── AgentFramework.ts   # 框架主类
-│   │       ├── Pipeline.ts         # 流水线（串行/并行/分支/回退）
-│   │       ├── EventBus.ts         # 事件总线
+│   │       ├── CapabilityRegistry.ts
+│   │       ├── planner/            # PlannerAgent + PlanExecutor
+│   │       ├── Pipeline.ts         # 流水线
+│   │       ├── EventBus.ts
+│   │       └── index.ts
+│   ├── runtime-client/        # 客户端运行时（核心包）
+│   │   └── src/
+│   │       ├── AgentRuntimeClient.ts
+│   │       ├── WebSocketTransport.ts
+│   │       ├── HeartbeatManager.ts
+│   │       ├── CapabilityCache.ts
 │   │       └── index.ts
 │   ├── cli/                   # CLI 工具
-│   │   └── src/commands/       # create, batch, serve, list, run, dashboard
-│   ├── http-server/           # HTTP/WebSocket 服务（可选本地调试）
-│   ├── dashboard/             # Web 管理面板（云端控制中心）
-│   │   └── src/
-│   │       ├── pages/         # Home, AgentList, AgentCreate, NodeList, Playground, Monitor
-│   │       ├── components/    # UI 组件
-│   │       ├── api/           # 后端 API 调用
-│   │       └── store/         # 状态管理
-│   └── runtime-client/        # 客户端运行时（AgentRuntimeClient）
-│       └── src/
-│           ├── AgentRuntimeClient.ts
-│           ├── WebSocketTransport.ts
-│           ├── HeartbeatManager.ts
-│           └── index.ts
-├── templates/                 # EJS 代码模板
-│   ├── base/                  # 通用模板（index.ts / prompts.ts / tools.ts）
-│   └── roles/                 # 岗位模板（customer-service / code-reviewer / ...）
+│   │   └── src/commands/      # create, batch, run, serve, dashboard, capability
+│   └── dashboard/             # Capability Hub 面板 + 后端
+│       ├── src/
+│       │   ├── pages/         # Home, ClientAgentList, CapabilityList, NodeList, Playground, Monitor
+│       │   ├── components/
+│       │   ├── api/
+│       │   └── store/
+│       ├── server/            # Capability Hub 后端
+│       │   ├── index.ts
+│       │   ├── routes/
+│       │   └── websocket/
+│       ├── index.html
+│       ├── vite.config.ts
+│       └── package.json
+├── templates/                 # ClientAgent 代码模板
+│   ├── base/                  # 通用模板（main.ts / agent.ts / prompts.ts / tools.ts / runtime.ts / security.json）
+│   └── roles/                 # 岗位模板
 ├── examples/                  # 使用示例
 ├── package.json
 ├── pnpm-workspace.yaml
@@ -161,7 +193,10 @@ agentforge/
 
 ### 3.1 IAgent 接口
 
-所有 Agent 的统一契约：
+所有 Agent 的统一契约。AgentForge 中存在两种实现形态：
+
+- **ClientAgent**：运行在用户机器上的客户端应用，有状态，可连接 Capability Hub。
+- **StatelessAgent**：由 SDK 在进程内实例化的无状态 Agent，用于编排工作流。
 
 ```typescript
 interface IAgent<TConfig extends AgentConfig = AgentConfig> {
@@ -189,6 +224,8 @@ UNINITIALIZED → INITIALIZING → READY → RUNNING → READY
                                        → PAUSED → RUNNING
                                   → DESTROYED（不可逆）
 ```
+
+ClientAgent 在标准状态机之外增加 `daemon-running` 状态。
 
 ### 3.2 AgentConfig（多 Provider 联合类型）
 
@@ -325,8 +362,10 @@ interface PluginContext {
 ### 4.1 生成流程
 
 ```
-用户描述 → 描述解析 → 模板匹配 → Prompt 构建 → 工具推荐 → 代码渲染 → 项目配置 → 文档生成 → 编译验证
+用户描述 → 描述解析 → 模板匹配 → Prompt 构建 → 工具推荐 → 代码渲染 → 项目配置 → 安全配置 → 文档生成 → 编译验证
 ```
+
+生成的产物是可本地运行的 ClientAgent 客户端应用，不是 npm 包。
 
 ### 4.2 AgentGenerator
 
@@ -398,13 +437,16 @@ class TemplateEngine {
   async render(templateId: string, data: TemplateData): Promise<Record<string, string>> {
     const template = this.getTemplate(templateId);
     return {
-      'src/index.ts': ejs.render(template.main, data),
+      'src/main.ts': ejs.render(template.main, data),
+      'src/agent.ts': ejs.render(template.agent, data),
       'src/prompts.ts': ejs.render(template.prompts, data),
       'src/tools.ts': ejs.render(template.tools, data),
       'src/types.ts': ejs.render(template.types, data),
+      'src/runtime.ts': ejs.render(template.runtime, data),
       'package.json': ejs.render(template.config, data),
       'tsconfig.json': ejs.render(template.tsconfig, data),
       'README.md': ejs.render(template.readme, data),
+      '.agentforge/security.json': ejs.render(template.security, data),
     };
   }
 }
@@ -419,6 +461,7 @@ class TemplateEngine {
 | `code-reviewer` | 代码质量审查 | 文件读取、Lint 执行 |
 | `content-writer` | 文案撰写、翻译 | 无（纯文本） |
 | `data-analyst` | 数据查询、报表 | 数据库查询、图表生成 |
+| `dev-assistant` | 开发助手 | 文件读取、Git、本地命令执行 |
 | `general` | 通用 Agent | 无 |
 
 ---
@@ -427,7 +470,7 @@ class TemplateEngine {
 
 ### 5.1 模型驱动编排
 
-AgentForge 的编排器本身也是一个 Agent。它基于系统已注册的能力（Agent / Tool / Skill / Plugin）动态规划工作流，再交由 `PlanExecutor` 执行。
+AgentForge 的编排框架内部使用一个规划 Agent（PlannerAgent）。它基于系统已注册的能力（Agent / Tool / Skill / Plugin / remote-agent）动态规划工作流，再交由 `PlanExecutor` 执行。
 
 ```
 用户任务
@@ -616,21 +659,20 @@ framework.emit('order:created', orderData);
 agentforge <command> [options]
 
 Commands:
-  create <description>    创建 Agent
-  batch <config-file>     批量创建 Agent（YAML/JSON）
-  serve [agent-dir]       启动本地 HTTP 服务（调试）
-  list                    列出已生成 Agent
-  run <agent-path>        启动 Agent 运行时客户端（连接 Dashboard）
-  dashboard               启动 Web 管理面板
+  create <description>    创建 ClientAgent 客户端应用
+  batch <config-file>     批量创建 ClientAgent（YAML/JSON）
+  serve [agent-dir]       启动本地 HTTP 调试服务
+  run <agent-path>        启动 ClientAgent 守护进程（连接 Capability Hub）
+  dashboard               启动 Capability Hub Web 面板
+  capability              能力市场管理（publish / list / install / distribute）
 
 Options:
-  --output, -o <dir>      输出目录（默认 ./agents）
+  --output, -o <dir>      输出目录（默认 ./client-agents）
   --template, -t <id>     指定模板（默认自动匹配）
-  --provider, -p <type>   指定 Provider（默认 openai）
   --model, -m <name>      指定模型
-  --connect <url>         Dashboard WebSocket 端点（run 命令）
+  --connect <url>         Capability Hub WebSocket 端点（run 命令）
   --token <token>         节点认证令牌（run 命令）
-  --port                  HTTP/Dashboard 服务端口（默认 3001/8080）
+  --port                  HTTP/Hub 服务端口（默认 3001/8080）
   --verbose, -v           详细输出
 ```
 
@@ -640,21 +682,22 @@ Options:
 agentforge create "一个客服Agent，处理用户咨询和投诉"
 
 1. 解析描述 → 提取岗位信息
-2. 匹配模板 → customer-service
+2. 匹配模板 → dev-assistant
 3. 生成 Prompt → 预览并确认
-4. 推荐工具 → [query-order, refund, send-notification]
-5. 生成代码 → ./agents/agent-customer-service/
-6. 编译验证 → TypeScript 编译通过
-7. 输出结果 → ✅ Agent 生成成功
+4. 推荐工具 → [read-file, git-status, local-exec]
+5. 生成代码 → ./client-agents/my-agent/
+6. 安全配置 → 默认本地命令执行 disabled
+7. 编译验证 → TypeScript 编译通过
+8. 输出结果 → ✅ ClientAgent 生成成功
 ```
 
 ---
 
 ## 7. HTTP 服务设计
 
-### 7.1 Agent 自服务 API
+### 7.1 ClientAgent 本地调试 API
 
-每个 Agent 可独立启动 HTTP 服务：
+`agentforge serve` 启动的本地调试 HTTP 服务，仅用于开发：
 
 | 端点 | 方法 | 说明 | 请求/响应 |
 |---|---|---|---|
@@ -662,33 +705,32 @@ agentforge create "一个客服Agent，处理用户咨询和投诉"
 | `/api/stream` | POST | 流式执行（SSE） | `{ type, input }` → `SSE stream` |
 | `/api/status` | GET | 详细状态 | `{ status: 'ready' \| 'degraded' \| 'unhealthy', uptime: 3600 }` |
 | `/api/health` | GET | 轻量探活 | `{ status: 'ok' }` |
-| `/api/capabilities` | GET | 能力声明 | `AgentCapability[]` |
+| `/api/capabilities` | GET | 本地能力声明 | `AgentCapability[]` |
 
-### 7.2 Dashboard 后端 API
+### 7.2 Capability Hub API
 
 > 完整 API 参见 [05-CLI与API.md](05-CLI与API.md)
 
 | 端点 | 方法 | 说明 |
 |---|---|---|
-| `/api/agents` | GET | Agent 列表 |
-| `/api/agents` | POST | 创建 Agent |
-| `/api/agents/:id` | GET | Agent 详情 |
-| `/api/agents/:id/generate` | POST | 生成 Agent 代码 |
-| `/api/debug/:id/chat` | POST | 调试对话（SSE） |
-| `/api/debug/:id/trace/:sessionId` | GET | 调用链路 |
-| `/api/debug/:id/tools` | GET | 已加载工具列表 |
-| `/api/debug/:id/tools/inject` | POST | 注入临时工具 |
-| `/api/debug/:id/tools/:name/mock` | POST/DEL | 设置/取消 Mock |
-| `/api/debug/compare` | POST | 对比测试 |
-| `/api/debug/:id/export/:sessionId` | GET | 导出报告 |
-| `/api/nodes` | GET | 注册的 Agent 节点 |
-| `/api/nodes/register` | POST | Agent 节点注册 |
-| `/api/nodes/:name/heartbeat` | POST | 心跳上报 |
-| `/ws/nodes/:nodeId` | WebSocket | Dashboard 与节点的控制通道 + 实时事件推送 |
+| `/api/client-agent-templates` | GET/POST | ClientAgent 模板列表/创建 |
+| `/api/client-agent-templates/:id` | GET | 模板详情 |
+| `/api/capabilities` | GET/POST | 能力列表/创建 |
+| `/api/capabilities/:id` | GET/PUT/DELETE | 能力详情/更新/删除 |
+| `/api/capabilities/:id/versions` | GET | 能力版本历史 |
+| `/api/capabilities/:id/distribute` | POST | 下发能力到指定节点 |
+| `/api/nodes` | GET | 注册的 ClientAgent 节点 |
+| `/api/nodes/:id` | GET/DELETE | 节点详情/注销 |
+| `/api/nodes/:id/execute` | POST | 向节点下发执行任务 |
+| `/api/nodes/:id/stream` | POST | 向节点下发流式任务 |
+| `/api/nodes/:id/config` | POST | 更新节点运行时配置 |
+| `/api/health` | GET | Hub 服务探活 |
+| `/api/metrics` | GET | Prometheus 指标 |
+| `/ws/nodes/:nodeId` | WebSocket | Capability Hub 与节点的控制通道 + 实时事件推送 |
 
 ---
 
-## 8. Dashboard 设计
+## 8. Capability Hub 设计
 
 ### 8.1 技术栈
 
@@ -705,8 +747,13 @@ agentforge create "一个客服Agent，处理用户咨询和投诉"
 | 路由 | 页面 | 功能 |
 |---|---|---|
 | `/` | Home | 项目概览、快捷入口 |
-| `/agents` | AgentList | Agent 列表、搜索、状态 |
-| `/agents/create` | AgentCreate | 表单描述 → Prompt 预览 → 生成 |
+| `/client-agents` | ClientAgentList | ClientAgent 模板列表、搜索、状态 |
+| `/client-agents/create` | ClientAgentCreate | 表单描述 → Prompt 预览 → 生成 |
+| `/capabilities` | CapabilityList | 能力管理 |
+| `/capabilities/market` | CapabilityMarket | 能力市场 |
+| `/capabilities/:id` | CapabilityDetail | 能力详情/版本管理 |
+| `/nodes` | NodeList | 客户端节点列表 |
+| `/nodes/:id` | NodeDetail | 节点详情/远程控制 |
 | `/playground` | Playground | Agent 调试台（三栏布局） |
 | `/monitor` | Monitor | 运行指标、日志、告警 |
 
@@ -768,17 +815,19 @@ Dashboard Server          Agent Node 1          Agent Node 2
 
 ## 10. 数据存储
 
-### 10.1 v1 存储策略
+### 10.1 存储策略
 
 | 数据 | 存储方式 | 说明 |
 |---|---|---|
-| Agent 元数据 | `.agentforge.json` 文件 | 每个生成的 Agent 目录下 |
-| 执行记录 | 内存（可选 SQLite） | Dashboard 运行时 |
+| ClientAgent 元数据 | `.agentforge/config.json` 文件 | 每个生成的 ClientAgent 目录下 |
+| 本地安全配置 | `.agentforge/security.json` 文件 | 每个 ClientAgent 目录下 |
+| 能力缓存 | `.agentforge/capabilities/` 目录 | 每个 ClientAgent 目录下 |
+| 执行记录 | 内存 | Capability Hub 运行时 |
 | 调试会话 | 内存 | 调试台会话期间 |
 | 调用链路 | 内存（可导出） | 每次调试的追踪数据 |
-| Agent 注册表 | 内存（Dashboard 进程内） | 重启后 Agent 重新注册 |
+| 节点注册表 | 内存（Hub 进程内） | 重启后 ClientAgent 重新注册 |
 
-> **v1 不引入数据库**，所有数据存储以文件和内存为主。v2 可考虑 SQLite / Redis。
+> 不引入数据库，所有数据存储以文件和内存为主。后续可考虑 SQLite / Redis。
 
 ---
 
@@ -789,33 +838,30 @@ Dashboard Server          Agent Node 1          Agent Node 2
 | 级别 | 说明 | 处理方式 |
 |---|---|---|
 | `VALIDATION_ERROR` | 输入校验失败 | 返回 400 + 错误详情 |
-| `PROVIDER_ERROR` | LLM Provider 调用失败 | 自动重试（指数退避，最多 3 次）→ 返回 502 |
+| `PROVIDER_ERROR` | LLM Provider 调用失败 | 返回错误，由调用方决定是否重试 |
 | `EXECUTION_ERROR` | Agent 执行内部错误 | 中间件 onError 处理 → 返回 500 |
-| `GENERATION_ERROR` | Agent 代码生成失败 | 返回详细错误信息 + 降级提示 |
+| `GENERATION_ERROR` | Agent 代码生成失败 | 返回详细错误信息 |
 | `TIMEOUT_ERROR` | 执行超时 | 返回 504 + 已产生的部分结果 |
+| `CAPABILITY_NOT_CACHED` | ClientAgent 离线时缺少能力 | 返回错误，提示联网同步 |
+| `USER_REJECTED` | 本地用户拒绝敏感操作 | 返回错误 |
 
 ### 11.2 重试策略
 
-```typescript
-interface RetryConfig {
-  maxRetries: number;      // 默认 3
-  backoffMs: number;       // 初始退避 1000ms
-  backoffMultiplier: number; // 退避倍数 2
-  retryableErrors: string[]; // 可重试的错误类型
-}
-```
+框架不内置自动重试。调用方如需重试，可在业务代码中实现。
 
 ---
 
-## 12. 安全设计（v1 基础）
+## 12. 安全设计
 
 | 措施 | 说明 |
 |---|---|
 | API Key 环境变量 | 敏感配置通过 `process.env` 传入，不硬编码 |
-| CORS 白名单 | HTTP 服务默认只允许 localhost |
+| CORS 白名单 | HTTP 调试服务默认只允许 localhost |
 | 输入校验 | 所有 API 入参通过 Zod Schema 校验 |
-| 工具沙箱 | 调试台注入的临时工具在沙箱中执行（v1 限制为同步表达式） |
-| 无远程代码执行 | v1 不支持从远程加载 Agent 代码 |
+| 本地命令分层授权 | ClientAgent 默认禁止本地命令执行，需用户显式授权 |
+| 能力下发签名校验 | Plugin 能力必须签名，ClientAgent 安装前校验 |
+| 敏感操作本地确认 | 涉及敏感操作的任务需本地用户确认 |
+| 无无限制远程代码执行 | 禁止 Capability Hub 远程加载任意代码或执行 shell |
 
 ---
 
@@ -861,12 +907,12 @@ packages/
 ```
 tests/
 ├── integration/
-│   ├── npm-mode.test.ts         # npm 包集成
-│   ├── http-mode.test.ts        # HTTP 服务集成
-│   └── sdk-mode.test.ts         # SDK 编排集成
+│   ├── client-agent-mode.test.ts  # ClientAgent 运行集成
+│   ├── sdk-mode.test.ts           # SDK 编排集成
+│   └── hub-mode.test.ts           # Capability Hub 集成
 └── e2e/
-    ├── cli-flow.test.ts         # CLI 完整流程
-    └── dashboard.test.ts        # Dashboard 页面交互
+    ├── cli-flow.test.ts           # CLI 完整流程
+    └── capability-hub.test.ts     # Capability Hub 页面交互
 ```
 
 ---
@@ -885,8 +931,8 @@ tests/
 
 ### 14.2 依赖管理原则
 
-- 生成的 Agent 核心依赖 ≤ 2 个（`@agentforge/core` + 选定的 Provider SDK）
-- Provider SDK 作为 peerDependencies，由宿主项目安装
+- 生成的 ClientAgent 核心依赖 ≤ 3 个（`@agentforge/core`、`@agentforge/runtime-client` + 选定的 Provider SDK）
+- Provider SDK 作为 peerDependencies，由用户安装
 - 框架内部包通过 pnpm workspace 协议引用
 
 ### 14.3 代码规范
@@ -910,13 +956,14 @@ tests/
 
 | 模式 | 适用场景 | 说明 |
 |---|---|---|
-| npm 嵌入 | 最简集成 | `npm install @agentforge/sdk`，直接在宿主项目中使用 |
-| Docker 容器 | 推荐生产 | 独立容器部署，包含 serve / dashboard 两种模式 |
-| Kubernetes | 大规模 | 多副本 + HPA + 滚动更新，适合企业级部署 |
+| ClientAgent 本地安装包 | 终端用户 | 生成后打包为可执行文件或安装包，运行在用户机器 |
+| Capability Hub Docker 容器 | 推荐生产 | 独立容器部署 Hub 后端 + 前端 |
+| Capability Hub Kubernetes | 大规模 | 多副本 + HPA + 滚动更新，适合企业级部署 |
+| SDK 嵌入 | 开发者 | `npm install @agentforge/sdk`，在宿主应用中编排 StatelessAgent |
 
 ### 15.2 Docker 镜像构建
 
-多阶段构建，基于 `node:20-alpine`，ARG `ENTRYPOINT` 支持 `serve` / `dashboard` 两种模式。
+多阶段构建 Capability Hub 镜像，基于 `node:20-alpine`。
 
 ```dockerfile
 # ---- Stage 1: Build ----
@@ -937,14 +984,15 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# 非根用户
 RUN addgroup --system agentforge && adduser --system --ingroup agentforge agentforge
 
 COPY --from=builder /app/packages/cli/dist ./packages/cli/dist
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
 COPY --from=builder /app/packages/sdk/dist ./packages/sdk/dist
+COPY --from=builder /app/packages/runtime-client/dist ./packages/runtime-client/dist
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
+COPY --from=builder /app/packages/dashboard/server/dist ./packages/dashboard/server/dist
 COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
@@ -952,13 +1000,9 @@ COPY --from=builder /app/node_modules ./node_modules
 RUN chown -R agentforge:agentforge /app
 USER agentforge
 
-# 入口模式: serve | dashboard
-ARG ENTRYPOINT=serve
-ENV ENTRYPOINT_MODE=${ENTRYPOINT}
+EXPOSE 8080
 
-EXPOSE 3001
-
-CMD ["sh", "-c", "node packages/cli/dist/index.js ${ENTRYPOINT_MODE}"]
+CMD ["node", "packages/cli/dist/index.js", "dashboard", "--port", "8080", "--host", "0.0.0.0"]
 ```
 
 ### 15.3 CI/CD Pipeline
@@ -1069,11 +1113,11 @@ jobs:
 - `.env` 文件中加入 `.gitignore`，防止意外提交
 - 生产环境推荐通过 Kubernetes Secret / AWS Secrets Manager 注入
 
-**配置中心（v2 规划）：**
+**配置中心（未来规划）：**
 
 - 支持动态配置下发，无需重启
 - 候选方案：etcd / Consul
-- v1 阶段不实现，仅预留 `IConfigProvider` 接口
+- 当前阶段不实现，仅预留 `IConfigProvider` 接口
 
 ### 15.6 健康检查
 
@@ -1265,9 +1309,9 @@ jobs:
 | 网络访问 | 禁止 |
 | 文件系统访问 | 禁止 |
 
-替代 v1 中"同步表达式"的模糊表述，所有调试台注入的临时工具统一在 `isolated-vm` 沙箱中执行。
+所有调试台注入的临时工具统一在 `isolated-vm` 沙箱中执行。
 
-**v2 规划：** 考虑 Docker 容器级隔离（每个工具调用启动独立容器），提供更强的安全边界。
+**未来规划：** 考虑 Docker 容器级隔离（每个工具调用启动独立容器），提供更强的安全边界。
 
 ### 17.6 数据驻留与合规
 
@@ -1442,7 +1486,7 @@ interface IAgentMemory {
 }
 ```
 
-**v1 默认：** 文件模式，存储路径 `.agentforge/memory/<agentId>.json`
+**默认实现：** 文件模式，存储路径 `.agentforge/memory/<agentId>.json`
 
 ### 19.3 知识库
 
@@ -1456,8 +1500,8 @@ interface IKnowledgeBase {
 
 | 阶段 | 说明 |
 |---|---|
-| v1 | 仅接口定义，不实现 |
-| v2 | 实现基于 Chroma / Milvus 的向量检索 |
+| 当前 | 仅接口定义，不实现 |
+| 未来 | 实现基于 Chroma / Milvus 的向量检索 |
 
 ### 19.4 数据生命周期
 
@@ -1508,8 +1552,8 @@ interface GeneratedBy {
 
 ### 20.2 API 版本管理
 
-- URL 路径使用 `/v1/` 前缀（如 `/v1/api/execute`）
-- `v1` = 初始版本
+- URL 路径使用 `/api/` 前缀（如 `/api/execute`）
+- 当发生重大变更时，通过 `/api/v{major}/` 路径版本化
 - 版本升级时旧版保留 6 个月，过期后返回 410 Gone
 
 ### 20.3 模板版本
@@ -1523,7 +1567,7 @@ interface GeneratedBy {
 | 阶段 | 说明 |
 |---|---|
 | 公告 | major 版本升级前 2 个月发布 `DEPRECATION.md` |
-| 迁移指南 | 提供 `migrations/v2.md` 详细迁移步骤 |
+| 迁移指南 | 提供 `migrations/v{major}.md` 详细迁移步骤 |
 | 运行时警告 | 使用已废弃 API 时输出 `console.warn`（含废弃版本和替代方案） |
 
 ### 20.5 升级路径
@@ -1531,7 +1575,7 @@ interface GeneratedBy {
 **Codemod 工具：**
 
 ```bash
-agentforge migrate --from v1 --to v2
+agentforge migrate --from 0.x --to 1.x
 ```
 
 - 自动化 AST 变换处理类型 / 接口改名
@@ -1555,25 +1599,32 @@ agentforge migrate --from v1 --to v2
 | D2 | 包管理 | pnpm workspace | npm/turborepo | pnpm 天然支持 workspace |
 | D3 | 前端框架 | React | Vue/Svelte | 生态最成熟 |
 | D4 | 模板引擎 | EJS | Handlebars/Markdown | EJS 支持完整 JS 语法 |
-| D5 | 数据存储 | 文件+内存 | SQLite/PostgreSQL | v1 最简，不引入数据库 |
+| D5 | 数据存储 | 文件+内存 | SQLite/PostgreSQL | 最简设计，不引入数据库 |
+| D6 | Agent 形态 | ClientAgent + StatelessAgent | 单一 npm 包 | 支持本地运行和编排两种场景 |
 | D6 | 状态管理 | Zustand | Redux/Jotai | 轻量，适合中等规模面板 |
 | D7 | 测试框架 | Vitest | Jest | 更快的 ESM 支持 |
 | D8 | UI 组件 + 样式 | Ant Design + TailwindCSS | MUI / Chakra UI + CSS Modules | Ant Design 企业级组件丰富，TailwindCSS 补充原子化样式，兼顾效率与灵活 |
-| D9 | v1 不引入数据库 | 文件 + 内存 | SQLite / Redis | v1 优先最小依赖和零运维，文件+内存满足 MVP 需求；v2 再引入 SQLite/Redis |
+| D9 | 数据持久化 | 文件 + 内存 | SQLite / Redis | 优先最小依赖和零运维，文件+内存满足当前需求；未来再引入 SQLite/Redis |
 | D10 | Anthropic Function Call 适配层 | IProvider 统一抽象 + 适配器 | 直接集成 Anthropic SDK | Anthropic 的 tool_use 格式与 OpenAI 不同，通过 Provider 适配层抹平差异，上层代码无感知 |
+| D11 | Agent 形态 | ClientAgent + StatelessAgent | 单一 npm 包 | 支持本地运行和编排两种场景 |
+| D12 | 能力扩展 | Capability Hub 下发 | 预置固定能力 | 支持动态扩展和团队统一管理 |
+| D13 | 本地命令执行 | 默认禁用 + 分层授权 | 完全禁止或完全开放 | 平衡安全与灵活性 |
 
 ## 附录 B：设计文档索引
 
 | 文档 / 章节 | 说明 |
 |---|---|
 | [PRD.md](../product/PRD.md) | 产品需求文档 |
-| [01-核心设计.md](./01-核心设计.md) | IAgent 接口、数据模型、Pipeline 类型 |
-| [02-单个Agent功能.md](./02-单个Agent功能.md) | Agent 十大能力详解 |
-| [03-生成引擎.md](./03-生成引擎.md) | 生成流程、Prompt 策略、模板库 |
-| [04-集成与编排.md](./04-集成与编排.md) | 三种集成模式 + 三种编排模式 |
-| [05-CLI与API.md](./05-CLI与API.md) | CLI 命令 + HTTP/WebSocket API |
-| [06-可视化面板.md](./06-可视化面板.md) | Dashboard 设计 + 调试台 + 部署监控 |
+| [01-核心设计.md](./01-核心设计.md) | IAgent 接口、ClientAgent/StatelessAgent 类型、数据模型 |
+| [02-单个Agent功能.md](./02-单个Agent功能.md) | ClientAgent 与 StatelessAgent 核心能力 |
+| [03-生成引擎.md](./03-生成引擎.md) | 生成 ClientAgent 客户端应用的流程与产物 |
+| [04-集成与编排.md](./04-集成与编排.md) | ClientAgent 运行、SDK 编排、Capability Hub 集成 |
+| [05-CLI与API.md](./05-CLI与API.md) | CLI 命令 + Capability Hub API + WebSocket 协议 |
+| [06-可视化面板.md](./06-可视化面板.md) | Capability Hub 设计 + 调试台 + 能力市场 |
 | [07-技术选型与架构.md](./07-技术选型与架构.md) | 依赖选型 + Monorepo 结构 |
+| [08-客户端Agent与无状态Agent.md](./08-客户端Agent与无状态Agent.md) | 两种 Agent 形态的分野与协作 |
+| [09-能力市场与下发.md](./09-能力市场与下发.md) | Tool/Skill/Plugin 管理与下发协议 |
+| [10-安全模型.md](./10-安全模型.md) | 本地命令授权、能力下发安全、认证鉴权 |
 | [08-需求与路线图.md](../product/08-需求与路线图.md) | 需求与路线图 |
 | §15 部署与运维 | Docker 镜像构建、CI/CD Pipeline、环境分层、健康检查、灾备回滚、容量规划 |
 | §16 可观测性 | 日志方案（pino）、链路追踪（OpenTelemetry）、指标（Prometheus）、成本控制、仪表盘集成 |

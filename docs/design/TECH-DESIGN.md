@@ -4,7 +4,7 @@
 > **文档类型**: 设计规格
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.3
-> **最后更新**: 2026-06-18
+> **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 > **配套文档**: [PRD.md](../product/PRD.md)（产品需求）、[01-核心设计.md](./01-核心设计.md)（接口定义）
 
@@ -616,11 +616,11 @@ framework.emit('order:created', orderData);
 agentforge <command> [options]
 
 Commands:
-  create <description>    创建 Agent（交互式）
+  create <description>    创建 Agent
   batch <config-file>     批量创建 Agent（YAML/JSON）
-  serve [agent-dir]       启动 HTTP 服务
+  serve [agent-dir]       启动本地 HTTP 服务（调试）
   list                    列出已生成 Agent
-  run <agent-name>        直接运行 Agent（交互式对话）
+  run <agent-path>        启动 Agent 运行时客户端（连接 Dashboard）
   dashboard               启动 Web 管理面板
 
 Options:
@@ -628,7 +628,9 @@ Options:
   --template, -t <id>     指定模板（默认自动匹配）
   --provider, -p <type>   指定 Provider（默认 openai）
   --model, -m <name>      指定模型
-  --port                  HTTP 服务端口（默认 3001）
+  --connect <url>         Dashboard WebSocket 端点（run 命令）
+  --token <token>         节点认证令牌（run 命令）
+  --port                  HTTP/Dashboard 服务端口（默认 3001/8080）
   --verbose, -v           详细输出
 ```
 
@@ -682,7 +684,7 @@ agentforge create "一个客服Agent，处理用户咨询和投诉"
 | `/api/nodes` | GET | 注册的 Agent 节点 |
 | `/api/nodes/register` | POST | Agent 节点注册 |
 | `/api/nodes/:name/heartbeat` | POST | 心跳上报 |
-| `/ws/events` | WebSocket | 实时事件推送 |
+| `/ws/nodes/:nodeId` | WebSocket | Dashboard 与节点的控制通道 + 实时事件推送 |
 
 ---
 
@@ -828,26 +830,36 @@ interface RetryConfig {
 | E2E 测试 | CLI 完整流程、Dashboard 页面 | Playwright | 关键路径覆盖 |
 | 生成验证 | 每个模板生成的 Agent | 自动脚本 | 编译通过 + 可执行 |
 
-### 13.2 关键测试用例
+### 13.2 测试目录结构
+
+单元测试与包内集成测试放在各包源码目录下：
+
+```
+packages/
+├── core/src/
+│   ├── agent/__tests__/BaseAgent.test.ts           # 生命周期 + 状态流转
+│   ├── agent/__tests__/AgentLifeCycle.test.ts      # 状态机转换
+│   ├── provider/__tests__/ProviderFactory.test.ts  # Provider 创建 + 自定义 Provider
+│   ├── runtime/__tests__/MiddlewareChain.test.ts   # 中间件顺序 + 错误处理
+│   ├── plugin/__tests__/PluginManager.test.ts      # 插件安装 + 卸载
+│   └── generator/__tests__/AgentGenerator.test.ts  # 端到端生成流程
+├── sdk/src/
+│   ├── __tests__/Pipeline.test.ts                  # 串行 / 并行 / 分支
+│   ├── __tests__/PipelineBacktrack.test.ts         # 回退 / 跳转 / 快照
+│   ├── __tests__/EventBus.test.ts                  # 发布订阅
+│   ├── __tests__/AgentFramework.test.ts            # 注册 / 运行 / 模型注册表
+│   └── planner/__tests__/integration.test.ts       # 3-Agent Pipeline 协作
+├── cli/src/
+│   └── commands/__tests__/create.test.ts           # 单个生成
+│   └── commands/__tests__/batch.test.ts            # 批量生成
+└── http-server/src/
+    └── routes/__tests__/agents.test.ts             # HTTP 执行/流式路由
+```
+
+跨包集成测试与 E2E 测试放在仓库根目录：
 
 ```
 tests/
-├── core/
-│   ├── BaseAgent.test.ts        # 生命周期 + 状态流转
-│   ├── ProviderFactory.test.ts  # Provider 创建 + 自定义 Provider
-│   ├── MiddlewareChain.test.ts   # 中间件顺序 + 错误处理
-│   └── PluginManager.test.ts    # 插件安装 + 卸载
-├── generator/
-│   ├── PromptBuilder.test.ts    # Prompt 生成质量
-│   ├── TemplateEngine.test.ts   # 模板渲染正确性
-│   └── AgentGenerator.test.ts   # 端到端生成流程
-├── sdk/
-│   ├── Pipeline.test.ts         # 串行 / 并行 / 分支
-│   ├── PipelineBacktrack.test.ts # 回退 / 跳转 / 快照
-│   └── EventBus.test.ts         # 发布订阅
-├── cli/
-│   ├── create.test.ts           # 单个生成
-│   └── batch.test.ts            # 批量生成
 ├── integration/
 │   ├── npm-mode.test.ts         # npm 包集成
 │   ├── http-mode.test.ts        # HTTP 服务集成
@@ -1178,11 +1190,13 @@ jobs:
 
 | 控制项 | 默认值 | 配置方式 | 说明 |
 |---|---|---|---|
-| 单次执行 token 上限 | 100,000 | `FrameworkConfig.maxTokensPerExec` | 超限短路返回 `AgentResult.error` |
+| 单次执行 token 上限 | 100,000 | `FrameworkConfig.maxTokensPerExec` | 超限返回 `AgentResult.error` |
+| 按模型 token 上限 | 不限 | `FrameworkConfig.maxTokensPerModel` | 针对特定模型设置独立上限 |
+| 按 Agent 月度成本上限 | 不限 | `FrameworkConfig.maxCostPerAgent` | 单位 USD，按自然月累计 |
+| 月度成本告警阈值 | 不限 | 环境变量 `MONTHLY_COST_LIMIT` | 全局月度上限，超限后拒绝新执行 |
 | 工具调用最大次数 | 20 | `FrameworkConfig.maxToolCalls` | 防止工具循环调用 |
-| 月度成本告警阈值 | 不限 | 环境变量 `MONTHLY_COST_LIMIT` | 超限后拒绝新执行，返回错误提示 |
 
-**短路机制：** 超限时立即返回 `AgentResult.error`，附带错误信息说明超限原因。
+**超限行为：** 命中任一上限时，立即返回 `AgentResult.error`，错误码为 `COST_LIMIT_EXCEEDED`，错误信息包含具体触发的限制项与当前用量。不触发重试、不降级模型、不熔断其他任务。
 
 ### 16.5 仪表盘集成
 

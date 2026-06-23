@@ -4,7 +4,7 @@
 > **文档类型**: 设计规格
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.3
-> **最后更新**: 2026-06-18
+> **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 >
 > 框架的对外接口：CLI 命令行工具 + HTTP/WebSocket API。
@@ -258,3 +258,7 @@ if (isSensitiveTask(message.payload)) {
   }
 }
 ```
+
+### 命令白名单
+
+WebSocket 控制消息类型限定为 `execute`、`stream`、`config-update`、`ping`、`stop`。禁止远程加载代码、安装依赖或执行 shell 命令。

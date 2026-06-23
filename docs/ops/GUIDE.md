@@ -1,6 +1,13 @@
 # AgentForge 使用文档
 
-> 版本: 0.1.0 · 最后更新: 2026-06-12
+> ⚠️ **目标行为文档**：本文描述 v1 预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
+>
+> **文档层级**: 第三层 · 操作手册
+> **文档类型**: 使用指南
+> **文档状态**: 草案
+> **文档版本**: docs-v0.3
+> **最后更新**: 2026-06-18
+> **实现状态**: 未开始
 
 ## 快速开始
 
@@ -252,7 +259,7 @@ agentforge dashboard [options]
 |---|---|---|
 | 首页 | `/` | 统计概览、快速操作 |
 | Agent 列表 | `/agents` | 查看、管理已生成的 Agent |
-| 创建 Agent | `/create` | 可视化创建表单，实时预览 Prompt |
+| 创建 Agent | `/agents/create` | 可视化创建表单，实时预览 Prompt |
 | 调试台 | `/playground` | 三栏调试：对话 + 调用链路 + 工具面板 |
 | 监控 | `/monitor` | Agent 节点状态、实时指标图表 |
 
@@ -322,11 +329,17 @@ data: {"type":"done","finishReason":"stop","usage":{"input":45,"output":32,"tota
 
 #### `GET /api/status`
 
-健康检查。
+详细状态检查（版本、uptime、Provider 就绪）。
 
 ```json
-{ "status": "ok", "uptime": 3600, "timestamp": 1718000000000, "agents": {} }
+{ "status": "ready", "uptime": 3600, "timestamp": 1718000000000, "version": "1.0.0" }
 ```
+
+`status` 取值：`ready`（所有 Provider 可用）/ `degraded`（部分 Provider 不可用）/ `unhealthy`（不可用）。
+
+#### `GET /api/health`
+
+轻量探活（Docker/K8s liveness），响应 `{ "status": "ok" }`。
 
 #### `GET /api/capabilities`
 

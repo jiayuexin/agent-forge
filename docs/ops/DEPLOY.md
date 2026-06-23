@@ -1,6 +1,13 @@
 # AgentForge 部署文档
 
-> 版本: 0.1.0 · 最后更新: 2026-06-12
+> ⚠️ **目标行为文档**：本文描述 v1 预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
+>
+> **文档层级**: 第三层 · 操作手册
+> **文档类型**: 部署手册
+> **文档状态**: 草案
+> **文档版本**: docs-v0.3
+> **最后更新**: 2026-06-18
+> **实现状态**: 未开始
 
 ## 部署模式总览
 
@@ -374,7 +381,7 @@ Agent 的 `.agentforge.json` 存储元数据:
 
 ```bash
 curl http://localhost:3001/api/status
-# → {"status":"ok","uptime":3600,"timestamp":...}
+# → {"status":"ready","uptime":3600,"timestamp":...}
 ```
 
 ### Dashboard

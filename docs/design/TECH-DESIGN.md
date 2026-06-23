@@ -1,9 +1,12 @@
 # AgentForge 技术设计文档
 
-> **文档版本**: v1.5
-> **最后更新**: 2026-03-27
-> **文档性质**: 技术设计规格（面向开发团队）
-> **配套文档**: [PRD.md](./PRD.md)（产品需求）、[01-核心设计.md](./01-核心设计.md)（接口定义）
+> **文档层级**: 第二层 · 设计规格
+> **文档类型**: 设计规格
+> **文档状态**: 已定稿
+> **文档版本**: docs-v0.3
+> **最后更新**: 2026-06-18
+> **实现状态**: 未开始
+> **配套文档**: [PRD.md](../product/PRD.md)（产品需求）、[01-核心设计.md](./01-核心设计.md)（接口定义）
 
 ---
 
@@ -48,20 +51,17 @@
 
 ```mermaid
 flowchart TB
-    subgraph Users["用户"]
+    subgraph Cloud["云端控制面"]
+        DashUI["Dashboard React 面板"]
+        DashBE["Dashboard 后端"]
+    end
+
+    subgraph Users["用户/开发者"]
         U_CLI["CLI 用户"]
-        U_SDK["SDK 开发者"]
-        U_HTTP["HTTP 客户端"]
+        U_DASH["Dashboard 用户"]
     end
 
-    subgraph Entry["接入层"]
-        CLI["@agentforge/cli"]
-        SDK["@agentforge/sdk"]
-        HTTP["HTTP Server"]
-    end
-
-    subgraph Core["@agentforge/core"]
-        Runtime["AgentRuntime"]
+    subgraph Core["@agentforge/core（生成时）"]
         Gen["AgentGenerator"]
         PF["ProviderFactory"]
     end
@@ -78,19 +78,31 @@ flowchart TB
         OLL_API["Ollama API"]
     end
 
-    subgraph Dash["Dashboard"]
-        DashUI["React 面板"]
+    subgraph Client1["客户端节点 1"]
+        ARC1["AgentRuntimeClient"]
+        Agent1["生成的 Agent"]
+    end
+
+    subgraph Client2["客户端节点 2"]
+        ARC2["AgentRuntimeClient"]
+        Agent2["生成的 Agent"]
     end
 
     U_CLI --> CLI
-    U_SDK --> SDK
-    U_HTTP --> HTTP
+    CLI --> Gen
+    Gen --> Agent1
+    Gen --> Agent2
 
-    CLI --> Core
-    SDK --> Core
-    HTTP --> Core
+    U_DASH --> DashUI
+    DashUI --> DashBE
+    DashBE <-->|"WebSocket 控制 + 事件"| ARC1
+    DashBE <-->|"WebSocket 控制 + 事件"| ARC2
 
-    Runtime --> PF
+    ARC1 --> Agent1
+    ARC2 --> Agent2
+
+    Agent1 --> PF
+    Agent2 --> PF
     PF --> OpenAI
     PF --> Anthropic
     PF --> Ollama
@@ -98,8 +110,6 @@ flowchart TB
     OpenAI --> OAI_API
     Anthropic --> ANT_API
     Ollama --> OLL_API
-
-    DashUI <--|"WebSocket"|--> Core
 ```
 
 ### 2.2 Monorepo 目录结构
@@ -123,12 +133,19 @@ agentforge/
 │   │       └── index.ts
 │   ├── cli/                   # CLI 工具
 │   │   └── src/commands/       # create, batch, serve, list, run, dashboard
-│   └── dashboard/             # Web 管理面板
+│   ├── http-server/           # HTTP/WebSocket 服务（可选本地调试）
+│   ├── dashboard/             # Web 管理面板（云端控制中心）
+│   │   └── src/
+│   │       ├── pages/         # Home, AgentList, AgentCreate, NodeList, Playground, Monitor
+│   │       ├── components/    # UI 组件
+│   │       ├── api/           # 后端 API 调用
+│   │       └── store/         # 状态管理
+│   └── runtime-client/        # 客户端运行时（AgentRuntimeClient）
 │       └── src/
-│           ├── pages/         # Home, AgentList, AgentCreate, Playground, Monitor
-│           ├── components/    # UI 组件
-│           ├── api/           # 后端 API 调用
-│           └── store/         # 状态管理
+│           ├── AgentRuntimeClient.ts
+│           ├── WebSocketTransport.ts
+│           ├── HeartbeatManager.ts
+│           └── index.ts
 ├── templates/                 # EJS 代码模板
 │   ├── base/                  # 通用模板（index.ts / prompts.ts / tools.ts）
 │   └── roles/                 # 岗位模板（customer-service / code-reviewer / ...）
@@ -408,24 +425,52 @@ class TemplateEngine {
 
 ## 5. SDK 编排设计
 
-### 5.1 AgentFramework 主类
+### 5.1 模型驱动编排
+
+AgentForge 的编排器本身也是一个 Agent。它基于系统已注册的能力（Agent / Tool / Skill / Plugin）动态规划工作流，再交由 `PlanExecutor` 执行。
+
+```
+用户任务
+    ↓
+CapabilityRegistry（能力清单）
+    ↓
+PlannerAgent（生成 ExecutionPlan）
+    ↓
+PlanExecutor（解析依赖、调度执行）
+    ↓
+Pipeline（底层串行/并行执行引擎）
+    ↓
+Agent / Tool / Skill
+```
+
+### 5.2 AgentFramework 主类
 
 ```typescript
 class AgentFramework {
   private registry: AgentRegistry;
   private provider: IProvider;
+  private planner: IPlannerAgent;
+  private executor: IPlanExecutor;
 
   constructor(config: FrameworkConfig);
 
   // Agent 管理
-  register(name: string, AgentClass: new () => IAgent): this;
+  register(name: string, AgentClass: new () => IAgent, capability?: Partial<Capability>): this;
   get(name: string): IAgent;
   loadAll(): Promise<void>;
 
   // 直接调用
   async run(name: string, task: AgentTask): Promise<AgentResult>;
 
-  // Pipeline
+  // 能力发现
+  readonly discovery: CapabilityRegistry;
+
+  // 模型驱动编排
+  async plan(task: AgentTask, options?: PlanOptions): Promise<ExecutionPlan>;
+  async executePlan(plan: ExecutionPlan): Promise<PlanResult>;
+  async orchestrate(task: AgentTask, options?: OrchestrateOptions): Promise<PlanResult>;
+
+  // 底层 Pipeline（可直接使用固定流程）
   pipeline(name?: string): Pipeline;
 
   // 事件总线
@@ -436,41 +481,96 @@ class AgentFramework {
 }
 ```
 
-### 5.2 Pipeline 流水线
+### 5.3 CapabilityRegistry
 
-#### 基础能力
+`CapabilityRegistry` 发现、描述系统里所有可被编排器调用的能力：
 
 ```typescript
-class Pipeline {
-  // 串行步骤
-  add(agentName: string, options: StepOptions): this;
+interface Capability {
+  id: string;
+  type: 'agent' | 'tool' | 'skill' | 'plugin';
+  name: string;
+  description: string;
+  inputSchema?: JSONSchema;
+  outputSchema?: JSONSchema;
+  tags?: string[];
+}
 
-  // 并行步骤
-  parallel(steps: ParallelStep[]): this;
-
-  // 条件分支
-  branch(condition: (output: AgentResult) => StepOptions): this;
-
-  // 步骤间拦截器
-  intercept(stepName: string, handler: InterceptorHandler): this;
-
-  // 分叉
-  fork(stepName: string, branches: ForkBranch[]): this;
-
-  // 全局配置
-  config(options: PipelineConfig): this;
-
-  // 执行
-  async run(): Promise<PipelineResult>;
+interface CapabilityRegistry {
+  register(capability: Capability): void;
+  unregister(id: string): void;
+  list(filters?: { type?: string; tags?: string[] }): Capability[];
+  get(id: string): Capability | undefined;
+  toPrompt(): string; // 生成给 PlannerAgent 的能力清单
 }
 ```
 
-#### 模型注册表与路由
+能力来源：
+- `framework.register()` 注册的 Agent
+- `PluginContext.registerTool()` 注册的工具
+- 显式注册的 Skill / Plugin
 
-编排器通过 `ModelRegistry` 集中管理多个模型端点，Agent 只需引用模型名：
+### 5.4 PlannerAgent
+
+PlannerAgent 接收用户任务 + 能力清单，输出结构化的 `ExecutionPlan`：
 
 ```typescript
-// 框架初始化时注册端点
+interface ExecutionPlan {
+  goal: string;
+  capabilitiesUsed: string[];
+  steps: PlanStep[];
+  constraints?: PlanConstraints;
+}
+
+interface PlanStep {
+  id: string;
+  name: string;
+  capability: string;
+  type: 'agent' | 'tool' | 'skill';
+  task: string;
+  input: Record<string, any>;
+  dependsOn?: string[];
+  outputAs?: string;
+  fallback?: string;
+}
+```
+
+当步骤失败时，PlanExecutor 把错误反馈给 PlannerAgent，PlannerAgent 可以重新规划：
+
+```typescript
+async replan(failedStep: StepResult, context: PlanContext): Promise<ExecutionPlan>;
+```
+
+### 5.5 PlanExecutor
+
+PlanExecutor 负责：
+1. 根据 `dependsOn` 构建 DAG
+2. 拓扑排序，无依赖步骤并行执行
+3. 替换 input 中的变量引用（如 `${stepId.output.field}`）
+4. 失败时调用 `PlannerAgent.replan()`
+5. 返回 `PlanResult`
+
+### 5.6 Pipeline：底层执行引擎
+
+在模型驱动编排中，`Pipeline` 从"主要编排接口"退化为"底层执行引擎"。
+
+保留能力：
+- `.add()` 串行执行
+- `.parallel()` 并行执行
+- `.config()` 全局配置
+- 模型路由（`ModelRegistry`）
+
+弱化能力：
+- `.branch()` / `.intercept()` / `.fork()` —— 动态决策交给 PlannerAgent
+- `back/jump` 控制信号 —— 复杂流程控制通过重新规划实现
+
+Pipeline 仍可直接使用，适用于固定、审计严格的流程。
+
+### 5.7 模型注册表与路由
+
+`ModelRegistry` 集中管理多个模型端点，Agent 步骤只需引用模型名：
+
+```typescript
 const framework = new AgentFramework({
   modelRegistry: {
     endpoints: [
@@ -483,51 +583,13 @@ const framework = new AgentFramework({
     defaultModel: 'gpt-4o',
   },
 });
-
-// Pipeline 中 Agent 只写模型名
-  .pipeline('workflow')
-  .add('step1', { task: '...', model: 'gpt-4o-mini' })     // 自动路由到 openai 端点
-  .add('step2', { task: '...', model: { model: 'gpt-4o', endpoint: 'proxy' } }) // 指定端点
 ```
 
 路由解析：`指定 endpoint` → `自动匹配第一个包含该模型的端点` → `Pipeline defaultModel` → `报错`
 
 单 Agent 独立运行时直接用 `ModelConfig`（一个 provider + baseUrl + modelName）。
 
-#### 回退跳转机制
-
-下游 Agent 或拦截器通过 `PipelineControlSignal` 控制流向：
-
-> 类型定义参见 [01-核心设计.md §1.8](01-核心设计.md#18-pipeline-编排类型)
-
-**安全防护：**
-- `PipelineConfig.maxBacktracks`：全局最大回退次数（默认 5）
-- `PipelineConfig.defaultMaxRetry`：每步默认最大重试次数（默认 2）
-- 每步执行完自动保存快照（`StepSnapshot`），回退时精确恢复
-- 回退历史记录（`BacktrackEvent[]`）用于审计和可视化
-
-**Agent 主动回退示例：**
-```typescript
-// Agent 内部逻辑
-if (issues.critical) {
-  return {
-    output: { content: '合同有问题' },
-    control: { action: 'back', targetStep: 'draft', message: '条款不合规', maxRetries: 2 },
-  };
-}
-```
-
-**外部拦截器示例：**
-```typescript
-.intercept('validate', (output) => {
-  if (output.errorCount > 5) {
-    return { action: 'back', targetStep: 'extract', message: '错误太多' };
-  }
-  return { action: 'continue' };
-})
-```
-
-### 5.3 EventBus 事件总线
+### 5.8 EventBus 事件总线
 
 ```typescript
 // 发布 / 订阅模式，Agent 间松耦合通信
@@ -535,13 +597,14 @@ framework.on('order:created', async (data) => { ... });
 framework.emit('order:created', orderData);
 ```
 
-### 5.4 编排模式对比
+### 5.9 编排模式对比
 
-| 模式 | 耦合度 | 适用场景 | 回退支持 |
-|---|---|---|---|
-| Pipeline | 中 | 固定流程、数据逐步传递 | ✅ back/jump/fork |
-| EventBus | 低 | 异步通知、一对多广播 | ❌ |
-| Direct | 高 | 简单 A 调 B | ❌（手动处理） |
+| 模式 | 耦合度 | 适用场景 | 配置复杂度 | 可控性 |
+|---|---|---|---|---|
+| **模型驱动编排** | 低 | 开放任务、动态流程 | 中 | 中 |
+| Pipeline | 中 | 固定流程、数据逐步传递 | 低 | 高 |
+| EventBus | 低 | 异步通知、一对多广播 | 低 | 低 |
+| Direct | 高 | 简单 A 调 B | 最低 | 高 |
 
 ---
 
@@ -595,7 +658,8 @@ agentforge create "一个客服Agent，处理用户咨询和投诉"
 |---|---|---|---|
 | `/api/execute` | POST | 同步执行 | `{ type, input }` → `AgentResult` |
 | `/api/stream` | POST | 流式执行（SSE） | `{ type, input }` → `SSE stream` |
-| `/api/status` | GET | 健康检查 | `{ status: 'ready', uptime: 3600 }` |
+| `/api/status` | GET | 详细状态 | `{ status: 'ready' \| 'degraded' \| 'unhealthy', uptime: 3600 }` |
+| `/api/health` | GET | 轻量探活 | `{ status: 'ok' }` |
 | `/api/capabilities` | GET | 能力声明 | `AgentCapability[]` |
 
 ### 7.2 Dashboard 后端 API
@@ -1005,7 +1069,9 @@ jobs:
 
 **Readiness：** 所有已注册 Provider 的 `validate()` 方法通过。
 
-**端点：** `GET /api/status`
+**端点：** 详细状态使用 `GET /api/status`；Docker/K8s 探活使用 `GET /api/health`（参见 [05-CLI与API.md §5.3.1](./05-CLI与API.md#531-健康检查端点说明)）。
+
+**`GET /api/status` 响应示例：**
 
 ```json
 {
@@ -1486,7 +1552,7 @@ agentforge migrate --from v1 --to v2
 
 | 文档 / 章节 | 说明 |
 |---|---|
-| [PRD.md](./PRD.md) | 产品需求文档 |
+| [PRD.md](../product/PRD.md) | 产品需求文档 |
 | [01-核心设计.md](./01-核心设计.md) | IAgent 接口、数据模型、Pipeline 类型 |
 | [02-单个Agent功能.md](./02-单个Agent功能.md) | Agent 十大能力详解 |
 | [03-生成引擎.md](./03-生成引擎.md) | 生成流程、Prompt 策略、模板库 |
@@ -1494,7 +1560,7 @@ agentforge migrate --from v1 --to v2
 | [05-CLI与API.md](./05-CLI与API.md) | CLI 命令 + HTTP/WebSocket API |
 | [06-可视化面板.md](./06-可视化面板.md) | Dashboard 设计 + 调试台 + 部署监控 |
 | [07-技术选型与架构.md](./07-技术选型与架构.md) | 依赖选型 + Monorepo 结构 |
-| [08-需求与路线图.md](./08-需求与路线图.md) | 原始需求与路线图（v1.5 设计稿） |
+| [08-需求与路线图.md](../product/08-需求与路线图.md) | 需求与路线图 |
 | §15 部署与运维 | Docker 镜像构建、CI/CD Pipeline、环境分层、健康检查、灾备回滚、容量规划 |
 | §16 可观测性 | 日志方案（pino）、链路追踪（OpenTelemetry）、指标（Prometheus）、成本控制、仪表盘集成 |
 | §17 AI 安全与合规 | 提示注入防护、PII 处理、幻觉缓解、输出内容过滤、工具沙箱、数据驻留、红队测试 |

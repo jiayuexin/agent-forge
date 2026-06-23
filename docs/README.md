@@ -1,40 +1,71 @@
-# AgentForge — 可插拔 Agent 批量生成框架
+# AgentForge 文档导航
 
 > **项目代号**: AgentForge
-> **技术栈**: Node.js + TypeScript
-> **文档日期**: 2026-03-27
-> **文档版本**: v1.5（新增 Pipeline 回退与跳转机制）
+> **文档版本**: docs-v0.3
+> **最后更新**: 2026-06-18
+> **当前阶段**: 设计文档阶段，代码待开发
 
-## 项目简介
+**AgentForge** 是一个基于 Node.js + TypeScript 的可插拔 Agent 批量生成框架。用户只需提供一段岗位描述，框架即可自动生成标准化的、可独立部署的 AI Agent。
 
-**AgentForge** 是一个基于 Node.js + TypeScript 的可插拔 Agent 批量生成框架。用户只需提供一段简短的岗位描述，框架即可自动生成标准化的、可独立部署的 AI Agent。生成的 Agent 遵循统一接口规范，支持以 npm 包、HTTP 服务、SDK 集成三种方式插入任意项目中使用。
+完整文档状态见 [STATUS.md](./STATUS.md)。代码与架构导航见 [CODEMAP.md](./CODEMAP.md)。元信息规范见 [_meta/header-template.md](./_meta/header-template.md)。
 
-框架同时提供 Web 管理面板，用于 Agent 的创建、配置、测试、监控和编排。
+---
 
-## 快速导航
+## 按角色阅读
 
-**我想了解...**
+### 产品 / 决策者
 
-- 📋 **产品需求**（做什么、为什么、验收标准） → [PRD.md](PRD.md)
-- 🔧 **技术设计**（怎么做、架构方案、接口设计） → [TECH-DESIGN.md](TECH-DESIGN.md)
-- 🏗️ **架构全景** → 架构图将以 Mermaid 格式内嵌于 [TECH-DESIGN.md §2](TECH-DESIGN.md#2-系统架构)
-- 📝 **详细设计文档**：
-  - [01-核心设计.md](01-核心设计.md) — IAgent 接口、AgentConfig、数据模型
-  - [02-单个Agent功能.md](02-单个Agent功能.md) — Agent 十大能力详解
-  - [03-生成引擎.md](03-生成引擎.md) — 生成流程、Prompt 策略、预置模板库
-  - [04-集成与编排.md](04-集成与编排.md) — 三种集成模式 + 三种编排模式
-  - [05-CLI与API.md](05-CLI与API.md) — CLI 命令、HTTP/WebSocket API
-  - [06-可视化面板.md](06-可视化面板.md) — Dashboard 设计、调试台、分离部署监控
-  - [07-技术选型与架构.md](07-技术选型与架构.md) — 依赖选型、Monorepo 目录结构
-  - [08-需求与路线图.md](08-需求与路线图.md) — 用户故事、需求规格、成功指标、5 阶段路线图
-- 📎 **附录** → [附录-生成示例.md](附录-生成示例.md) — 完整的 Agent 生成示例代码
+1. [product/PRD.md](./product/PRD.md) — 问题陈述、产品目标、非目标
+2. [product/08-需求与路线图.md](./product/08-需求与路线图.md) — 用户故事、路线图、成功指标
 
-## 问题陈述
+### 开发者 / 架构师
 
-- 每次构建新的 AI Agent 都需要从零编写大量重复性代码
-- 不同项目中的 Agent 缺乏统一接口标准，无法互相复用和协作
-- 创建一个可用 Agent 需要较高的 AI 工程能力门槛
-- 现有的 Agent 框架过于庞大、学习曲线陡峭
+1. [design/01-核心设计.md](./design/01-核心设计.md) — IAgent 接口与类型权威定义
+2. [design/TECH-DESIGN.md](./design/TECH-DESIGN.md) — 系统架构与跨模块决策
+3. 按需阅读 [design/02–07](./design/README.md) 专题文档
+
+### 运维 / 使用者（草案）
+
+1. [ops/GUIDE.md](./ops/GUIDE.md) — 目标 CLI 与 SDK 用法
+2. [ops/DEPLOY.md](./ops/DEPLOY.md) — 目标部署方案
+3. [ops/TEST.md](./ops/TEST.md) — 目标测试策略
+
+---
+
+## 三层文档索引
+
+### 第一层 · 产品需求 — [product/](./product/)
+
+| 文档 | 类型 | 状态 | 说明 |
+|---|---|---|---|
+| [PRD.md](./product/PRD.md) | 产品需求 | 已定稿 | 问题陈述、产品目标、非目标、开放问题 |
+| [08-需求与路线图.md](./product/08-需求与路线图.md) | 产品需求 | 已定稿 | 用户故事、需求规格、路线图、成功指标 |
+
+### 第二层 · 设计规格 — [design/](./design/)
+
+| 文档 | 类型 | 状态 | 说明 |
+|---|---|---|---|
+| [01-核心设计.md](./design/01-核心设计.md) | 设计规格 | 已定稿 | IAgent 接口、数据模型（类型权威来源） |
+| [02-单个Agent功能.md](./design/02-单个Agent功能.md) | 设计规格 | 已定稿 | Agent 十大能力详解 |
+| [03-生成引擎.md](./design/03-生成引擎.md) | 设计规格 | 已定稿 | 生成流程、Prompt 策略、模板库 |
+| [04-集成与编排.md](./design/04-集成与编排.md) | 设计规格 | 已定稿 | 三种集成模式 + Pipeline 编排 |
+| [05-CLI与API.md](./design/05-CLI与API.md) | 设计规格 | 已定稿 | CLI 命令、HTTP / WebSocket API |
+| [06-可视化面板.md](./design/06-可视化面板.md) | 设计规格 | 已定稿 | Dashboard、调试台、分离部署监控 |
+| [07-技术选型与架构.md](./design/07-技术选型与架构.md) | 设计规格 | 已定稿 | 依赖选型、Monorepo 结构 |
+| [TECH-DESIGN.md](./design/TECH-DESIGN.md) | 设计规格 | 已定稿 | 技术总览、架构图、跨切面设计 |
+| [附录-生成示例.md](./design/附录-生成示例.md) | 设计规格 | 已定稿 | 完整生成示例代码 |
+
+架构全景图：[TECH-DESIGN.md §2](./design/TECH-DESIGN.md#2-系统架构)
+
+### 第三层 · 操作手册 — [ops/](./ops/)
+
+| 文档 | 类型 | 状态 | 说明 |
+|---|---|---|---|
+| [GUIDE.md](./ops/GUIDE.md) | 使用指南 | 草案 | 安装、CLI、SDK、HTTP 集成（目标行为） |
+| [DEPLOY.md](./ops/DEPLOY.md) | 部署手册 | 草案 | npm / HTTP / Docker 部署（目标行为） |
+| [TEST.md](./ops/TEST.md) | 测试策略 | 草案 | 测试分层、用例索引（目标行为） |
+
+---
 
 ## 设计原则
 
@@ -42,44 +73,14 @@
 |---|---|
 | 接口优先 | 所有 Agent 遵循 `IAgent` 统一接口，保证可替换性 |
 | 插件化 | 核心功能通过 Middleware 和 Plugin 机制扩展 |
-| 零依赖生成 | 生成的 Agent 核心依赖 ≤ 2 个（含 devDependencies 的设计目标为 ≤ 5 个） |
+| 零依赖生成 | 生成的 Agent 核心依赖 ≤ 2 个 |
 | 约定优于配置 | 合理默认值，80% 场景零配置即可使用 |
 | 可观测性 | 内置日志、指标、追踪，方便监控和调试 |
 
-## 非目标
+## 非目标（v1）
 
-- 不提供模型训练能力
-- 不依赖特定 LLM 厂商
-- 不做 Agent 市场分发（v1）
-- 不做多租户 SaaS 部署（v1）
-- 不做 Agent 的自主进化/学习
-- 不做可视化拖拽编排（v1）
-- 不做多模态输入（图片/语音）
+详见 [product/PRD.md §3](./product/PRD.md#3-非目标v1-明确不做)。概要：不做模型训练、Agent 市场、多租户 SaaS、可视化拖拽编排、多模态输入。
 
----
+## 问题陈述
 
-## 📖 文档索引
-
-| 文件 | 内容 | 说明 |
-|---|---|---|
-| **[PRD.md](PRD.md)** | **产品需求文档** | **问题陈述、产品目标、非目标、开放问题** |
-| **[TECH-DESIGN.md](TECH-DESIGN.md)** | **技术设计文档** | **系统架构、模块设计、生成引擎、SDK编排、API设计、测试策略** |
-| [01-核心设计.md](01-核心设计.md) | IAgent 接口、AgentConfig、数据模型、**ModelRegistry**、Pipeline 类型、调试台类型 | 所有包共享的基础契约 |
-| [02-单个Agent功能.md](02-单个Agent功能.md) | Agent 十大能力详解 | 生命周期、对话、工具、事件、插件等 |
-| [03-生成引擎.md](03-生成引擎.md) | 生成流程、Prompt 策略、预置模板库 | 从描述到代码的完整流程 |
-| [04-集成与编排.md](04-集成与编排.md) | 三种集成模式 + 三种编排模式 + **Pipeline 回退跳转** | npm/HTTP/SDK 集成 + Pipeline/EventBus/直接调用 |
-| [05-CLI与API.md](05-CLI与API.md) | CLI 命令、HTTP/WebSocket API、监控接口 | 框架对外接口 |
-| [06-可视化面板.md](06-可视化面板.md) | Dashboard 设计、Agent 调试台、分离部署监控 | Web 管理面板完整设计 |
-| [07-技术选型与架构.md](07-技术选型与架构.md) | 依赖选型、Monorepo 目录结构 | 技术方案与项目结构 |
-| [08-需求与路线图.md](08-需求与路线图.md) | 项目权威规划文档：用户故事、需求规格、成功指标、5 阶段路线图 | 项目权威规划文档 |
-| [附录-生成示例.md](附录-生成示例.md) | 完整的 Agent 生成示例代码 | 输入描述 → 输出代码 |
-
-## 目标
-
-| # | 目标 | 衡量标准 | 类型 |
-|---|---|---|---|
-| G1 | 将创建一个标准 Agent 的时间从天级降低到分钟级 | 通过描述生成可用 Agent < 5 分钟 | 用户目标 |
-| G2 | 生成的 Agent 可零配置接入任意 Node.js 项目 | `npm install` 后 < 10 行代码完成集成 | 用户目标 |
-| G3 | 支持跨语言项目使用 Agent | 提供 HTTP API 模式，任何语言可调用 | 用户目标 |
-| G4 | 批量生成并管理多个岗位 Agent | 单次批量生成 ≥ 10 个 Agent | 业务目标 |
-| G5 | 提供 Web 管理面板进行可视化管理 | 面板覆盖创建、测试、监控全流程 | 业务目标 |
+详见 [product/PRD.md §1](./product/PRD.md#1-问题陈述)。

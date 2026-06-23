@@ -1,0 +1,283 @@
+# CLAUDE.md
+
+本文件为 Claude Code（claude.ai/code）在本仓库中工作提供指引。
+
+## 项目状态
+
+**AgentForge** 目前处于**设计文档阶段**。仓库在 `docs/` 目录下包含产品需求、设计规范和运维手册。实际代码（Node.js/TypeScript monorepo）已规划但尚未实现。`docs/STATUS.md` 是判定哪些规范已最终定稿、哪些模块已实现代码的权威依据。
+
+- 根 README：`README.md`
+- 文档总览：`docs/README.md`
+- 代码地图：`docs/CODEMAP.md`
+- 状态追踪：`docs/STATUS.md`
+- 类型权威：`docs/design/01-核心设计.md`
+- 架构总览：`docs/design/TECH-DESIGN.md`
+
+## 文档结构
+
+文档分为三层。编辑或新增文档时，请遵循 `docs/_meta/header-template.md` 中的标题约定，并参考其中记录的链接规范。
+
+| 层级 | 目录 | 用途 |
+|---|---|---|
+| 产品需求 | `docs/product/` | 做什么、为什么：PRD、用户故事、路线图 |
+| 设计规范 | `docs/design/` | 如何实现：接口、数据模型、模块交互 |
+| 运维手册 | `docs/ops/` | 使用草案：CLI、部署、测试（目标行为，尚未实现） |
+
+重要文档：
+- `docs/product/PRD.md` — 问题定义、目标、v1 非目标
+- `docs/product/08-需求与路线图.md` — 用户故事、路线图、成功指标
+- `docs/design/01-核心设计.md` — `IAgent`、`AgentConfig`、`ModelConfig`、`AgentTask`、`AgentResult`、`IProvider`、`PipelineControlSignal` 等核心类型的规范定义
+- `docs/design/TECH-DESIGN.md` — 完整系统架构、模块职责、部署、可观测性、安全与兼容性规划
+- `docs/design/04-集成与编排.md` — 集成模式与 Pipeline 编排细节
+- `docs/design/05-CLI与API.md` — CLI 命令与 HTTP/WebSocket API 规范
+- `docs/ops/GUIDE.md` — 目标 CLI 与 SDK 用法
+- `docs/ops/DEPLOY.md` — 目标部署模式（npm、Docker、Kubernetes）
+- `docs/ops/TEST.md` — 目标测试策略与 Vitest 约定
+
+## 计划技术栈
+
+设计文档针对实现阶段采用以下技术栈：
+
+- **运行时**：Node.js ≥ 18
+- **语言**：TypeScript 5.4+（严格模式）
+- **包管理器 / 工作区**：pnpm workspace（monorepo）
+- **后端构建**：tsup
+- **前端构建**：Vite 5
+- **前端 UI**：React 18、Ant Design 5、TailwindCSS 4、Zustand、React Router
+- **测试**：Vitest ^2.0、`@vitest/coverage-v8`、Playwright 用于 E2E
+- **Lint / 格式化**：ESLint 9 + Prettier 3
+- **日志**：pino + pino-pretty
+- **链路追踪**：OpenTelemetry SDK
+- **指标**：`GET /api/metrics` 暴露 Prometheus 格式
+- **模板引擎**：EJS
+
+## 计划 Monorepo 结构
+
+实现后，仓库结构预计如下：
+
+```
+agentforge/
+├── packages/
+│   ├── types/          # 零运行时依赖的类型定义
+│   ├── core/           # IAgent、BaseAgent、ProviderFactory、MiddlewareChain、PluginManager、AgentGenerator
+│   ├── sdk/            # AgentFramework、Pipeline、EventBus
+│   ├── cli/            # 基于 Commander 的 CLI
+│   ├── http-server/    # 用于本地 Agent 调试的 HTTP/WebSocket 服务器
+│   ├── dashboard/      # React 云端控制中心 UI + 后端
+│   └── runtime-client/ # 客户端 Agent 运行时（连接 Dashboard）
+├── templates/          # EJS 模板：base/ + roles/
+├── examples/
+├── package.json
+├── pnpm-workspace.yaml
+└── tsconfig.base.json
+```
+
+包命名约定：所有内部包均发布在 `@agentforge/` 作用域下。
+
+## 高层架构
+
+### 1. `IAgent` 是核心契约
+
+每个生成的 Agent 都必须实现 `IAgent`（定义见 `docs/design/01-核心设计.md` §1.1）。关键成员：
+
+- `init(config)` / `execute(task)` / `stream(task)` / `destroy()`
+- `use(plugin)`、`on(event, handler)`、`off(event, handler)`
+- 只读属性 `id`、`name`、`role`、`version`、`capabilities`、`status`
+
+`BaseAgent` 是计划的抽象类，负责实现生命周期、中间件钩子、插件加载与事件发射。具体 Agent 只需实现 `doExecute`（以及可选的 `doStream`）。
+
+### 2. Provider 抽象层
+
+`IProvider`（§1.10）将 OpenAI、Anthropic、Ollama 与自定义 provider 统一在一个接口后：
+
+- `chat(params)` — 同步响应
+- `chatStream(params)` — `AsyncIterable<ChatChunk>`
+- `validate()` — 配置/连接校验
+
+`ProviderFactory` 注册 provider 构造函数，并根据 `config.model.provider` 选择正确实现。每个适配器负责框架的 `ToolDefinition`/`ToolCallRequest` 与 provider 原生 function-calling 格式之间的双向映射。
+
+### 3. Agent 生成引擎
+
+`AgentGenerator` 流水线（`TECH-DESIGN.md` §4）：
+
+```
+职位描述 → 解析 → 模板匹配 → 提示词构建 → 工具推荐 → 代码渲染 → 项目配置 → 文档 → 编译校验
+```
+
+核心类：
+- `AgentGenerator` — 编排完整流程，支持 `batch()`
+- `PromptBuilder` — 基于解析后的描述与模板构建系统提示词
+- `TemplateEngine` — 基于 EJS 渲染文件，如 `src/index.ts`、`src/prompts.ts`、`src/tools.ts`、`package.json` 等
+- `SkillMatcher` — 基于解析后的描述推荐工具
+- `CodeEmitter` — 写入最终文件树
+
+内置模板：`customer-service`、`sales-assistant`、`code-reviewer`、`content-writer`、`data-analyst`、`general`。
+
+### 4. 通过模型驱动的 `AgentFramework` 编排
+
+SDK 入口是 `AgentFramework`（§5.1）。默认编排模式为**模型驱动**：框架通过 `CapabilityRegistry` 发现已注册能力（`Agent`、`Tool`、`Skill`、`Plugin`），使用 `PlannerAgent` 生成 `ExecutionPlan`，再由 `PlanExecutor` 执行。
+
+主要 API：
+- `register(name, AgentClass)` 与 `loadAll()`
+- `run(name, task)` — 直接执行单个 Agent
+- `orchestrate(task)` — 规划并执行动态工作流
+- `plan(task)` / `executePlan(plan)` — 将规划与执行分离
+- 通过 `on`/`once`/`off`/`emit` 提供事件总线
+
+`Pipeline`（§5.6）是 `PlanExecutor` 使用的底层确定性执行引擎：
+- 串行步骤（`.add()`）
+- 并行步骤（`.parallel()`）
+- 全局配置（`.config()`）
+- 通过 `PipelineControlSignal` 在固定工作流中实现回溯
+
+开发者仍可直接使用 `Pipeline` 构建固定、可审计的工作流。
+
+关键编排行为：
+- `CapabilityRegistry` 从已注册的 Agent、Tool、Skill、Plugin 中发现能力
+- `PlannerAgent` 生成 `ExecutionPlan`；高风险计划可通过 `ApprovalHandler` 请求人工审批
+- `PlanExecutor` 解析依赖、调度并行步骤、绑定变量引用，并在失败时触发重新规划
+
+### 5. 客户端运行时与云端 Dashboard 控制
+
+生成的 Agent 设计为运行在**客户端**，并通过云端 **Dashboard** 进行控制。
+
+- 每个生成的 Agent 内置 `AgentRuntimeClient`（来自 `@agentforge/runtime-client`），通过 WebSocket 连接 Dashboard
+- 启动时，运行时将 Agent 注册为 `AgentNode`，发送心跳并上报状态/指标
+- Dashboard 维护节点注册表，可向任意已连接客户端派发远程任务
+- WebSocket 同时用于控制命令（`ControlMessage`）和事件/结果上报（`AgentMessage`）
+- 云端 Agent 也可通过 Dashboard 控制面编排客户端 Agent
+
+关键类型：`AgentRuntimeConfig`、`RemoteTask`、`ControlMessage`、`AgentMessage`、`IAgentRuntimeClient`（见 `docs/design/01-核心设计.md` §1.13）。
+
+### 6. ModelRegistry 多端点路由
+
+使用 SDK 时，可在 `FrameworkConfig.modelRegistry` 中注册多个模型端点。Agent 步骤只引用模型名（或带可选 `endpoint` 的 `ModelRef`）。解析顺序：
+
+1. 步骤上显式指定的 `endpoint`
+2. 第一个列出该模型名的已注册端点
+3. Pipeline/默认模型 + 默认端点
+4. 否则抛出 `ModelNotFoundError`
+
+Agent 独立运行时直接使用单个 `ModelConfig`，不经过 registry。
+
+### 7. CLI 与运行时入口
+
+计划 CLI（`docs/ops/GUIDE.md`、`docs/design/05-CLI与API.md`）：
+
+```
+agentforge create <description>   # 根据描述生成 Agent
+agentforge batch <config-file>    # 从 YAML/JSON 批量生成
+agentforge run <agent-path>       # 启动 Agent 运行时客户端（连接 Dashboard）
+  --connect <dashboard-url>       # Dashboard WebSocket 端点
+  --token <auth-token>            # 节点认证令牌
+agentforge serve [agent-dir]      # 启动本地 HTTP 服务器用于调试（默认端口 3001）
+agentforge list                   # 列出已生成的 Agent
+agentforge dashboard              # 启动云端 Dashboard 控制中心（默认端口 8080）
+```
+
+主要运行模式为**客户端运行时**：生成的 Agent 启动 `AgentRuntimeClient`，向 Dashboard 注册并监听远程任务。本地 HTTP 服务器（`serve`）保留用于开发/调试。
+
+Dashboard 暴露：
+- 节点管理端点（`/api/nodes/*`）
+- 远程任务派发端点（`/api/nodes/:id/execute`、`/api/nodes/:id/stream`）
+- WebSocket 控制通道（`/ws/nodes/:nodeId`）
+- 调试 Playground UI 与事件流
+
+### 8. 存储与可观测性（v1）
+
+- 每个生成 Agent 目录的元数据保存在 `.agentforge.json`
+- 执行记录、链路追踪与调试会话保留在内存中（Dashboard 运行时）
+- 日志使用 pino（生产环境 JSON，开发环境 pretty）
+- 通过 W3C Trace Context 传播 OpenTelemetry 链路
+- `GET /api/metrics` 暴露 Prometheus 指标
+
+v1 刻意不使用数据库；v2 可能引入 SQLite/Redis。
+
+## 计划开发命令
+
+> 以下命令定义在设计文档中，待 monorepo 初始化后可用。目前不可执行。
+
+```bash
+# 安装依赖
+pnpm install
+
+# 全仓类型检查
+pnpm run type-check      # 或按 ops/TEST.md 使用 pnpm typecheck
+
+# Lint
+pnpm run lint
+
+# 构建所有包
+pnpm run build
+
+# 运行所有测试
+pnpm test
+
+# 监听模式
+pnpm test:watch
+
+# 运行单个测试文件
+pnpm vitest run packages/core/src/agent/__tests__/BaseAgent.test.ts
+pnpm vitest run packages/sdk/src/__tests__/Pipeline.test.ts
+
+# 按名称运行测试
+pnpm vitest run -t "AgentLifeCycle"
+
+# 覆盖率报告
+pnpm vitest run --coverage
+```
+
+## CI/CD 计划
+
+计划中的 CI 流水线（来自 `docs/design/TECH-DESIGN.md` §15.3）：
+
+```
+pnpm install --frozen-lockfile
+pnpm run lint
+pnpm run type-check
+pnpm run test
+pnpm run build
+```
+
+E2E 测试在 main 分支推送时运行。发布时为 `serve` 与 `dashboard` 模式构建 Docker 镜像。
+
+## 关键约定
+
+- **Agent vs agent**：`Agent`（首字母大写）指类/接口/类型；`agent`（小写）指实例。
+- **API Key vs apiKey**：用户可见文案用 "API Key"；代码/配置字段用 `apiKey`。
+- **类型权威**：`docs/design/01-核心设计.md` 是核心类型的唯一来源。其他文档必须引用它，不得重复声明。
+- **工具名**：kebab-case，例如 `query-order`、`create-refund`。
+- **JSON Schema**：类型中拼写为 `JSONSchema`，而非 `JsonSchema`。
+- **版本控制**：包与模板使用语义化版本；API 路径使用 `/v1/` 前缀。
+
+## 环境变量（计划）
+
+| 变量 | 用途 |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI provider 认证 |
+| `ANTHROPIC_API_KEY` | Anthropic provider 认证 |
+| `AGENTFORGE_PORT` | 默认 HTTP 服务器端口（默认 `3001`） |
+| `LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
+| `MONTHLY_COST_LIMIT` | 可选的成本守护阈值 |
+
+API 密钥及其他 secrets 仅通过环境变量注入，禁止提交到仓库。
+
+## v1 非目标
+
+来自 `docs/product/PRD.md` §3 与 `docs/design/TECH-DESIGN.md`：
+
+- 模型训练 / 微调
+- Agent 市场
+- 多租户 SaaS
+- 可视化拖拽工作流编辑器
+- 多模态输入
+- 持久化数据库（v1 使用文件 + 内存）
+- 远程代码加载
+
+## 开始实现时应做的事
+
+1. 阅读 `docs/STATUS.md`，确认哪些模块已规范完成。
+2. 编写任何代码前，先阅读 `docs/design/01-核心设计.md` 中的规范类型。
+3. 按照 `docs/design/TECH-DESIGN.md` §2.2 的结构初始化 monorepo（`package.json`、`pnpm-workspace.yaml`、`tsconfig.base.json`）。
+4. 按依赖顺序实现包：`types` → `core` → `sdk` → `runtime-client` → `cli`/`http-server`/`dashboard`。
+5. 随着工作推进，更新 `docs/STATUS.md` 中的实现状态列。

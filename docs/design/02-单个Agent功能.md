@@ -1,5 +1,12 @@
 # 2. 单个 Agent 功能详解
 
+> **文档层级**: 第二层 · 设计规格
+> **文档类型**: 设计规格
+> **文档状态**: 已定稿
+> **文档版本**: docs-v0.3
+> **最后更新**: 2026-06-18
+> **实现状态**: 未开始
+>
 > 每个通过 AgentForge 生成的 Agent 都是一个独立、完整、可运行的程序单元，具备以下十大能力。
 
 ## 2.1 核心生命周期
@@ -165,7 +172,8 @@ npx agent-customer-service serve --port 3001
 |---|---|---|
 | `/api/execute` | POST | 同步执行任务 |
 | `/api/stream` | POST | 流式执行任务（SSE） |
-| `/api/status` | GET | 健康检查 |
+| `/api/status` | GET | 详细状态（版本、uptime、Provider 就绪） |
+| `/api/health` | GET | 轻量探活（Docker/K8s liveness） |
 | `/api/capabilities` | GET | 查看能力声明 |
 
 ## 2.9 状态管理

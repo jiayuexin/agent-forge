@@ -164,7 +164,7 @@ agentforge/
 
 ### `@agentforge/runtime-client`
 
-- **职责**：客户端运行时。每个生成的 Agent 依赖此包，用于连接 Dashboard 并接收远程控制。
+- **职责**：客户端运行时。每个生成的 ClientAgent 依赖此包，用于连接 Capability Hub 并接收远程控制。
 - **关键文件（planned）**：
   - `packages/runtime-client/src/AgentRuntimeClient.ts` — 运行时主类
   - `packages/runtime-client/src/WebSocketTransport.ts` — WebSocket 连接管理
@@ -197,7 +197,7 @@ agentforge/
 
 ## 运行时交互地图
 
-### 1. CLI 生成 Agent
+### 1. CLI 生成 ClientAgent
 
 ```
 packages/cli/src/commands/create.ts
@@ -304,7 +304,7 @@ PlannerAgent 生成 ExecutionPlan
         ↓
 调用 ApprovalHandler
         ↓
-Dashboard / 外部系统展示计划并等待确认
+Capability Hub / 外部系统展示计划并等待确认
         ↓
 approved === true
         ↓
@@ -417,4 +417,4 @@ packages/sdk/src/Pipeline.ts 读取 control
 - `docs/design/TECH-DESIGN.md` — 系统架构总览
 - `docs/design/04-集成与编排.md` — 集成模式与 Pipeline 编排
 - `docs/design/05-CLI与API.md` — CLI 与 HTTP API 规格
-- `docs/design/06-可视化面板.md` — Dashboard 设计
+- `docs/design/06-可视化面板.md` — Capability Hub 面板设计

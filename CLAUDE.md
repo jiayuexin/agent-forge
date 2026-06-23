@@ -108,7 +108,7 @@ agentforge/
 核心类：
 - `AgentGenerator` — 编排完整流程，支持 `batch()`
 - `PromptBuilder` — 基于解析后的描述与模板构建系统提示词
-- `TemplateEngine` — 基于 EJS 渲染文件，如 `src/index.ts`、`src/prompts.ts`、`src/tools.ts`、`package.json` 等
+- `TemplateEngine` — 基于 EJS 渲染文件，如 `src/main.ts`、`src/agent.ts`、`src/prompts.ts`、`src/tools.ts`、`src/runtime.ts`、`package.json` 等
 - `SkillMatcher` — 基于解析后的描述推荐工具
 - `CodeEmitter` — 写入最终文件树
 
@@ -138,15 +138,15 @@ SDK 入口是 `AgentFramework`（§5.1）。默认编排模式为**模型驱动*
 - `PlannerAgent` 生成 `ExecutionPlan`；高风险计划可通过 `ApprovalHandler` 请求人工审批
 - `PlanExecutor` 解析依赖、调度并行步骤、绑定变量引用，并在失败时触发重新规划
 
-### 5. 客户端运行时与云端 Dashboard 控制
+### 5. 客户端运行时与云端 Capability Hub 控制
 
-生成的 Agent 设计为运行在**客户端**，并通过云端 **Dashboard** 进行控制。
+生成的 ClientAgent 设计为运行在**客户端**，并通过云端 **Capability Hub** 进行控制。
 
-- 每个生成的 Agent 内置 `AgentRuntimeClient`（来自 `@agentforge/runtime-client`），通过 WebSocket 连接 Dashboard
-- 启动时，运行时将 Agent 注册为 `AgentNode`，发送心跳并上报状态/指标
-- Dashboard 维护节点注册表，可向任意已连接客户端派发远程任务
+- 每个生成的 ClientAgent 内置 `AgentRuntimeClient`（来自 `@agentforge/runtime-client`），通过 WebSocket 连接 Capability Hub
+- 启动时，运行时将 ClientAgent 注册为 `AgentNode`，发送心跳并上报状态/指标
+- Capability Hub 维护节点注册表，可向任意已连接客户端派发远程任务
 - WebSocket 同时用于控制命令（`ControlMessage`）和事件/结果上报（`AgentMessage`）
-- 云端 Agent 也可通过 Dashboard 控制面编排客户端 Agent
+- Capability Hub 也可通过控制面编排客户端 ClientAgent
 
 关键类型：`AgentRuntimeConfig`、`RemoteTask`、`ControlMessage`、`AgentMessage`、`IAgentRuntimeClient`（见 `docs/design/01-核心设计.md` §1.13）。
 

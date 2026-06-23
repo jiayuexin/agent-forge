@@ -794,7 +794,7 @@ Capability Hub 的 Web 面板设计详见 [06-可视化面板.md](./06-可视化
 ### 9.1 架构
 
 ```
-Dashboard Server          Agent Node 1          Agent Node 2
+Capability Hub Server     Agent Node 1          Agent Node 2
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │ AgentRegistry │◄────│ 注册 + 心跳   │     │ 注册 + 心跳   │
 │ (注册表)      │     └──────────────┘     └──────────────┘
@@ -807,11 +807,11 @@ Dashboard Server          Agent Node 1          Agent Node 2
 
 ### 9.2 注册发现
 
-- Agent 启动时 POST `/api/nodes/register` 注册到 Dashboard
-- Dashboard 分配唯一节点 ID，返回确认
-- Agent 每 30 秒 POST `/api/nodes/:name/heartbeat` 上报心跳
-- Dashboard 每 90 秒检查一次，超时标记节点为 `dead`
-- Dashboard 指标轮询 GET `/api/metrics` 收集各节点运行数据
+- ClientAgent 启动时 POST `/api/nodes/register` 注册到 Capability Hub
+- Capability Hub 分配唯一节点 ID，返回确认
+- ClientAgent 每 30 秒 POST `/api/nodes/:name/heartbeat` 上报心跳
+- Capability Hub 每 90 秒检查一次，超时标记节点为 `dead`
+- Capability Hub 指标轮询 GET `/api/metrics` 收集各节点运行数据
 
 ---
 
@@ -1168,10 +1168,10 @@ jobs:
 | Ollama | ~10 | 本地推理，受 GPU 算力限制 |
 | Anthropic | ~5 | 受 API Rate Limit 约束 |
 
-**Dashboard 并发：**
+**Capability Hub 并发：**
 
 - WebSocket 连接上限建议：100
-- 超过 100 并发建议水平扩展 Dashboard 实例 + 负载均衡
+- 超过 100 并发建议水平扩展 Hub 实例 + 负载均衡
 
 ---
 
@@ -1512,7 +1512,7 @@ interface IKnowledgeBase {
 | 配置项 | 值 | 说明 |
 |---|---|---|
 | 执行记录保留期 | 默认 7 天 | 超期自动清理 |
-| 清理策略 | Dashboard 后台定时任务 | 每天 3:00 扫描过期记录 |
+| 清理策略 | Capability Hub 后台定时任务 | 每天 3:00 扫描过期记录 |
 | 归档路径 | `.agentforge/archive/` | 导出为 JSONL 文件 |
 
 ### 19.5 Agent 升级与回滚

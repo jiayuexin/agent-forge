@@ -8,8 +8,8 @@
 
 | 文档 | 说明 |
 |---|---|
-| [GUIDE.md](./GUIDE.md) | 安装、CLI 命令、SDK 示例、HTTP 集成 |
-| [DEPLOY.md](./DEPLOY.md) | npm / HTTP / Docker / Compose 部署 |
+| [GUIDE.md](./GUIDE.md) | CLI 命令、SDK 示例、Capability Hub 用法、本地命令授权 |
+| [DEPLOY.md](./DEPLOY.md) | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入 |
 | [TEST.md](./TEST.md) | 测试策略、用例索引、运行方式 |
 
 ## 推荐阅读顺序

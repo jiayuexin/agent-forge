@@ -31,14 +31,15 @@ agentforge/
 │   ├── core/                  # IAgent、BaseAgent、Provider、Generator、Plugin
 │   ├── sdk/                   # AgentFramework、Pipeline、EventBus
 │   ├── cli/                   # Commander CLI
-│   ├── http-server/           # HTTP/WebSocket 服务
-│   └── dashboard/             # React 管理面板
+│   ├── http-server/           # ClientAgent 本地调试 HTTP/WebSocket 服务（可选，非主要生产路径）
+│   ├── dashboard/             # Capability Hub Web 面板 + 后端
+│   └── runtime-client/        # 客户端 Agent 运行时（连接 Capability Hub）
 ├── templates/                 # EJS 模板
 │   ├── base/                  # 通用脚手架
 │   └── roles/                 # 岗位模板
 ├── examples/                  # 使用示例
 ├── docs/                      # 文档（含本文件）
-└── agents/                    # 默认生成的 Agent 输出目录（运行时产生）
+└── client-agents/             # 默认生成的 ClientAgent 输出目录（运行时产生）
 ```
 
 ### 包依赖关系
@@ -47,11 +48,13 @@ agentforge/
 @agentforge/types
         ↑
 @agentforge/core
-        ↑
-@agentforge/sdk
-        ↑        ↑
-@agentforge/cli    @agentforge/http-server    @agentforge/dashboard
+        ↑        ↑        ↑
+@agentforge/sdk  @agentforge/runtime-client  @agentforge/http-server
+        ↑        ↑        ↑
+@agentforge/dashboard        @agentforge/cli
 ```
+
+> 说明：`@agentforge/cli` 依赖上述所有包（用于生成、运行、启动 Hub 与调试服务）；`@agentforge/dashboard` 依赖 `@agentforge/sdk` 以复用编排能力。
 
 ---
 
@@ -93,6 +96,17 @@ agentforge/
   - `packages/core/src/plugin/PluginManager.ts` — 插件管理
 - **设计权威**：`docs/design/01-核心设计.md`、`docs/design/TECH-DESIGN.md` §3 / §4
 
+### `@agentforge/runtime-client`
+
+- **职责**：客户端 Agent 运行时。每个生成的 ClientAgent 依赖此包，用于连接 Capability Hub 并接收远程控制，同时管理本地能力缓存。
+- **关键文件（planned）**：
+  - `packages/runtime-client/src/AgentRuntimeClient.ts` — 运行时主类
+  - `packages/runtime-client/src/WebSocketTransport.ts` — WebSocket 连接管理
+  - `packages/runtime-client/src/HeartbeatManager.ts` — 心跳管理
+  - `packages/runtime-client/src/CapabilityCache.ts` — 本地能力缓存
+  - `packages/runtime-client/src/index.ts` — 统一导出
+- **设计权威**：`docs/design/01-核心设计.md` §1.13、`docs/design/08-客户端Agent与无状态Agent.md`、`docs/design/09-能力市场与下发.md`
+
 ### `@agentforge/sdk`
 
 - **职责**：面向开发者的编排 SDK。核心是基于 LLM 的模型驱动编排器。
@@ -112,39 +126,41 @@ agentforge/
 - **职责**：命令行入口。
 - **关键文件（planned）**：
   - `packages/cli/src/index.ts` — CLI 入口
-  - `packages/cli/src/commands/create.ts` — `agentforge create`
-  - `packages/cli/src/commands/batch.ts` — `agentforge batch`
-  - `packages/cli/src/commands/serve.ts` — `agentforge serve`
-  - `packages/cli/src/commands/run.ts` — `agentforge run`
-  - `packages/cli/src/commands/list.ts` — `agentforge list`
-  - `packages/cli/src/commands/dashboard.ts` — `agentforge dashboard`
+  - `packages/cli/src/commands/create.ts` — `agentforge create`（生成 ClientAgent）
+  - `packages/cli/src/commands/run.ts` — `agentforge run`（启动 ClientAgent 守护进程）
+  - `packages/cli/src/commands/dashboard.ts` — `agentforge dashboard`（启动 Capability Hub）
+  - `packages/cli/src/commands/capability.ts` — `agentforge capability`（能力市场管理）
+  - `packages/cli/src/commands/batch.ts` — `agentforge batch`（批量生成 ClientAgent）
+  - `packages/cli/src/commands/serve.ts` — `agentforge serve`（本地调试 HTTP 服务，可选）
+  - `packages/cli/src/commands/list.ts` — `agentforge list`（列出已生成的 ClientAgent）
 - **设计权威**：`docs/design/05-CLI与API.md` §5、`docs/ops/GUIDE.md`
 
 ### `@agentforge/http-server`
 
-- **职责**：可选的本地 HTTP/WebSocket 服务，用于本地调试单个 Agent。
+- **职责**：可选的本地 HTTP/WebSocket 服务，仅用于开发调试单个 ClientAgent（非主要生产路径）。
 - **关键文件（planned）**：
   - `packages/http-server/src/server.ts` — 服务入口
-  - `packages/http-server/src/routes/agents.ts` — Agent 执行/流式/状态路由
+  - `packages/http-server/src/routes/agents.ts` — ClientAgent 执行/流式/状态路由
   - `packages/http-server/src/routes/health.ts` — `/api/health`、`/api/status`、`/api/metrics`
 - **设计权威**：`docs/design/05-CLI与API.md`
 
 ### `@agentforge/dashboard`
 
-- **职责**：云端控制中心。管理 Agent 模板、客户端节点注册表、远程命令下发、事件流。
+- **职责**：Capability Hub。管理 ClientAgent 模板、客户端节点注册表、能力市场、远程命令下发、事件流。
 - **关键文件（planned）**：
   - `packages/dashboard/src/main.tsx` — 入口
   - `packages/dashboard/src/App.tsx` — 根组件
   - `packages/dashboard/src/pages/Home.tsx` — 首页 `/`
-  - `packages/dashboard/src/pages/AgentList.tsx` — Agent 模板列表 `/agents`
-  - `packages/dashboard/src/pages/AgentCreate.tsx` — 创建 Agent `/agents/create`
+  - `packages/dashboard/src/pages/AgentList.tsx` — ClientAgent 模板列表 `/agents`
+  - `packages/dashboard/src/pages/AgentCreate.tsx` — 创建 ClientAgent `/agents/create`
   - `packages/dashboard/src/pages/NodeList.tsx` — 节点列表 `/nodes`
   - `packages/dashboard/src/pages/NodeDetail.tsx` — 节点详情 `/nodes/:id`
+  - `packages/dashboard/src/pages/CapabilityList.tsx` — 能力市场 `/capabilities`
   - `packages/dashboard/src/pages/Playground.tsx` — 调试台 `/playground`
   - `packages/dashboard/src/pages/Monitor.tsx` — 监控 `/monitor`
   - `packages/dashboard/src/api/` — 后端 API 调用
   - `packages/dashboard/src/store/` — Zustand 状态管理
-- **设计权威**：`docs/design/06-可视化面板.md`、`docs/design/TECH-DESIGN.md` §8
+- **设计权威**：`docs/design/06-可视化面板.md`、`docs/design/09-能力市场与下发.md`、`docs/design/TECH-DESIGN.md` §8
 
 ### `@agentforge/runtime-client`
 
@@ -194,7 +210,7 @@ packages/core/src/generator/TemplateEngine.ts  ← templates/roles/<role>/
         ↓
 packages/core/src/generator/CodeEmitter.ts
         ↓
-./agents/<agent-name>/
+./client-agents/<agent-name>/
 ```
 
 ### 2. SDK 模型驱动编排执行
@@ -219,60 +235,64 @@ packages/core/src/runtime/AgentExecutor.ts
 Agent / Tool / Skill
 ```
 
-### 3. 独立 Agent 执行
+### 3. ClientAgent 本地执行
 
 ```
-生成的 Agent ./agents/<name>/src/index.ts
+生成的 ClientAgent ./client-agents/<name>/src/agent.ts
         ↓
 packages/core/src/agent/BaseAgent.ts
         ↓
 ProviderFactory → Provider → 外部 LLM
 ```
 
-### 4. HTTP 服务调用（本地调试模式）
+### 4. ClientAgent 本地调试 HTTP 服务（`agentforge serve`）
 
 ```
+packages/cli/src/commands/serve.ts
+        ↓
 packages/http-server/src/server.ts
         ↓
 packages/http-server/src/routes/agents.ts
         ↓
-packages/core/src/runtime/AgentExecutor.ts
-或
-packages/sdk/src/AgentFramework.ts
+生成的 ClientAgent ./client-agents/<name>/src/agent.ts
+        ↓
+packages/core/src/agent/BaseAgent.ts
 ```
 
-### 5. 客户端 Agent 连接 Dashboard
+### 5. ClientAgent 连接 Capability Hub
 
 ```
-生成的 Agent ./agents/<name>/src/runtime.ts
+packages/cli/src/commands/run.ts
+        ↓
+生成的 ClientAgent ./client-agents/<name>/src/main.ts
         ↓
 packages/runtime-client/src/AgentRuntimeClient.ts
         ↓
 packages/runtime-client/src/WebSocketTransport.ts
         ↓
-连接 wss://dashboard.example.com/ws/nodes/:nodeId
+连接 wss://hub.example.com/ws/nodes/:nodeId
         ↓
-packages/dashboard/src/api/ + Dashboard 后端
+packages/dashboard/src/api/ + Capability Hub 后端
         ↓
 注册到节点注册表，开始心跳
 ```
 
-### 6. Dashboard 远程触发客户端 Agent
+### 6. Capability Hub 远程触发 ClientAgent
 
 ```
 packages/dashboard/src/pages/NodeDetail.tsx
         ↓
 packages/dashboard/src/api/
         ↓
-Dashboard 后端
+Capability Hub 后端
         ↓
 WebSocket ControlMessage → 目标 AgentRuntimeClient
         ↓
-Agent.execute(task) / Agent.stream(task)
+ClientAgent.execute(task) / ClientAgent.stream(task)
         ↓
-AgentMessage 返回 Dashboard
+AgentMessage 返回 Capability Hub
         ↓
-Dashboard 前端展示结果
+Capability Hub 前端展示结果
 ```
 
 ### 7. 人工确认流程
@@ -323,16 +343,17 @@ packages/sdk/src/Pipeline.ts 读取 control
 
 ### CLI 命令
 
-| 命令 | 计划实现文件 | 设计来源 |
-|---|---|---|
-| `agentforge create` | `packages/cli/src/commands/create.ts` | `05-CLI与API.md` §5.1 / `03-生成引擎.md` |
-| `agentforge batch` | `packages/cli/src/commands/batch.ts` | `05-CLI与API.md` §5.2 |
-| `agentforge serve` | `packages/cli/src/commands/serve.ts` | `05-CLI与API.md` §5.3 |
-| `agentforge run` | `packages/cli/src/commands/run.ts` | `05-CLI与API.md` §5.4 |
-| `agentforge list` | `packages/cli/src/commands/list.ts` | `05-CLI与API.md` §5.5 |
-| `agentforge dashboard` | `packages/cli/src/commands/dashboard.ts` | `05-CLI与API.md` §5.6 |
+| 命令 | 计划实现文件 | 设计来源 | 说明 |
+|---|---|---|---|
+| `agentforge create` | `packages/cli/src/commands/create.ts` | `05-CLI与API.md` §5.1 / `03-生成引擎.md` | 生成 ClientAgent |
+| `agentforge run` | `packages/cli/src/commands/run.ts` | `05-CLI与API.md` §5.2 | 启动 ClientAgent 守护进程 |
+| `agentforge dashboard` | `packages/cli/src/commands/dashboard.ts` | `05-CLI与API.md` §5.3 | 启动 Capability Hub |
+| `agentforge capability` | `packages/cli/src/commands/capability.ts` | `05-CLI与API.md` §5.4 / `09-能力市场与下发.md` | 能力市场管理 |
+| `agentforge batch` | `packages/cli/src/commands/batch.ts` | `05-CLI与API.md` §5.5 | 批量生成 ClientAgent |
+| `agentforge serve` | `packages/cli/src/commands/serve.ts` | `05-CLI与API.md` §5.6 | 本地调试 HTTP 服务（可选） |
+| `agentforge list` | `packages/cli/src/commands/list.ts` | `05-CLI与API.md` §5.7 | 列出已生成的 ClientAgent |
 
-### Agent 自服务 HTTP API
+### ClientAgent 本地调试 HTTP API（`agentforge serve`，可选）
 
 | 端点 | 方法 | 计划处理文件 | 说明 |
 |---|---|---|---|
@@ -343,13 +364,16 @@ packages/sdk/src/Pipeline.ts 读取 control
 | `/api/capabilities` | GET | `packages/http-server/src/routes/agents.ts` | 能力声明 |
 | `/api/metrics` | GET | `packages/http-server/src/routes/health.ts` | Prometheus 指标 |
 
-### Dashboard 路由
+### Capability Hub 路由
 
 | 路由 | 页面组件 | 功能 |
 |---|---|---|
 | `/` | `packages/dashboard/src/pages/Home.tsx` | 项目概览 |
-| `/agents` | `packages/dashboard/src/pages/AgentList.tsx` | Agent 列表 |
-| `/agents/create` | `packages/dashboard/src/pages/AgentCreate.tsx` | 创建 Agent |
+| `/agents` | `packages/dashboard/src/pages/AgentList.tsx` | ClientAgent 模板列表 |
+| `/agents/create` | `packages/dashboard/src/pages/AgentCreate.tsx` | 创建 ClientAgent |
+| `/nodes` | `packages/dashboard/src/pages/NodeList.tsx` | 已连接 ClientAgent 节点 |
+| `/nodes/:id` | `packages/dashboard/src/pages/NodeDetail.tsx` | 节点详情与远程控制 |
+| `/capabilities` | `packages/dashboard/src/pages/CapabilityList.tsx` | 能力市场 |
 | `/playground` | `packages/dashboard/src/pages/Playground.tsx` | 调试台 |
 | `/monitor` | `packages/dashboard/src/pages/Monitor.tsx` | 监控 |
 
@@ -360,8 +384,9 @@ packages/sdk/src/Pipeline.ts 读取 control
 - **包名**：`@agentforge/<name>` 对应 `packages/<name>/`
 - **源码入口**：`packages/<name>/src/index.ts`
 - **测试**：同目录 `__tests__/<module>.test.ts`（遵循 `docs/ops/TEST.md`）
-- **生成 Agent 默认目录**：`./agents/<agent-name>/`
-- **Agent 元数据**：`./agents/<agent-name>/.agentforge.json`
+- **生成 ClientAgent 默认目录**：`./client-agents/<agent-name>/`
+- **ClientAgent 元数据**：`./client-agents/<agent-name>/.agentforge/config.json`
+- **ClientAgent 安全配置**：`./client-agents/<agent-name>/.agentforge/security.json`
 - **模板**：`templates/base/`（通用）、`templates/roles/<role>/`（岗位）
 - **工具名**：kebab-case，如 `query-order`、`create-refund`
 - **类型拼写**：`JSONSchema`（不是 `JsonSchema`）

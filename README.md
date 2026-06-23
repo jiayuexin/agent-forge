@@ -1,6 +1,6 @@
 # AgentForge
 
-可插拔 Agent 批量生成框架 — 从岗位描述自动生成标准化、可独立部署的 AI Agent。
+AgentForge 是一个**客户端 Agent 应用平台**：从岗位描述生成可本地运行的 **ClientAgent**，并通过 **Capability Hub** 集中管理其能力、远程下发任务与监控运行状态。也支持开发者通过 SDK 编排 **StatelessAgent** 并与 ClientAgent 协同。
 
 **当前阶段**：设计文档阶段，代码待开发。完整文档见 [docs/README.md](docs/README.md)。
 

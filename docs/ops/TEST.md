@@ -5,7 +5,7 @@
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 测试策略
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.3
+> **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 
@@ -17,7 +17,7 @@ AgentForge 使用 **Vitest** 作为测试框架，采用分层测试策略覆盖
 |---|---|
 | 测试框架 | Vitest ^2.0 |
 | 目标测试数 | 79 |
-| 覆盖包 | `@agentforge/core`、`@agentforge/sdk` |
+| 覆盖包 | `@agentforge/core`、`@agentforge/sdk`、`@agentforge/runtime-client` |
 
 ### 测试分层
 
@@ -185,8 +185,8 @@ UNINITIALIZED → INITIALIZING → READY ⇄ RUNNING
 
 | 测试 | 说明 |
 |---|---|
-| 单个 Agent 生成 | 从描述 "电商客服助手" + `customer-service` 模板生成，验证生成的 8 个文件（index.ts、prompts.ts、tools.ts、types.ts、package.json、tsconfig.json、README.md、.agentforge.json）全部存在且内容合理 |
-| 批量生成 | 一次生成 2 个 Agent（sales-assistant + code-reviewer），验证各自的 templateId 和文件数量 |
+| 单个 ClientAgent 生成 | 从描述 "电商客服助手" + `customer-service` 模板生成，验证生成的 9 个文件（main.ts、agent.ts、prompts.ts、tools.ts、types.ts、runtime.ts、package.json、tsconfig.json、README.md）以及 `.agentforge/config.json`、`.agentforge/security.json` 全部存在且内容合理 |
+| 批量生成 | 一次生成 2 个 ClientAgent（sales-assistant + code-reviewer），验证各自的 templateId 和文件数量 |
 
 ---
 

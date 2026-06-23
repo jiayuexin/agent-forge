@@ -1143,14 +1143,14 @@ jobs:
 
 | 项 | 说明 |
 |---|---|
-| 数据备份 | `.agentforge.json` + 执行日志归档，每日增量备份 |
+| 数据备份 | `.agentforge/config.json` + `.agentforge/security.json` + 执行日志归档，每日增量备份 |
 | RPO | 24 小时 |
 | RTO | 15 分钟 |
 | 回滚方式 | `git revert` + 重新部署容器镜像 |
 
 **备份策略：**
 
-- 每日凌晨 2:00 自动备份 `.agentforge/` 目录及所有 `.agentforge.json` 文件
+- 每日凌晨 2:00 自动备份 `.agentforge/` 目录（含 `config.json`、`security.json`）
 - 备份保留 30 天，超期自动清理
 - 执行日志归档至 `.agentforge/archive/` 目录（JSONL 格式）
 
@@ -1281,7 +1281,7 @@ jobs:
 
 1. 检测到 PII 后自动脱敏替换为 `***`
 2. 审计日志记录原始值和脱敏结果（审计日志独立存储，访问受限）
-3. PII 不落盘 — 不写入 `.agentforge.json`、不写入执行记录持久化文件
+3. PII 不落盘 — 不写入 `.agentforge/config.json`、`.agentforge/security.json`、不写入执行记录持久化文件
 4. 审计日志保留 90 天后自动清理
 
 ### 17.3 幻觉缓解
@@ -1318,9 +1318,9 @@ jobs:
 | 要求 | 实现方式 |
 |---|---|
 | 模型 API 调用加密 | 所有 API 调用走 HTTPS |
-| 用户数据本地加密 | AES-256 加密 `.agentforge.json` 中的敏感字段 |
+| 用户数据本地加密 | AES-256 加密 `.agentforge/config.json` 与 `.agentforge/security.json` 中的敏感字段 |
 | 跨境数据传输 | 配置项 `DATA_RESIDENCY_CHECK=true` 时，调用海外 Provider 前弹窗/日志确认 |
-| GDPR 数据删除 | 支持数据删除请求 — 清理 `.agentforge.json` 和关联执行日志 |
+| GDPR 数据删除 | 支持数据删除请求 — 清理 `.agentforge/` 目录和关联执行日志 |
 
 ### 17.7 红队测试
 

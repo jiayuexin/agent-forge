@@ -2,13 +2,13 @@
 
 > **文档层级**: 第一层 · 产品需求
 > **文档类型**: 产品需求
-> **文档状态**: 已定稿
-> **文档版本**: docs-v0.2
-> **最后更新**: 2026-06-18
+> **文档状态**: 重构中
+> **文档版本**: docs-v0.4
+> **最后更新**: 2026-06-23
 > **实现状态**: 未开始
 > **详细需求与规划**: 参见 [08-需求与路线图.md](./08-需求与路线图.md)
 > **详细设计文档**: 参见 [TECH-DESIGN.md](../design/TECH-DESIGN.md)
-> **架构全景图**: 参见 [TECH-DESIGN.md §2](../design/TECH-DESIGN.md#2-系统架构)（架构图以 Mermaid 格式内嵌）
+> **架构全景图**: 参见 [TECH-DESIGN.md §2](../design/TECH-DESIGN.md#2-系统架构)
 
 ---
 
@@ -16,28 +16,28 @@
 
 ### 1.1 用户痛点
 
-每次构建一个新的 AI Agent 都需要从零开始：
+当前 AI Agent 的创建和使用存在以下问题：
 
-- **重复性工作**：每个 Agent 都需要手写 LLM 对接、工具调用、错误处理、状态管理等大量样板代码，耗时数天
-- **接口碎片化**：不同项目中创建的 Agent 缺乏统一接口标准，无法互相替换和协作，造成重复建设
-- **门槛过高**：创建一个可用的 Agent 需要 AI 工程能力（Prompt 工程、Function Calling 配置、错误重试等），普通开发者难以独立完成
-- **现有框架太重**：LangChain、AutoGen 等框架功能强大但学习曲线陡峭，80% 的场景只需要一个能对话、能调工具的 Agent
+- **创建门槛高**：搭建一个能在本地运行、能调用工具、能连接 LLM 的 Agent，需要手写大量样板代码（Prompt 工程、Function Calling、状态管理、错误处理），耗时数天。
+- **能力管理分散**：每个 Agent 自带固定能力，新增或更新能力需要重新生成或修改代码，无法集中管理。
+- **团队协作困难**：团队成员各自创建的 Agent 形态不一，有的用脚本、有的用某个框架、有的用某个 SaaS，难以统一管控和复用。
+- **现有方案要么太重、要么太封闭**：LangChain、AutoGen 等框架学习曲线陡峭；SaaS 平台则受限于云端、数据隐私和自定义能力。
 
 ### 1.2 目标用户
 
 | 用户画像 | 场景 | 核心需求 |
 |---|---|---|
-| **后端开发者** | 在业务系统中集成 AI 能力 | 快速生成标准 Agent，最少代码集成 |
-| **系统架构师** | 构建 multi-Agent 协作系统 | 统一接口 + 编排能力 |
-| **技术负责人** | 管理团队内的多个 Agent | 批量生成、统一监控、可视化管理 |
-| **全栈开发者** | 给自己的项目加 AI 功能 | 低门槛，不需要深入了解 AI 工程 |
+| **技术型个人用户** | 想在本地拥有一个可执行任务的 AI 助手 | 通过简单描述生成能长期运行的客户端 Agent |
+| **团队管理员** | 需要为团队统一部署和管理多个本地 Agent | 通过 Capability Hub 集中管理 Agent 和能力，远程下发配置 |
+| **开发者** | 需要编排多个无状态 Agent 完成复杂任务 | 通过 SDK 编排 StatelessAgent，并与 ClientAgent 通信 |
+| **安全敏感型企业** | 数据不能上云，需要在本地运行 Agent | Agent 运行在用户机器，LLM 调用本地配置，能力可离线缓存 |
 
 ### 1.3 不解决的代价
 
-- 团队每个项目重复造轮子，Agent 代码不可复用
-- 接口不统一导致换 Agent 时需要改动大量业务代码
-- 非 AI 专家无法独立创建 Agent，依赖 AI 团队
-- 缺乏监控和调试手段，线上 Agent 问题排查困难
+- 每个人/每个团队重复造轮子，Agent 代码不可复用。
+- 能力更新成本高，一个小工具改动需要重新生成整个 Agent。
+- 缺乏统一的 Agent 管理和观察手段，无法规模化使用。
+- 云端方案无法满足本地执行命令、访问本地资源、数据隐私等需求。
 
 ---
 
@@ -45,25 +45,27 @@
 
 | # | 目标 | 衡量标准 | 类型 |
 |---|---|---|---|
-| G1 | 将创建一个标准 Agent 的时间从天级降到分钟级 | 通过描述生成可用 Agent < 5 分钟 | 用户目标 |
-| G2 | 生成的 Agent 可零配置接入任意 Node.js 项目 | `npm install` 后 < 10 行代码完成调用 | 用户目标 |
-| G3 | 支持跨语言项目使用 Agent | 提供 HTTP API 模式，任何语言可调用 | 用户目标 |
-| G4 | 批量生成并管理多个岗位 Agent | 单次批量生成 ≥ 10 个 Agent | 业务目标 |
-| G5 | 提供 Web 管理面板进行可视化管理 | 面板覆盖创建、测试、监控全流程 | 业务目标 |
+| G1 | 通过岗位描述生成可本地运行的客户端 Agent | 从描述到运行 < 5 分钟 | 用户目标 |
+| G2 | 生成的 ClientAgent 具备基础本地能力 | 可调用终端/PowerShell、执行命令、配置 LLM | 用户目标 |
+| G3 | 支持通过 Capability Hub 扩展 Agent 能力 | 向运行中的 ClientAgent 下发 Tool/Skill/Plugin | 用户目标 |
+| G4 | ClientAgent 可在断网情况下使用已缓存能力 | 离线时本地能力可正常调用 | 用户目标 |
+| G5 | 支持 StatelessAgent 编排与 ClientAgent 协同 | SDK 可编排无状态 Agent 并调用 ClientAgent | 用户目标 |
+| G6 | 提供 Capability Hub 进行集中管理 | 覆盖 Agent 节点、能力市场、能力下发、调试 | 业务目标 |
 
 ---
 
-## 3. 非目标（v1 明确不做）
+## 3. 非目标（明确不做）
 
 | 非目标 | 原因 |
 |---|---|
-| 不提供模型训练能力 | 定位是应用层框架，不是基础设施 |
+| 不提供模型训练能力 | 定位是应用层平台，不是基础设施 |
 | 不依赖特定 LLM 厂商 | 通过 Provider 抽象支持任意模型 |
-| 不做 Agent 市场分发（v1） | 先做好生成能力，分发是后续商业化 |
-| 不做多租户 SaaS 部署（v1） | v1 面向单团队使用 |
-| 不做 Agent 的自主进化/学习 | 这是 Agent 自身能力，不是框架职责 |
-| 不做可视化拖拽编排（v1） | v1 只支持代码定义 Pipeline |
+| 不做多租户 SaaS 部署 | 面向单团队或本地使用，不做多租户 |
+| 不做公开社区市场 | 能力市场面向团队内部或受信任分发，不做公开共享 |
+| 不做 Agent 的自主进化/学习 | 这是 Agent 自身能力，不是平台职责 |
+| 不做可视化拖拽编排 | 通过代码定义 Pipeline 和模型驱动编排 |
 | 不做多模态输入（图片/语音） | 先做好文本场景 |
+| 不做无限制的远程代码执行 | 能力下发需受控，Plugin 脚本必须签名并运行在沙箱中 |
 
 ---
 
@@ -77,44 +79,50 @@
 
 | # | 问题 | 负责人 | 优先级 | 状态 |
 |---|---|---|---|---|
-| Q1 | Prompt 生成是否需要调用 LLM 还是纯模板？ | 工程 | 阻塞 | 已解决（TECH-DESIGN §4.3 决定: PromptBuilder 模板为主） |
-| Q2 | Agent 状态持久化使用什么存储？(SQLite / 文件 / Redis) | 工程 | 阻塞 | 已解决（TECH-DESIGN §10.1 决定: 文件+内存） |
-| Q3 | 是否需要支持 Agent 间直接通信？ | 产品 | 非阻塞 | 待定 |
-| Q4 | Web 面板是否需要用户认证？ | 产品 | 非阻塞 | 待定 |
-| Q5 | 生成的 Agent 是否需要支持 Docker 部署？ | 工程 | 非阻塞 | 待定 |
+| Q1 | ClientAgent 的本地命令执行授权采用几层模型？ | 产品 | 阻塞 | 待设计（参见 `docs/design/10-安全模型.md`） |
+| Q2 | Capability Hub 是独立包还是合并到 Dashboard？ | 架构 | 非阻塞 | 待定 |
+| Q3 | Plugin 脚本采用什么沙箱机制？ | 工程 | 非阻塞 | 待定 |
+| Q4 | ClientAgent 与 Capability Hub 断连后的重连和缓存策略？ | 工程 | 非阻塞 | 待定 |
+| Q5 | StatelessAgent 是否允许调用 ClientAgent 的本地命令能力？ | 产品 | 非阻塞 | 待定 |
 
 ---
 
 ## 附录 A：产品架构概览
 
 ```
-用户交互层    CLI 命令行 / Web 面板 / npm install
-    │
-    ▼
-产品包层      @agentforge/cli / @agentforge/sdk / @agentforge/dashboard
-    │
-    ▼
-基础层        @agentforge/core (运行时) + @agentforge/types (类型)
-    │
-    ▼
-Agent 产出层  各个生成的 Agent 包 (npm / HTTP / CLI)
-    │
-    ▼
-编排层        Pipeline (串行/并行/分支/回退) + EventBus + Direct
-    │
-    ▼
-外部 Provider OpenAI / Anthropic / Ollama / Custom API
+用户交互层
+├── CLI (agentforge create / run / dashboard)
+└── Capability Hub Web 面板
+              │
+              ▼
+平台层
+├── @agentforge/cli         # 生成客户端应用、启动守护进程、启动 Hub
+├── @agentforge/sdk         # 编排 StatelessAgent、与 ClientAgent 通信
+└── @agentforge/dashboard   # Capability Hub 可视化界面 + 后端
+              │
+              ▼
+运行时层
+├── @agentforge/core        # IAgent、BaseAgent、Provider 适配
+├── @agentforge/runtime-client   # ClientAgent 本地运行时、能力缓存、远程控制
+└── StatelessAgent          # 进程内无状态 Agent，由 SDK 编排
+              │
+              ▼
+外部 Provider
+├── OpenAI / Anthropic / Ollama / Custom API
 ```
 
 ## 附录 B：设计文档索引
 
 | 文档 | 说明 |
 |---|---|
-| [01-核心设计.md](../design/01-核心设计.md) | IAgent 接口、数据模型、Pipeline 类型、调试台类型 |
-| [02-单个Agent功能.md](../design/02-单个Agent功能.md) | Agent 十大能力详解 |
-| [03-生成引擎.md](../design/03-生成引擎.md) | 生成流程、Prompt 策略、模板库 |
-| [04-集成与编排.md](../design/04-集成与编排.md) | 三种集成模式 + 三种编排模式 |
-| [05-CLI与API.md](../design/05-CLI与API.md) | CLI 命令 + HTTP/WebSocket API |
-| [06-可视化面板.md](../design/06-可视化面板.md) | Dashboard 设计 + 调试台 + 部署监控 |
-| [07-技术选型与架构.md](../design/07-技术选型与架构.md) | 依赖选型 + Monorepo 结构 |
-| [TECH-DESIGN.md](../design/TECH-DESIGN.md) | 技术设计文档（详细实现方案） |
+| [01-核心设计.md](../design/01-核心设计.md) | IAgent 接口、ClientAgent/StatelessAgent 类型、数据模型 |
+| [02-单个Agent功能.md](../design/02-单个Agent功能.md) | ClientAgent 与 StatelessAgent 核心能力 |
+| [03-生成引擎.md](../design/03-生成引擎.md) | 生成客户端应用的流程与产物 |
+| [04-集成与编排.md](../design/04-集成与编排.md) | ClientAgent 运行、SDK 编排、Capability Hub 集成 |
+| [05-CLI与API.md](../design/05-CLI与API.md) | CLI 命令、Capability Hub API、WebSocket 控制协议 |
+| [06-可视化面板.md](../design/06-可视化面板.md) | Capability Hub 页面设计与远程控制 |
+| [07-技术选型与架构.md](../design/07-技术选型与架构.md) | 依赖选型、Monorepo 结构、生成项目结构 |
+| [08-客户端Agent与无状态Agent.md](../design/08-客户端Agent与无状态Agent.md) | 两种 Agent 形态的分野与选择 |
+| [09-能力市场与下发.md](../design/09-能力市场与下发.md) | Tool/Skill/Plugin 管理与下发协议 |
+| [10-安全模型.md](../design/10-安全模型.md) | 本地命令授权、能力下发安全、认证鉴权 |
+| [TECH-DESIGN.md](../design/TECH-DESIGN.md) | 系统架构总览与跨模块决策 |

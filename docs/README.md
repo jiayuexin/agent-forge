@@ -34,14 +34,14 @@
 
 ## 三层文档索引
 
-### 第一层 · 产品需求 — [product/](./product/)
+### 第一层 · 产品需求 — [product/README.md](./product/README.md)
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|
 | [PRD.md](./product/PRD.md) | 产品需求 | 已定稿 | 问题陈述、产品目标、非目标、开放问题 |
 | [08-需求与路线图.md](./product/08-需求与路线图.md) | 产品需求 | 已定稿 | 用户故事、需求规格、路线图、成功指标 |
 
-### 第二层 · 设计规格 — [design/](./design/)
+### 第二层 · 设计规格 — [design/README.md](./design/README.md)
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|
@@ -57,7 +57,7 @@
 
 架构全景图：[TECH-DESIGN.md §2](./design/TECH-DESIGN.md#2-系统架构)
 
-### 第三层 · 操作手册 — [ops/](./ops/)
+### 第三层 · 操作手册 — [ops/README.md](./ops/README.md)
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|

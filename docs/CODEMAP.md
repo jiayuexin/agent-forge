@@ -291,7 +291,7 @@ approved === true
 packages/sdk/src/planner/PlanExecutor.ts 执行计划
 ```
 
-### 7. 失败重新规划
+### 8. 失败重新规划
 
 ```
 PlanStep 执行失败
@@ -305,7 +305,7 @@ packages/sdk/src/planner/PlannerAgent.ts.replan(failedStep, context)
 继续执行新计划
 ```
 
-### 8. Pipeline 底层控制信号（固定流程使用）
+### 9. Pipeline 底层控制信号（固定流程使用）
 
 ```
 Agent.doExecute()

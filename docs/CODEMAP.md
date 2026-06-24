@@ -18,7 +18,7 @@
 - 实现状态：`docs/STATUS.md`
 - 类型权威：`docs/design/01-核心设计.md`
 - 架构总览：`docs/design/TECH-DESIGN.md`
-- 项目指引：`CLAUDE.md`
+- 项目指引：`../CLAUDE.md`
 
 ---
 
@@ -113,12 +113,12 @@ agentforge/
 - **关键文件（planned）**：
   - `packages/sdk/src/index.ts` — 统一导出
   - `packages/sdk/src/AgentFramework.ts` — 框架主类
-  - `packages/sdk/src/discovery/CapabilityRegistry.ts` — 能力注册表
+  - `packages/sdk/src/CapabilityRegistry.ts` — 能力注册表
   - `packages/sdk/src/planner/PlannerAgent.ts` — 规划 Agent
   - `packages/sdk/src/planner/PlanExecutor.ts` — 计划执行器
   - `packages/sdk/src/Pipeline.ts` — Pipeline 底层执行引擎
   - `packages/sdk/src/EventBus.ts` — 事件总线
-  - `packages/sdk/src/ModelRegistry.ts` — 多端点模型解析
+  - `packages/sdk/src/ModelRegistry.ts` — 多端点模型解析（实现类）
 - **设计权威**：`docs/design/04-集成与编排.md`、`docs/design/TECH-DESIGN.md` §5
 
 ### `@agentforge/cli`
@@ -151,26 +151,21 @@ agentforge/
   - `packages/dashboard/src/main.tsx` — 入口
   - `packages/dashboard/src/App.tsx` — 根组件
   - `packages/dashboard/src/pages/Home.tsx` — 首页 `/`
-  - `packages/dashboard/src/pages/AgentList.tsx` — ClientAgent 模板列表 `/agents`
-  - `packages/dashboard/src/pages/AgentCreate.tsx` — 创建 ClientAgent `/agents/create`
+  - `packages/dashboard/src/pages/ClientAgentList.tsx` — ClientAgent 模板列表 `/client-agents`
+  - `packages/dashboard/src/pages/ClientAgentDetail.tsx` — 模板详情/配置 `/client-agents/:id`
+  - `packages/dashboard/src/pages/ClientAgentCreate.tsx` — 创建 ClientAgent `/client-agents/create`
   - `packages/dashboard/src/pages/NodeList.tsx` — 节点列表 `/nodes`
   - `packages/dashboard/src/pages/NodeDetail.tsx` — 节点详情 `/nodes/:id`
-  - `packages/dashboard/src/pages/CapabilityList.tsx` — 能力市场 `/capabilities`
+  - `packages/dashboard/src/pages/NodeChat.tsx` — 节点对话 `/nodes/:id/chat`
+  - `packages/dashboard/src/pages/CapabilityList.tsx` — 能力管理 `/capabilities`
+  - `packages/dashboard/src/pages/CapabilityMarket.tsx` — 能力市场 `/capabilities/market`
+  - `packages/dashboard/src/pages/CapabilityDetail.tsx` — 能力详情/版本管理 `/capabilities/:id`
+  - `packages/dashboard/src/pages/CapabilityDistribute.tsx` — 下发能力 `/capabilities/:id/distribute`
   - `packages/dashboard/src/pages/Playground.tsx` — 调试台 `/playground`
   - `packages/dashboard/src/pages/Monitor.tsx` — 监控 `/monitor`
   - `packages/dashboard/src/api/` — 后端 API 调用
   - `packages/dashboard/src/store/` — Zustand 状态管理
 - **设计权威**：`docs/design/06-可视化面板.md`、`docs/design/09-能力市场与下发.md`、`docs/design/TECH-DESIGN.md` §8
-
-### `@agentforge/runtime-client`
-
-- **职责**：客户端运行时。每个生成的 ClientAgent 依赖此包，用于连接 Capability Hub 并接收远程控制。
-- **关键文件（planned）**：
-  - `packages/runtime-client/src/AgentRuntimeClient.ts` — 运行时主类
-  - `packages/runtime-client/src/WebSocketTransport.ts` — WebSocket 连接管理
-  - `packages/runtime-client/src/HeartbeatManager.ts` — 心跳管理
-  - `packages/runtime-client/src/index.ts` — 统一导出
-- **设计权威**：`docs/design/05-CLI与API.md`、`docs/design/06-可视化面板.md`、`docs/design/01-核心设计.md` §1.13
 
 ---
 
@@ -181,15 +176,15 @@ agentforge/
 | `IAgent` / `AgentStatus` / `AgentCapability` | `01-核心设计.md` §1.1 | `types` / `core` | `packages/types/src/agent.ts` | [planned] |
 | `AgentConfig` / `ModelConfig` | `01-核心设计.md` §1.2 | `types` | `packages/types/src/config.ts` | [planned] |
 | `AgentTask` / `Message` | `01-核心设计.md` §1.3 | `types` | `packages/types/src/task.ts` | [planned] |
-| `ModelRegistry` / `ModelEndpoint` / `ModelRef` | `01-核心设计.md` §1.4 | `types` / `sdk` | `packages/types/src/model-registry.ts` | [planned] |
-| `AgentResult` / `Artifact` / `ToolCallRecord` | `01-核心设计.md` §1.5 | `types` | `packages/types/src/result.ts` | [planned] |
+| `ModelRegistry` / `ModelEndpoint` / `ModelRef` | `01-核心设计.md` §1.4 | `types` / `sdk` | `packages/types/src/model-registry.ts`（类型） / `packages/sdk/src/ModelRegistry.ts`（实现） | [planned] |
+| `AgentResult` / `AgentError` / `Artifact` / `ToolCallRecord` | `01-核心设计.md` §1.5 | `types` | `packages/types/src/result.ts` | [planned] |
 | `IPlugin` / `Middleware` / `MiddlewareChain` | `01-核心设计.md` §1.6 | `core` | `packages/core/src/plugin/IPlugin.ts` / `packages/core/src/runtime/MiddlewareChain.ts` | [planned] |
-| `AgentMeta` / `AgentTemplate` / `ExecutionRecord` | `01-核心设计.md` §1.7 | `types` | `packages/types/src/models.ts` | [planned] |
+| `AgentMeta` / `AgentTemplate` / `ExecutionRecord` / `AgentNode` / `AgentNodeStatus` / `AgentLifeCycle` | `01-核心设计.md` §1.7 | `types` | `packages/types/src/models.ts` | [planned] |
 | `PipelineControlSignal` / `StepSnapshot` / `BacktrackEvent` | `01-核心设计.md` §1.8 | `types` / `sdk` | `packages/types/src/pipeline.ts` | [planned] |
 | `DebugConfig` / `InjectedTool` / `MockToolConfig` / `CallTrace` | `01-核心设计.md` §1.9 | `types` | `packages/types/src/debug.ts` | [planned] |
 | `IProvider` / `ChatParams` / `ChatResponse` / `ChatChunk` | `01-核心设计.md` §1.10 | `core` / `types` | `packages/core/src/provider/IProvider.ts` | [planned] |
-| `FrameworkConfig` / `StepOptions` / `ParallelStep` / `ForkBranch` | `01-核心设计.md` §1.11 | `sdk` / `types` | `packages/sdk/src/framework/types.ts` | [planned] |
-| `Capability` / `CapabilityRegistry` / `ExecutionPlan` / `PlanStep` / `PlanResult` / `IPlannerAgent` / `IPlanExecutor` / `ApprovalHandler` / `ApprovalResult` | `01-核心设计.md` §1.12 | `types` / `sdk` | `packages/types/src/orchestration.ts` / `packages/sdk/src/planner/` | [planned] |
+| `FrameworkConfig` / `StepOptions` / `ParallelStep` / `ForkBranch` / `AgentRegistry` | `01-核心设计.md` §1.11 | `sdk` / `types` | `packages/sdk/src/framework/types.ts` | [planned] |
+| `Capability` / `CapabilityRegistry` / `ExecutionPlan` / `PlanStep` / `PlanResult` / `IPlannerAgent` / `IPlanExecutor` / `ApprovalHandler` / `ApprovalResult` | `01-核心设计.md` §1.12 | `types` / `sdk` | `packages/types/src/orchestration.ts` / `packages/sdk/src/CapabilityRegistry.ts` / `packages/sdk/src/planner/` | [planned] |
 | `AgentRuntimeConfig` / `RemoteTask` / `ControlMessage` / `AgentMessage` / `IAgentRuntimeClient` | `01-核心设计.md` §1.13 | `types` / `runtime-client` | `packages/types/src/runtime.ts` / `packages/runtime-client/src/` | [planned] |
 | `AgentNode` | `01-核心设计.md` §1.7 | `types` / `dashboard` | `packages/types/src/models.ts` / `packages/dashboard/src/store/` | [planned] |
 
@@ -220,7 +215,7 @@ packages/core/src/generator/CodeEmitter.ts
         ↓
 packages/sdk/src/AgentFramework.ts
         ↓
-packages/sdk/src/discovery/CapabilityRegistry.ts  ──→ 生成能力清单
+packages/sdk/src/CapabilityRegistry.ts  ──→ 生成能力清单
         ↓
 packages/sdk/src/planner/PlannerAgent.ts  ──→ 生成 ExecutionPlan
         ↓
@@ -346,12 +341,12 @@ packages/sdk/src/Pipeline.ts 读取 control
 | 命令 | 计划实现文件 | 设计来源 | 说明 |
 |---|---|---|---|
 | `agentforge create` | `packages/cli/src/commands/create.ts` | `05-CLI与API.md` §5.1 / `03-生成引擎.md` | 生成 ClientAgent |
-| `agentforge run` | `packages/cli/src/commands/run.ts` | `05-CLI与API.md` §5.2 | 启动 ClientAgent 守护进程 |
-| `agentforge dashboard` | `packages/cli/src/commands/dashboard.ts` | `05-CLI与API.md` §5.3 | 启动 Capability Hub |
-| `agentforge capability` | `packages/cli/src/commands/capability.ts` | `05-CLI与API.md` §5.4 / `09-能力市场与下发.md` | 能力市场管理 |
-| `agentforge batch` | `packages/cli/src/commands/batch.ts` | `05-CLI与API.md` §5.5 | 批量生成 ClientAgent |
-| `agentforge serve` | `packages/cli/src/commands/serve.ts` | `05-CLI与API.md` §5.6 | 本地调试 HTTP 服务（可选） |
-| `agentforge list` | `packages/cli/src/commands/list.ts` | `05-CLI与API.md` §5.7 | 列出已生成的 ClientAgent |
+| `agentforge run` | `packages/cli/src/commands/run.ts` | `05-CLI与API.md` §5.1 | 启动 ClientAgent 守护进程 |
+| `agentforge dashboard` | `packages/cli/src/commands/dashboard.ts` | `05-CLI与API.md` §5.1 | 启动 Capability Hub |
+| `agentforge capability` | `packages/cli/src/commands/capability.ts` | `05-CLI与API.md` §5.1 / `09-能力市场与下发.md` | 能力市场管理 |
+| `agentforge batch` | `packages/cli/src/commands/batch.ts` | `05-CLI与API.md` §5.1 | 批量生成 ClientAgent |
+| `agentforge serve` | `packages/cli/src/commands/serve.ts` | `05-CLI与API.md` §5.1 | 本地调试 HTTP 服务（可选） |
+| `agentforge list` | `packages/cli/src/commands/list.ts` | `05-CLI与API.md` §5.1 | 列出已生成的 ClientAgent |
 
 ### ClientAgent 本地调试 HTTP API（`agentforge serve`，可选）
 
@@ -369,11 +364,16 @@ packages/sdk/src/Pipeline.ts 读取 control
 | 路由 | 页面组件 | 功能 |
 |---|---|---|
 | `/` | `packages/dashboard/src/pages/Home.tsx` | 项目概览 |
-| `/agents` | `packages/dashboard/src/pages/AgentList.tsx` | ClientAgent 模板列表 |
-| `/agents/create` | `packages/dashboard/src/pages/AgentCreate.tsx` | 创建 ClientAgent |
+| `/client-agents` | `packages/dashboard/src/pages/ClientAgentList.tsx` | ClientAgent 模板列表 |
+| `/client-agents/:id` | `packages/dashboard/src/pages/ClientAgentDetail.tsx` | 模板详情与配置 |
+| `/client-agents/create` | `packages/dashboard/src/pages/ClientAgentCreate.tsx` | 创建 ClientAgent |
 | `/nodes` | `packages/dashboard/src/pages/NodeList.tsx` | 已连接 ClientAgent 节点 |
 | `/nodes/:id` | `packages/dashboard/src/pages/NodeDetail.tsx` | 节点详情与远程控制 |
-| `/capabilities` | `packages/dashboard/src/pages/CapabilityList.tsx` | 能力市场 |
+| `/nodes/:id/chat` | `packages/dashboard/src/pages/NodeChat.tsx` | 与节点上的 Agent 对话 |
+| `/capabilities` | `packages/dashboard/src/pages/CapabilityList.tsx` | 能力管理 |
+| `/capabilities/market` | `packages/dashboard/src/pages/CapabilityMarket.tsx` | 能力市场 |
+| `/capabilities/:id` | `packages/dashboard/src/pages/CapabilityDetail.tsx` | 能力详情/版本管理 |
+| `/capabilities/:id/distribute` | `packages/dashboard/src/pages/CapabilityDistribute.tsx` | 下发能力 |
 | `/playground` | `packages/dashboard/src/pages/Playground.tsx` | 调试台 |
 | `/monitor` | `packages/dashboard/src/pages/Monitor.tsx` | 监控 |
 
@@ -412,7 +412,7 @@ packages/sdk/src/Pipeline.ts 读取 control
 
 - `docs/README.md` — 文档导航
 - `docs/STATUS.md` — 实现状态追踪
-- `CLAUDE.md` — Claude Code 项目指引
+- `../CLAUDE.md` — Claude Code 项目指引
 - `docs/design/01-核心设计.md` — 核心类型权威定义
 - `docs/design/TECH-DESIGN.md` — 系统架构总览
 - `docs/design/04-集成与编排.md` — 集成模式与 Pipeline 编排

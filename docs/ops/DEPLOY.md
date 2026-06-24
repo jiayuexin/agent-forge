@@ -221,7 +221,7 @@ curl http://localhost:3001/api/health
 生产环境使用 pino 输出 JSON 结构化日志：
 
 ```json
-{"level":"info","msg":"ClientAgent connected to Hub","nodeId":"client-dev-01","hubUrl":"wss://hub.example.com"}
+{"level":"info","msg":"ClientAgent connected to Hub","nodeId":"client-dev-machine-a1b2c3d","hubUrl":"wss://hub.example.com"}
 ```
 
 ### 指标

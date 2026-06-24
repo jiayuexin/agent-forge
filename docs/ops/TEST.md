@@ -4,9 +4,9 @@
 >
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 测试策略
-> **文档状态**: 已定稿
+> **文档状态**: 草案
 > **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-23
+> **最后更新**: 2026-06-24
 > **实现状态**: 未开始
 
 ## 测试总览
@@ -16,7 +16,7 @@ AgentForge 使用 **Vitest** 作为测试框架，采用分层测试策略覆盖
 | 统计项 | 数值 |
 |---|---|
 | 测试框架 | Vitest ^2.0 |
-| 目标测试数 | 79 |
+| 目标测试数 | 82 |
 | 覆盖包 | `@agentforge/core`、`@agentforge/sdk`、`@agentforge/runtime-client` |
 
 ### 测试分层
@@ -83,8 +83,8 @@ pnpm vitest run packages/core/
 
 | 文件路径 | 包 | 层级 | 测试数 | 覆盖内容 |
 |---|---|---|---|---|
-| `packages/core/src/agent/__tests__/BaseAgent.test.ts` | core | Unit | 44 | AgentLifeCycle 状态机 (15) + BaseAgent 生命周期 (29) |
-| `packages/sdk/src/__tests__/Pipeline.test.ts` | sdk | Unit | 31 | EventBus (12) + Pipeline (12) + AgentFramework (8) — *注：含部分重叠计数* |
+| `packages/core/src/agent/__tests__/BaseAgent.test.ts` | core | Unit | 46 | AgentLifeCycle 状态机 (17) + BaseAgent 生命周期 (29) |
+| `packages/sdk/src/__tests__/Pipeline.test.ts` | sdk | Unit | 32 | EventBus (12) + Pipeline (12) + AgentFramework (8) — *注：含部分重叠计数* |
 | `packages/core/src/generator/__tests__/generator.e2e.test.ts` | core | E2E | 2 | AgentGenerator 单个生成 + 批量生成 |
 | `packages/sdk/src/__tests__/integration.test.ts` | sdk | Integration | 2 | 3-Agent Pipeline 协作 + 事件发射 |
 
@@ -92,12 +92,12 @@ pnpm vitest run packages/core/
 
 ## 单元测试详解
 
-### AgentLifeCycle 状态机（15 tests）
+### AgentLifeCycle 状态机（17 tests）
 
-测试 `AgentLifeCycle` 类的 7 状态转换规则:
+测试 `AgentLifeCycle` 类的 8 状态转换规则（含 ClientAgent 专属的 `daemon-running`）：
 
 ```
-UNINITIALIZED → INITIALIZING → READY ⇄ RUNNING
+UNINITIALIZED → INITIALIZING → READY → DAEMON_RUNNING ⇄ RUNNING
                               ↓         ↓
                             ERROR ←── PAUSED
                               ↓
@@ -106,8 +106,8 @@ UNINITIALIZED → INITIALIZING → READY ⇄ RUNNING
 
 | 测试组 | 测试内容 |
 |---|---|
-| 合法转换 | `UNINITIALIZED → INITIALIZING`、`INITIALIZING → READY`、`INITIALIZING → ERROR`、`READY → RUNNING`、`RUNNING → READY`、`RUNNING → PAUSED`、`RUNNING → ERROR`、`PAUSED → RUNNING`、`ERROR → READY`、任意状态 → `DESTROYED` |
-| 非法转换 | 从 `UNINITIALIZED` 直接到 `READY`/`RUNNING` 抛 `AgentStatusError` |
+| 合法转换 | `UNINITIALIZED → INITIALIZING`、`INITIALIZING → READY`、`INITIALIZING → ERROR`、`READY → RUNNING`、`READY → DAEMON_RUNNING`、`DAEMON_RUNNING → RUNNING`、`RUNNING → DAEMON_RUNNING`、`RUNNING → READY`、`RUNNING → PAUSED`、`RUNNING → ERROR`、`PAUSED → RUNNING`、`ERROR → READY`、任意状态 → `DESTROYED` |
+| 非法转换 | 从 `UNINITIALIZED` 直接到 `READY`/`RUNNING` 抛 `AgentError` |
 | 边界情况 | `DESTROYED` 后不可再转换、`canTransition()` 返回值、`assertStatus()` 断言 |
 
 ### BaseAgent 核心（29 tests）
@@ -256,45 +256,56 @@ class MockAgent extends BaseAgent<AgentConfig> {
 
 ### GitHub Actions
 
-`.github/workflows/ci.yml` 定义了 CI 流水线:
+完整 CI/CD 流水线定义参见 [`docs/design/TECH-DESIGN.md` §15.3](../design/TECH-DESIGN.md#153-cicd-pipeline)。本节仅保留与测试直接相关的阶段说明。
 
 ```yaml
+# .github/workflows/ci.yml
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  release:
+    types: [published]
 
 jobs:
-  build-and-test:
+  lint-typecheck-test-build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18, 20]
-
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 8
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20
           cache: pnpm
-
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run type-check
+      - run: pnpm run test
       - run: pnpm run build
-      - run: pnpm test
+
+  e2e:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: lint-typecheck-test-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run test:e2e
 ```
 
 ### CI 执行顺序
 
 ```
-install → lint → type-check → build → test
+install → lint → type-check → test → build
 ```
 
 | 步骤 | 命令 | 说明 |
@@ -302,14 +313,14 @@ install → lint → type-check → build → test
 | 1 | `pnpm install --frozen-lockfile` | 严格按 lockfile 安装依赖 |
 | 2 | `pnpm run lint` | ESLint 全仓代码检查 |
 | 3 | `pnpm run type-check` | 全包 TypeScript 类型检查（`tsc --noEmit`） |
-| 4 | `pnpm run build` | 全包构建（tsup 后端 + vite 前端） |
-| 5 | `pnpm test` | 运行 Vitest 全部测试 |
+| 4 | `pnpm run test` | 运行 Vitest 全部测试 |
+| 5 | `pnpm run build` | 全包构建（tsup 后端 + vite 前端） |
 
-> **注意:** 测试在 build 之后运行，因为部分测试依赖编译产物。
+> **注意:** 测试在 build 之前运行；E2E 测试在 `main` 分支推送时触发。
 
 ### Node.js 版本矩阵
 
-CI 同时测试 Node.js 18 和 20 两个版本，确保兼容性。
+CI 使用 Node.js 20 运行全部检查，与 `docs/design/TECH-DESIGN.md` §15.3 保持一致。
 
 ---
 

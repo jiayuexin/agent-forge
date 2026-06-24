@@ -1,7 +1,7 @@
 # 文档状态总表
 
 > **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-23
+> **最后更新**: 2026-06-24
 
 | 文档 | 层级 | 类型 | 文档状态 | 实现状态 |
 |---|---|---|---|---|
@@ -54,7 +54,15 @@
 | 主要运行命令 | `agentforge run ./client-agents/<name>` | ops/GUIDE、05-CLI与API |
 | Hub 启动命令 | `agentforge dashboard` | ops/GUIDE、05-CLI与API |
 | ClientAgent 连接端点 | `wss://<hub>/ws/nodes/:nodeId` | 01-核心设计、05-CLI与API、08-客户端Agent |
-| Dashboard 创建页路由 | `/agents/create` | 06-可视化面板、CODEMAP |
+| Dashboard 创建页路由 | `/client-agents/create` | 06-可视化面板、CODEMAP、TECH-DESIGN |
 | 本地调试 HTTP 服务命令 | `agentforge serve`（可选，非主要生产路径） | 04-集成与编排、05-CLI与API、ops/GUIDE |
 | 单 Agent `/api/health` | 轻量探活，`{ "status": "ok" }` | design/05 §5.3.1、ops/GUIDE |
 | Vitest 版本 | `^2.0` | ops/TEST |
+| `AgentStatus` 枚举 | 含 `daemon-running`，与 `02-单个Agent功能.md` 一致 | design/01 §1.1 |
+| `AgentNodeStatus` | 定义为 `'online' \| 'offline' \| 'busy' \| 'error'`，用于 `AgentNode.status`，并通过 `AgentMessage.payload` 上报 | design/01 §1.7、§1.13 |
+| `CapabilityDistributePayload` | 含 `targetVersion?: string` | design/01 §1.13、design/09 |
+| `CapabilityAckPayload` | 含 `installedVersion?: string` | design/01 §1.13、design/09 |
+| `requireLocalConfirmation` | 类型为 `string[]`（敏感操作标签列表） | design/01 §1.13、design/02、ops/DEPLOY、design/附录-生成示例 |
+| `FrameworkConfig` | 含 `maxToolCalls?: number` 与 `onError?: (error: AgentError) => void` | design/01 §1.11、TECH-DESIGN |
+| `AgentEvent` | 含 ClientAgent 专属事件 `agent:capability:installed`、`agent:hub:connected`、`agent:hub:disconnected` | design/01 §1.1、design/02 |
+| ClientAgent 核心依赖上限 | ≤ 2 个（`@agentforge/core` + `@agentforge/runtime-client`） | README、design/TECH-DESIGN、product/08 |

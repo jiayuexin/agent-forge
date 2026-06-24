@@ -4,7 +4,7 @@
 > **文档类型**: 设计规格
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-23
+> **最后更新**: 2026-06-24
 > **实现状态**: 未开始
 > **配套文档**: [PRD.md](../product/PRD.md)（产品需求）、[01-核心设计.md](./01-核心设计.md)（接口定义）、[08-客户端Agent与无状态Agent.md](./08-客户端Agent与无状态Agent.md)（形态分野）、[09-能力市场与下发.md](./09-能力市场与下发.md)（能力模型）、[10-安全模型.md](./10-安全模型.md)（安全设计）
 
@@ -152,6 +152,7 @@ agentforge/
 │   │   └── src/
 │   │       ├── AgentFramework.ts   # 框架主类
 │   │       ├── CapabilityRegistry.ts
+│   │       ├── ModelRegistry.ts    # 多端点模型解析（实现类）
 │   │       ├── planner/            # PlannerAgent + PlanExecutor
 │   │       ├── Pipeline.ts         # 流水线
 │   │       ├── EventBus.ts
@@ -165,9 +166,14 @@ agentforge/
 │   │       └── index.ts
 │   ├── cli/                   # CLI 工具
 │   │   └── src/commands/      # create, batch, run, serve, dashboard, capability
+│   ├── http-server/           # ClientAgent 本地调试 HTTP 服务（可选）
+│   │   └── src/
+│   │       ├── server.ts
+│   │       ├── routes/agents.ts
+│   │       └── routes/health.ts
 │   └── dashboard/             # Capability Hub 面板 + 后端
 │       ├── src/
-│       │   ├── pages/         # Home, ClientAgentList, CapabilityList, NodeList, Playground, Monitor
+│       │   ├── pages/         # Home, ClientAgentList, ClientAgentCreate, ClientAgentDetail, CapabilityList, CapabilityMarket, CapabilityDetail, CapabilityDistribute, NodeList, NodeDetail, NodeChat, Playground, Monitor
 │       │   ├── components/
 │       │   ├── api/
 │       │   └── store/
@@ -193,67 +199,32 @@ agentforge/
 
 ### 3.1 IAgent 接口
 
-所有 Agent 的统一契约。AgentForge 中存在两种实现形态：
+`IAgent` 是 AgentForge 的核心契约，所有 Agent 的统一接口。完整定义见 [01-核心设计.md §1.1](./01-核心设计.md#11-IAgent统一接口)。
+
+AgentForge 中存在两种实现形态：
 
 - **ClientAgent**：运行在用户机器上的客户端应用，有状态，可连接 Capability Hub。
 - **StatelessAgent**：由 SDK 在进程内实例化的无状态 Agent，用于编排工作流。
 
-```typescript
-interface IAgent<TConfig extends AgentConfig = AgentConfig> {
-  readonly id: string;
-  readonly name: string;
-  readonly role: string;
-  readonly version: string;
-  readonly capabilities: AgentCapability[];
-  readonly status: AgentStatus;
-
-  init(config: TConfig): Promise<void>;
-  execute(task: AgentTask): Promise<AgentResult>;
-  stream(task: AgentTask): AsyncIterable<AgentStreamChunk>;
-  destroy(): Promise<void>;
-  use(plugin: IPlugin): this;
-  on(event: AgentEvent, handler: EventHandler): this;
-  off(event: AgentEvent, handler: EventHandler): this;
-}
-```
-
 **状态机：**
 ```
 UNINITIALIZED → INITIALIZING → READY → RUNNING → READY
+                              ↓        ↑
+                         DAEMON_RUNNING ┘
                                        → ERROR → READY
                                        → PAUSED → RUNNING
                                   → DESTROYED（不可逆）
 ```
 
-ClientAgent 在标准状态机之外增加 `daemon-running` 状态。
+`daemon-running` 为 ClientAgent 守护进程状态：守护进程已启动，等待远程或本地任务。
 
 ### 3.2 AgentConfig（多 Provider 联合类型）
 
-```typescript
-type ModelConfig =
-  | { provider: 'openai';    modelName: string; apiKey: string; baseUrl?: string }
-  | { provider: 'anthropic'; modelName: string; apiKey: string; baseUrl?: string }
-  | { provider: 'ollama';    modelName: string; baseUrl?: string }
-  | { provider: string;      modelName: string; apiKey?: string; baseUrl?: string; [key: string]: any };
-
-interface AgentConfig {
-  model: ModelConfig;
-  systemPrompt: string;
-  tools?: ToolDefinition[];
-  middlewares?: MiddlewareConfig[];
-  custom?: Record<string, any>;
-}
-```
+`AgentConfig` 与 `ModelConfig` 类型定义见 [01-核心设计.md §1.2](./01-核心设计.md#12-AgentConfig配置模型)。
 
 ### 3.3 Provider 适配器
 
-```typescript
-interface IProvider {
-  chat(params: ChatParams): Promise<ChatResponse>;
-  chatStream(params: ChatParams): AsyncIterable<ChatChunk>;
-  validate(): Promise<boolean>;
-}
-```
+`IProvider` 接口定义见 [01-核心设计.md §1.10](./01-核心设计.md#110-IProvider接口与聊天类型)。
 
 Provider 工厂根据 `config.model.provider` 自动选择对应实现：
 
@@ -289,7 +260,7 @@ abstract class BaseAgent implements IAgent {
     // 3. 验证状态
     await this.provider.validate();
     this._status = AgentStatus.READY;
-    this.emit('initialized');
+    this.emit('agent:init');
   }
 
   async execute(task: AgentTask): Promise<AgentResult> {
@@ -302,12 +273,12 @@ abstract class BaseAgent implements IAgent {
       // 3. after 中间件链
       const finalResult = await this.middlewareChain.runAfter(result, task);
       this._status = AgentStatus.READY;
-      this.emit('after:execute', { task, result: finalResult });
+      this.emit('agent:execute:end', { task, result: finalResult });
       return finalResult;
     } catch (error) {
       this._status = AgentStatus.ERROR;
       const result = await this.middlewareChain.runOnError(error, task);
-      this.emit('error', { error, task });
+      this.emit('agent:error', { error, task });
       return result;
     }
   }
@@ -318,14 +289,9 @@ abstract class BaseAgent implements IAgent {
 
 ### 3.5 中间件链
 
-```typescript
-interface Middleware {
-  name: string;
-  before?: (task: AgentTask) => Promise<AgentTask>;
-  after?: (result: AgentResult, task: AgentTask) => Promise<AgentResult>;
-  onError?: (error: Error, task: AgentTask) => Promise<AgentResult>;
-}
+`Middleware` 类型定义见 [01-核心设计.md §1.6](./01-核心设计.md#16-IPlugin插件接口)。
 
+```typescript
 class MiddlewareChain {
   private middlewares: Middleware[] = [];
 
@@ -338,22 +304,7 @@ class MiddlewareChain {
 
 ### 3.6 插件系统
 
-```typescript
-interface IPlugin {
-  name: string;
-  version: string;
-  install(agent: IAgent, context: PluginContext): void;
-  uninstall?(agent: IAgent): void;
-}
-
-interface PluginContext {
-  registerTool(tool: ToolDefinition): void;
-  registerMiddleware(middleware: Middleware): void;
-  registerProvider(type: string, ctor: new (config: any) => IProvider): void;
-  config: AgentConfig;
-  logger: Logger;
-}
-```
+`IPlugin`、`PluginContext`、`ToolDefinition` 等类型定义见 [01-核心设计.md §1.6](./01-核心设计.md#16-IPlugin插件接口)。
 
 ---
 
@@ -490,6 +441,7 @@ Agent / Tool / Skill
 
 ```typescript
 class AgentFramework {
+  /** 已注册 Agent 映射表 — 类型定义见 [01-核心设计.md §1.11](./01-核心设计.md#111-Framework与编排类型) */
   private registry: AgentRegistry;
   private provider: IProvider;
   private planner: IPlannerAgent;
@@ -526,27 +478,9 @@ class AgentFramework {
 
 ### 5.3 CapabilityRegistry
 
+`Capability` 与 `CapabilityRegistry` 类型定义见 [01-核心设计.md §1.12](./01-核心设计.md#112-模型驱动编排类型)。
+
 `CapabilityRegistry` 发现、描述系统里所有可被编排器调用的能力：
-
-```typescript
-interface Capability {
-  id: string;
-  type: 'agent' | 'tool' | 'skill' | 'plugin';
-  name: string;
-  description: string;
-  inputSchema?: JSONSchema;
-  outputSchema?: JSONSchema;
-  tags?: string[];
-}
-
-interface CapabilityRegistry {
-  register(capability: Capability): void;
-  unregister(id: string): void;
-  list(filters?: { type?: string; tags?: string[] }): Capability[];
-  get(id: string): Capability | undefined;
-  toPrompt(): string; // 生成给 PlannerAgent 的能力清单
-}
-```
 
 能力来源：
 - `framework.register()` 注册的 Agent
@@ -555,28 +489,7 @@ interface CapabilityRegistry {
 
 ### 5.4 PlannerAgent
 
-PlannerAgent 接收用户任务 + 能力清单，输出结构化的 `ExecutionPlan`：
-
-```typescript
-interface ExecutionPlan {
-  goal: string;
-  capabilitiesUsed: string[];
-  steps: PlanStep[];
-  constraints?: PlanConstraints;
-}
-
-interface PlanStep {
-  id: string;
-  name: string;
-  capability: string;
-  type: 'agent' | 'tool' | 'skill';
-  task: string;
-  input: Record<string, any>;
-  dependsOn?: string[];
-  outputAs?: string;
-  fallback?: string;
-}
-```
+PlannerAgent 接收用户任务 + 能力清单，输出结构化的 `ExecutionPlan`。`ExecutionPlan` 与 `PlanStep` 类型定义见 [01-核心设计.md §1.12](./01-核心设计.md#112-模型驱动编排类型)。
 
 当步骤失败时，PlanExecutor 把错误反馈给 PlannerAgent，PlannerAgent 可以重新规划：
 
@@ -611,7 +524,7 @@ Pipeline 仍可直接使用，适用于固定、审计严格的流程。
 
 ### 5.7 模型注册表与路由
 
-`ModelRegistry` 集中管理多个模型端点，Agent 步骤只需引用模型名：
+`ModelRegistry` 集中管理多个模型端点，Agent 步骤只需引用模型名。类型定义见 `01-核心设计.md` §1.4；运行时实现位于 `packages/sdk/src/ModelRegistry.ts`，类型定义位于 `packages/types/src/model-registry.ts`。
 
 ```typescript
 const framework = new AgentFramework({
@@ -663,11 +576,13 @@ Commands:
   batch <config-file>     批量创建 ClientAgent（YAML/JSON）
   serve [agent-dir]       启动本地 HTTP 调试服务
   run <agent-path>        启动 ClientAgent 守护进程（连接 Capability Hub）
+  list                    列出已生成的 ClientAgent
   dashboard               启动 Capability Hub Web 面板
   capability              能力市场管理（publish / list / install / distribute）
 
 Options:
   --output, -o <dir>      输出目录（默认 ./client-agents）
+  --name, -n <name>       ClientAgent 名称（create 命令，默认从描述推导）
   --template, -t <id>     指定模板（默认自动匹配）
   --model, -m <name>      指定模型
   --connect <url>         Capability Hub WebSocket 端点（run 命令）
@@ -706,10 +621,11 @@ agentforge create "一个客服Agent，处理用户咨询和投诉"
 | `/api/status` | GET | 详细状态 | `{ status: 'ready' \| 'degraded' \| 'unhealthy', uptime: 3600 }` |
 | `/api/health` | GET | 轻量探活 | `{ status: 'ok' }` |
 | `/api/capabilities` | GET | 本地能力声明 | `AgentCapability[]` |
+| `/api/metrics` | GET | Prometheus 格式指标 | 文本指标 |
 
 ### 7.2 Capability Hub API
 
-> 完整 API 参见 [05-CLI与API.md](05-CLI与API.md)
+> 完整 API 参见 [05-CLI与API.md](./05-CLI与API.md)
 
 | 端点 | 方法 | 说明 |
 |---|---|---|
@@ -751,11 +667,14 @@ Capability Hub 的 Web 面板设计详见 [06-可视化面板.md](./06-可视化
 | `/` | Home | 项目概览、快捷入口 |
 | `/client-agents` | ClientAgentList | ClientAgent 模板列表、搜索、状态 |
 | `/client-agents/create` | ClientAgentCreate | 表单描述 → Prompt 预览 → 生成 |
+| `/client-agents/:id` | ClientAgentDetail | 模板详情/配置/版本管理 |
 | `/capabilities` | CapabilityList | 能力管理 |
 | `/capabilities/market` | CapabilityMarket | 能力市场 |
 | `/capabilities/:id` | CapabilityDetail | 能力详情/版本管理 |
+| `/capabilities/:id/distribute` | CapabilityDistribute | 下发能力到指定节点 |
 | `/nodes` | NodeList | 客户端节点列表 |
 | `/nodes/:id` | NodeDetail | 节点详情/远程控制 |
+| `/nodes/:id/chat` | NodeChat | 与节点实时对话 |
 | `/playground` | Playground | Agent 调试台（三栏布局） |
 | `/monitor` | Monitor | 运行指标、日志、告警 |
 
@@ -807,11 +726,13 @@ Capability Hub Server     Agent Node 1          Agent Node 2
 
 ### 9.2 注册发现
 
-- ClientAgent 启动时 POST `/api/nodes/register` 注册到 Capability Hub
+- ClientAgent 启动时通过 WebSocket 连接 `/ws/nodes/:nodeId`，发送注册消息完成注册
 - Capability Hub 分配唯一节点 ID，返回确认
-- ClientAgent 每 30 秒 POST `/api/nodes/:name/heartbeat` 上报心跳
+- ClientAgent 每 30 秒通过 WebSocket ping/pong 或控制消息上报心跳
 - Capability Hub 每 90 秒检查一次，超时标记节点为 `dead`
-- Capability Hub 指标轮询 GET `/api/metrics` 收集各节点运行数据
+- Capability Hub 通过 WebSocket 事件上报或轮询 `GET /api/metrics` 收集各节点运行数据
+
+> 注册与心跳协议详情见 [05-CLI与API.md §5.5](./05-CLI与API.md#55-WebSocket控制协议)。
 
 ---
 
@@ -930,12 +851,14 @@ tests/
 | `@agentforge/types` | npm public | 独立版本 |
 | `@agentforge/core` | npm public | 独立版本 |
 | `@agentforge/sdk` | npm public | 独立版本 |
+| `@agentforge/runtime-client` | npm public | 独立版本 |
 | `@agentforge/cli` | npm public | 独立版本 |
+| `@agentforge/http-server` | npm public | 独立版本 |
 | `@agentforge/dashboard` | npm public | 独立版本 |
 
 ### 14.2 依赖管理原则
 
-- 生成的 ClientAgent 核心依赖 ≤ 3 个（`@agentforge/core`、`@agentforge/runtime-client` + 选定的 Provider SDK）
+- 生成的 ClientAgent 核心依赖 ≤ 2 个（`@agentforge/core`、`@agentforge/runtime-client`；Provider SDK 作为 peerDependencies 由用户安装,不计入核心依赖）
 - Provider SDK 作为 peerDependencies，由用户安装
 - 框架内部包通过 pnpm workspace 协议引用
 
@@ -986,6 +909,8 @@ RUN pnpm run build
 # ---- Stage 2: Production ----
 FROM node:20-alpine AS runner
 
+ARG ENTRYPOINT=dashboard
+ENV ENTRYPOINT=$ENTRYPOINT
 WORKDIR /app
 
 RUN addgroup --system agentforge && adduser --system --ingroup agentforge agentforge
@@ -1006,7 +931,7 @@ USER agentforge
 
 EXPOSE 8080
 
-CMD ["node", "packages/cli/dist/index.js", "dashboard", "--port", "8080", "--host", "0.0.0.0"]
+CMD ["sh", "-c", "node packages/cli/dist/index.js \"$ENTRYPOINT\" --port 8080 --host 0.0.0.0"]
 ```
 
 ### 15.3 CI/CD Pipeline
@@ -1129,7 +1054,7 @@ jobs:
 
 **Readiness：** 所有已注册 Provider 的 `validate()` 方法通过。
 
-**端点：** 详细状态使用 `GET /api/status`；Docker/K8s 探活使用 `GET /api/health`（参见 [05-CLI与API.md §5.3.1](./05-CLI与API.md#531-健康检查端点说明)）。
+**端点：** 详细状态使用 `GET /api/status`；Docker/K8s 探活使用 `GET /api/health`（参见 [05-CLI与API.md §5.3.1 健康检查](./05-CLI与API.md#531-健康检查)）。
 
 **`GET /api/status` 响应示例：**
 
@@ -1417,11 +1342,13 @@ const delay = Math.min(
 
 **SDK 模式错误类型：**
 
+所有错误统一使用 [01-核心设计.md §1.5](./01-核心设计.md#15-AgentResult结果模型) 中的 `AgentError` 数据结构，通过 `code` 字段区分错误类别：
+
 ```
-AgentError (基类)
-  ├── ProviderError    — LLM Provider 调用失败
-  ├── ToolError        — 工具执行失败
-  └── PipelineError    — Pipeline 编排失败
+AgentError（统一错误结构）
+  ├── code = 'provider'    — LLM Provider 调用失败
+  ├── code = 'tool'        — 工具执行失败
+  └── code = 'pipeline'    — Pipeline 编排失败
 ```
 
 **HTTP 状态码映射：**
@@ -1436,7 +1363,7 @@ AgentError (基类)
 
 **断路器：** 连续 5 次失败后断开 30 秒，半开状态允许 1 次探测请求。
 
-**全局错误处理器：** `FrameworkConfig.onError` — 用户可注册自定义错误处理逻辑。
+**全局错误处理器：** `FrameworkConfig.onError` — 用户可注册自定义错误处理逻辑。类型定义见 [01-核心设计.md §1.11](./01-核心设计.md#111-Framework与编排类型)。
 
 ### 18.7 i18n / a11y
 
@@ -1605,14 +1532,12 @@ agentforge migrate --from 0.x --to 1.x
 | D4 | 模板引擎 | EJS | Handlebars/Markdown | EJS 支持完整 JS 语法 |
 | D5 | 数据存储 | 文件+内存 | SQLite/PostgreSQL | 最简设计，不引入数据库 |
 | D6 | Agent 形态 | ClientAgent + StatelessAgent | 单一 npm 包 | 支持本地运行和编排两种场景 |
-| D6 | 状态管理 | Zustand | Redux/Jotai | 轻量，适合中等规模面板 |
-| D7 | 测试框架 | Vitest | Jest | 更快的 ESM 支持 |
-| D8 | UI 组件 + 样式 | Ant Design + TailwindCSS | MUI / Chakra UI + CSS Modules | Ant Design 企业级组件丰富，TailwindCSS 补充原子化样式，兼顾效率与灵活 |
-| D9 | 数据持久化 | 文件 + 内存 | SQLite / Redis | 优先最小依赖和零运维，文件+内存满足当前需求；未来再引入 SQLite/Redis |
+| D7 | 状态管理 | Zustand | Redux/Jotai | 轻量，适合中等规模面板 |
+| D8 | 测试框架 | Vitest | Jest | 更快的 ESM 支持 |
+| D9 | UI 组件 + 样式 | Ant Design + TailwindCSS | MUI / Chakra UI + CSS Modules | Ant Design 企业级组件丰富，TailwindCSS 补充原子化样式，兼顾效率与灵活 |
 | D10 | Anthropic Function Call 适配层 | IProvider 统一抽象 + 适配器 | 直接集成 Anthropic SDK | Anthropic 的 tool_use 格式与 OpenAI 不同，通过 Provider 适配层抹平差异，上层代码无感知 |
-| D11 | Agent 形态 | ClientAgent + StatelessAgent | 单一 npm 包 | 支持本地运行和编排两种场景 |
-| D12 | 能力扩展 | Capability Hub 下发 | 预置固定能力 | 支持动态扩展和团队统一管理 |
-| D13 | 本地命令执行 | 默认禁用 + 分层授权 | 完全禁止或完全开放 | 平衡安全与灵活性 |
+| D11 | 能力扩展 | Capability Hub 下发 | 预置固定能力 | 支持动态扩展和团队统一管理 |
+| D12 | 本地命令执行 | 默认禁用 + 分层授权 | 完全禁止或完全开放 | 平衡安全与灵活性 |
 
 ## 附录 B：设计文档索引
 

@@ -26,8 +26,8 @@ export OPENAI_API_KEY="sk-xxx"
 # 生成 ClientAgent
 agentforge create "一个能执行 Git 命令的本地编程助手"
 
-# 启动守护进程
-agentforge run ./client-agents/my-agent
+# 启动守护进程（连接本地 Capability Hub）
+agentforge run ./client-agents/my-agent --connect ws://localhost:8080
 
 # 启动 Capability Hub（另一个终端）
 agentforge dashboard
@@ -48,6 +48,7 @@ agentforge create <description> [options]
 | 参数 | 说明 | 默认值 |
 |---|---|---|
 | `<description>` | Agent 的自然语言描述（必填） | — |
+| `-n, --name <name>` | ClientAgent 名称 | 从描述自动推导 |
 | `-t, --template <template>` | 指定模板 ID | 自动匹配 |
 | `-m, --model <model>` | 模型名称 | `gpt-4o` |
 | `-o, --output <path>` | 输出目录 | `./client-agents/<name>` |
@@ -91,7 +92,7 @@ agentforge run <client-agent-path> [options]
 | 参数 | 说明 | 默认值 |
 |---|---|---|
 | `<client-agent-path>` | ClientAgent 目录路径（必填） | — |
-| `--connect <dashboard-url>` | Capability Hub WebSocket 端点 | `wss://hub.example.com` |
+| `--connect <dashboard-url>` | Capability Hub WebSocket 端点 | `ws://localhost:8080` |
 | `--token <auth-token>` | 节点认证令牌 | — |
 | `--node-name <name>` | 节点显示名称 | 自动生成 |
 | `--heartbeat <ms>` | 心跳间隔 | `30000` |
@@ -196,7 +197,7 @@ const result = await framework.orchestrate({
 
 ```typescript
 const clientProxy = await framework.connectToClientAgent(
-  'client-dev-machine-01',
+  'client-dev-machine-a1b2c3d',
   'wss://hub.example.com',
   process.env.HUB_ADMIN_TOKEN,
 );
@@ -206,6 +207,8 @@ const result = await clientProxy.execute({
   input: { message: '当前仓库状态如何？' },
 });
 ```
+
+`connectToClientAgent` 返回 `IClientAgentProxy`，类型定义见 [01-核心设计.md §1.15](../design/01-核心设计.md#115-远程ClientAgent代理接口)。
 
 ---
 

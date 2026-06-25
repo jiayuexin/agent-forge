@@ -69,6 +69,7 @@
 | [GUIDE.md](./ops/GUIDE.md) | 使用指南 | 草案 | CLI、SDK、Capability Hub 用法（目标行为） |
 | [DEPLOY.md](./ops/DEPLOY.md) | 部署手册 | 草案 | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入（目标行为） |
 | [TEST.md](./ops/TEST.md) | 测试策略 | 草案 | 测试分层、用例索引与 Vitest 约定（目标行为） |
+| [IMPLEMENTATION.md](./ops/IMPLEMENTATION.md) | 开发计划 | 草案 | v1 开发任务拆分、实施顺序、包依赖与验收标准 |
 
 ---
 

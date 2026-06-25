@@ -11,11 +11,13 @@
 | [GUIDE.md](./GUIDE.md) | CLI 命令、SDK 示例、Capability Hub 用法、本地命令授权 |
 | [DEPLOY.md](./DEPLOY.md) | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入 |
 | [TEST.md](./TEST.md) | 测试策略、用例索引、运行方式 |
+| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | v1 开发任务拆分、实施顺序、包依赖与验收标准 |
 
 ## 推荐阅读顺序
 
 1. [GUIDE.md](./GUIDE.md) — 了解目标使用流程
 2. [DEPLOY.md](./DEPLOY.md) — 了解部署模式
 3. [TEST.md](./TEST.md) — 了解测试策略
+4. [IMPLEMENTATION.md](./IMPLEMENTATION.md) — 了解 v1 实施计划
 
 设计规格见 [第二层 · 设计规格](../design/README.md)。

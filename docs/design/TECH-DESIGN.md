@@ -199,7 +199,7 @@ agentforge/
 
 ### 3.1 IAgent 接口
 
-`IAgent` 是 AgentForge 的核心契约，所有 Agent 的统一接口。完整定义见 [01-核心设计.md §1.1](./01-核心设计.md#11-IAgent统一接口)。
+`IAgent` 是 AgentForge 的核心契约，所有 Agent 的统一接口。完整定义见 [01-核心设计.md §1.1](./01-核心设计.md#11-iagent-统一接口)。
 
 AgentForge 中存在两种实现形态：
 
@@ -208,23 +208,22 @@ AgentForge 中存在两种实现形态：
 
 **状态机：**
 ```
-UNINITIALIZED → INITIALIZING → READY → RUNNING → READY
-                              ↓        ↑
-                         DAEMON_RUNNING ┘
-                                       → ERROR → READY
-                                       → PAUSED → RUNNING
-                                  → DESTROYED（不可逆）
+UNINITIALIZED → INITIALIZING → READY → DAEMON_RUNNING ⇄ RUNNING
+                              ↓         ↓
+                            ERROR ←────┘
+                              ↓
+                           DESTROYED（不可逆）
 ```
 
 `daemon-running` 为 ClientAgent 守护进程状态：守护进程已启动，等待远程或本地任务。
 
 ### 3.2 AgentConfig（多 Provider 联合类型）
 
-`AgentConfig` 与 `ModelConfig` 类型定义见 [01-核心设计.md §1.2](./01-核心设计.md#12-AgentConfig配置模型)。
+`AgentConfig` 与 `ModelConfig` 类型定义见 [01-核心设计.md §1.4](./01-核心设计.md#14-agentconfig-配置模型)。
 
 ### 3.3 Provider 适配器
 
-`IProvider` 接口定义见 [01-核心设计.md §1.10](./01-核心设计.md#110-IProvider接口与聊天类型)。
+`IProvider` 接口定义见 [01-核心设计.md §1.12](./01-核心设计.md#112-iprovider-接口与聊天类型)。
 
 Provider 工厂根据 `config.model.provider` 自动选择对应实现：
 
@@ -241,55 +240,54 @@ class ProviderFactory {
 
 ### 3.4 BaseAgent 抽象类
 
-生成 Agent 的基类，内置通用能力：
+生成 Agent 的基类，内置通用能力。完整接口定义见 [01-核心设计.md §1.2](./01-核心设计.md#12-clientagent-与-statelessagent-扩展接口)；本节仅说明实现细节，不重复声明类型。
+
+`BaseAgent` 的 `init` 与 `execute` 负责状态迁移、中间件链、Provider 创建与事件发射，最后调用子类实现的 `doInit` / `doExecute` 钩子。关键执行流程如下：
 
 ```typescript
-abstract class BaseAgent implements IAgent {
-  private _status: AgentStatus = AgentStatus.UNINITIALIZED;
-  private eventBus: EventEmitter3;
-  private pluginManager: PluginManager;
-  private middlewareChain: MiddlewareChain;
-  private provider: IProvider;
+async init(config?: TConfig): Promise<void> {
+  this._status = AgentStatus.INITIALIZING;
+  // 1. 保存配置；若未传入则复用 constructor 中保存的配置
+  const finalConfig = config ?? this.config;
+  this.config = finalConfig;
+  // 2. 创建 Provider
+  this.provider = ProviderFactory.create(finalConfig.model);
+  // 3. 加载插件
+  this.pluginManager.loadPlugins(finalConfig);
+  // 4. 调用子类初始化钩子
+  await this.doInit?.();
+  // 5. 验证状态
+  await this.provider.validate();
+  this._status = AgentStatus.READY;
+  this.emit('agent:init');
+  this.emit('agent:ready');
+}
 
-  async init(config: AgentConfig): Promise<void> {
-    this._status = AgentStatus.INITIALIZING;
-    // 1. 创建 Provider
-    this.provider = ProviderFactory.create(config.model);
-    // 2. 加载插件
-    this.pluginManager.loadPlugins(config);
-    // 3. 验证状态
-    await this.provider.validate();
+async execute(task: AgentTask): Promise<AgentResult> {
+  this._status = AgentStatus.RUNNING;
+  this.emit('agent:execute:start', { task });
+  try {
+    // 1. before 中间件链
+    const processedTask = await this.middlewareChain.runBefore(task);
+    // 2. 子类实现具体逻辑（内部通过 provider.chat 调用 LLM，并在工具调用前后发射 agent:tool:call / agent:tool:result，在流式 chunk 到达时发射 agent:llm:chunk）
+    const result = await this.doExecute(processedTask);
+    // 3. after 中间件链
+    const finalResult = await this.middlewareChain.runAfter(result, task);
     this._status = AgentStatus.READY;
-    this.emit('agent:init');
+    this.emit('agent:execute:end', { task, result: finalResult });
+    return finalResult;
+  } catch (error) {
+    this._status = AgentStatus.ERROR;
+    const result = await this.middlewareChain.runOnError(error, task);
+    this.emit('agent:error', { error, task });
+    return result;
   }
-
-  async execute(task: AgentTask): Promise<AgentResult> {
-    this._status = AgentStatus.RUNNING;
-    try {
-      // 1. before 中间件链
-      const processedTask = await this.middlewareChain.runBefore(task);
-      // 2. 子类实现具体逻辑
-      const result = await this.doExecute(processedTask);
-      // 3. after 中间件链
-      const finalResult = await this.middlewareChain.runAfter(result, task);
-      this._status = AgentStatus.READY;
-      this.emit('agent:execute:end', { task, result: finalResult });
-      return finalResult;
-    } catch (error) {
-      this._status = AgentStatus.ERROR;
-      const result = await this.middlewareChain.runOnError(error, task);
-      this.emit('agent:error', { error, task });
-      return result;
-    }
-  }
-
-  protected abstract doExecute(task: AgentTask): Promise<AgentResult>;
 }
 ```
 
 ### 3.5 中间件链
 
-`Middleware` 类型定义见 [01-核心设计.md §1.6](./01-核心设计.md#16-IPlugin插件接口)。
+`Middleware` 类型定义见 [01-核心设计.md §1.8](./01-核心设计.md#18-iplugin-插件接口)。
 
 ```typescript
 class MiddlewareChain {
@@ -304,7 +302,7 @@ class MiddlewareChain {
 
 ### 3.6 插件系统
 
-`IPlugin`、`PluginContext`、`ToolDefinition` 等类型定义见 [01-核心设计.md §1.6](./01-核心设计.md#16-IPlugin插件接口)。
+`IPlugin`、`PluginContext`、`ToolDefinition` 等类型定义见 [01-核心设计.md §1.8](./01-核心设计.md#18-iplugin-插件接口)。
 
 ---
 
@@ -335,7 +333,7 @@ class AgentGenerator {
     // 2. 匹配模板
     const template = this.matchTemplate(parsed, input.templateId);
     // 3. 构建 Prompt
-    const systemPrompt = await this.promptBuilder.build(parsed, template);
+    const systemPrompt = await this.promptBuilder.build(parsed, template.meta);
     // 4. 推荐工具
     const tools = this.skillMatcher.match(parsed, template);
     // 5. 渲染代码
@@ -347,7 +345,7 @@ class AgentGenerator {
       config: input.config,
     });
     // 6. 输出项目
-    return { files, metadata: parsed };
+    return { files, metadata: parsed } satisfies GenerateResult;
   }
 
   async batch(inputs: GenerateInput[]): Promise<GenerateResult[]> {
@@ -388,16 +386,16 @@ class TemplateEngine {
   async render(templateId: string, data: TemplateData): Promise<Record<string, string>> {
     const template = this.getTemplate(templateId);
     return {
-      'src/main.ts': ejs.render(template.main, data),
-      'src/agent.ts': ejs.render(template.agent, data),
-      'src/prompts.ts': ejs.render(template.prompts, data),
-      'src/tools.ts': ejs.render(template.tools, data),
-      'src/types.ts': ejs.render(template.types, data),
-      'src/runtime.ts': ejs.render(template.runtime, data),
-      'package.json': ejs.render(template.config, data),
-      'tsconfig.json': ejs.render(template.tsconfig, data),
-      'README.md': ejs.render(template.readme, data),
-      '.agentforge/security.json': ejs.render(template.security, data),
+      'src/main.ts': ejs.render(template.files['main'], data),
+      'src/agent.ts': ejs.render(template.files['agent'], data),
+      'src/prompts.ts': ejs.render(template.files['prompts'], data),
+      'src/tools.ts': ejs.render(template.files['tools'], data),
+      'src/types.ts': ejs.render(template.files['types'], data),
+      'src/runtime.ts': ejs.render(template.files['runtime'], data),
+      'package.json': ejs.render(template.files['config'], data),
+      'tsconfig.json': ejs.render(template.files['tsconfig'], data),
+      'README.md': ejs.render(template.files['readme'], data),
+      '.agentforge/security.json': ejs.render(template.files['security'], data),
     };
   }
 }
@@ -439,46 +437,11 @@ Agent / Tool / Skill
 
 ### 5.2 AgentFramework 主类
 
-```typescript
-class AgentFramework {
-  /** 已注册 Agent 映射表 — 类型定义见 [01-核心设计.md §1.11](./01-核心设计.md#111-Framework与编排类型) */
-  private registry: AgentRegistry;
-  private provider: IProvider;
-  private planner: IPlannerAgent;
-  private executor: IPlanExecutor;
-
-  constructor(config: FrameworkConfig);
-
-  // Agent 管理
-  register(name: string, AgentClass: new () => IAgent, capability?: Partial<Capability>): this;
-  get(name: string): IAgent;
-  loadAll(): Promise<void>;
-
-  // 直接调用
-  async run(name: string, task: AgentTask): Promise<AgentResult>;
-
-  // 能力发现
-  readonly discovery: CapabilityRegistry;
-
-  // 模型驱动编排
-  async plan(task: AgentTask, options?: PlanOptions): Promise<ExecutionPlan>;
-  async executePlan(plan: ExecutionPlan): Promise<PlanResult>;
-  async orchestrate(task: AgentTask, options?: OrchestrateOptions): Promise<PlanResult>;
-
-  // 底层 Pipeline（可直接使用固定流程）
-  pipeline(name?: string): Pipeline;
-
-  // 事件总线
-  on(event: string, handler: Function): this;
-  once(event: string, handler: Function): this;
-  off(event: string, handler: Function): this;
-  emit(event: string, data: any): void;
-}
-```
+`AgentFramework` 是 SDK 入口，提供 Agent 注册、直接调用、模型驱动编排、事件总线与 Pipeline 编排能力。完整公开 API 与类型定义见 [01-核心设计.md §1.13](./01-核心设计.md#113-framework-与编排类型)；本节仅说明主要职责，不重复声明类型。
 
 ### 5.3 CapabilityRegistry
 
-`Capability` 与 `CapabilityRegistry` 类型定义见 [01-核心设计.md §1.12](./01-核心设计.md#112-模型驱动编排类型)。
+`Capability` 与 `CapabilityRegistry` 类型定义见 [01-核心设计.md §1.14](./01-核心设计.md#114-模型驱动编排类型)。
 
 `CapabilityRegistry` 发现、描述系统里所有可被编排器调用的能力：
 
@@ -489,7 +452,7 @@ class AgentFramework {
 
 ### 5.4 PlannerAgent
 
-PlannerAgent 接收用户任务 + 能力清单，输出结构化的 `ExecutionPlan`。`ExecutionPlan` 与 `PlanStep` 类型定义见 [01-核心设计.md §1.12](./01-核心设计.md#112-模型驱动编排类型)。
+PlannerAgent 接收用户任务 + 能力清单，输出结构化的 `ExecutionPlan`。`ExecutionPlan` 与 `PlanStep` 类型定义见 [01-核心设计.md §1.14](./01-核心设计.md#114-模型驱动编排类型)。
 
 当步骤失败时，PlanExecutor 把错误反馈给 PlannerAgent，PlannerAgent 可以重新规划：
 
@@ -524,7 +487,7 @@ Pipeline 仍可直接使用，适用于固定、审计严格的流程。
 
 ### 5.7 模型注册表与路由
 
-`ModelRegistry` 集中管理多个模型端点，Agent 步骤只需引用模型名。类型定义见 `01-核心设计.md` §1.4；运行时实现位于 `packages/sdk/src/ModelRegistry.ts`，类型定义位于 `packages/types/src/model-registry.ts`。
+`ModelRegistry` 集中管理多个模型端点，Agent 步骤只需引用模型名。类型定义见 `01-核心设计.md` §1.6；运行时实现位于 `packages/sdk/src/ModelRegistry.ts`，类型定义位于 `packages/types/src/model-registry.ts`。
 
 ```typescript
 const framework = new AgentFramework({
@@ -729,10 +692,10 @@ Capability Hub Server     Agent Node 1          Agent Node 2
 - ClientAgent 启动时通过 WebSocket 连接 `/ws/nodes/:nodeId`，发送注册消息完成注册
 - Capability Hub 分配唯一节点 ID，返回确认
 - ClientAgent 每 30 秒通过 WebSocket ping/pong 或控制消息上报心跳
-- Capability Hub 每 90 秒检查一次，超时标记节点为 `dead`
+- Capability Hub 每 90 秒检查一次，超时标记节点为 `offline`；Hub 内部诊断日志可记录 `dead` 作为事件原因，但不作为协议状态值发送
 - Capability Hub 通过 WebSocket 事件上报或轮询 `GET /api/metrics` 收集各节点运行数据
 
-> 注册与心跳协议详情见 [05-CLI与API.md §5.5](./05-CLI与API.md#55-WebSocket控制协议)。
+> 注册与心跳协议详情见 [05-CLI与API.md §5.5](./05-CLI与API.md#55-websocket-控制协议)。
 
 ---
 
@@ -770,7 +733,9 @@ Capability Hub Server     Agent Node 1          Agent Node 2
 
 ### 11.2 重试策略
 
-框架不内置自动重试。调用方如需重试，可在业务代码中实现。
+框架核心（`@agentforge/core` 与 `@agentforge/sdk`）不内置自动重试。调用方如需重试，可在业务代码中实现。
+
+Provider 适配层可在网络层面实现可选的 429 退避与熔断策略，具体见 §18.5；该策略不属于框架核心的兜底逻辑，仅用于适配 LLM 服务的限流行为。
 
 ---
 
@@ -1218,7 +1183,7 @@ jobs:
 | 策略 | 说明 |
 |---|---|
 | 强制工具调用优先 | 配置 `tool_first` 模式，Agent 优先调用工具获取事实数据，再生成回答 |
-| 结构化输出校验 | 使用 JSON Schema 验证 LLM 输出，不符合 Schema 时触发重试 |
+| 结构化输出校验 | 使用 JSON Schema 验证 LLM 输出，不符合 Schema 时返回错误，由调用方决定是否重试 |
 | 来源引用 | 工具输出附带 `source` 字段，Agent 回答时需引用数据来源 |
 
 ### 17.4 输出内容过滤
@@ -1324,12 +1289,14 @@ jobs:
 
 ### 18.5 并发与限流
 
+以下策略由 **Provider 适配层**实现，不属于框架核心（`@agentforge/core` / `@agentforge/sdk`）的兜底逻辑，仅用于适配 LLM 服务的限流行为。
+
 | 控制项 | 默认值 | 配置方式 |
 |---|---|---|
 | 批量生成最大并发数 | 3 | `config.maxConcurrency` |
 | Provider 速率限制 | 按 Provider 文档 | 自动适配 |
 
-**429 重试策略：** 指数退避 + jitter
+**Provider 429 退避策略：** 指数退避 + jitter
 
 ```typescript
 const delay = Math.min(
@@ -1342,7 +1309,7 @@ const delay = Math.min(
 
 **SDK 模式错误类型：**
 
-所有错误统一使用 [01-核心设计.md §1.5](./01-核心设计.md#15-AgentResult结果模型) 中的 `AgentError` 数据结构，通过 `code` 字段区分错误类别：
+所有错误统一使用 [01-核心设计.md §1.7](./01-核心设计.md#17-agentresult-结果模型) 中的 `AgentError` 数据结构，通过 `code` 字段区分错误类别：
 
 ```
 AgentError（统一错误结构）
@@ -1363,7 +1330,7 @@ AgentError（统一错误结构）
 
 **断路器：** 连续 5 次失败后断开 30 秒，半开状态允许 1 次探测请求。
 
-**全局错误处理器：** `FrameworkConfig.onError` — 用户可注册自定义错误处理逻辑。类型定义见 [01-核心设计.md §1.11](./01-核心设计.md#111-Framework与编排类型)。
+**全局错误处理器：** `FrameworkConfig.onError` — 用户可注册自定义错误处理逻辑。类型定义见 [01-核心设计.md §1.13](./01-核心设计.md#113-framework-与编排类型)。
 
 ### 18.7 i18n / a11y
 

@@ -21,10 +21,10 @@
 
 ```bash
 agentforge create <description> [options]
-  --name [name]             # ClientAgent 名称
-  --output [path]           # 输出目录 (默认 ./client-agents/<name>)
-  --template [template]     # 使用指定模板
-  --model [model]           # 指定默认模型
+  -n, --name [name]         # ClientAgent 名称
+  -o, --output [path]       # 输出目录 (默认 ./client-agents/<name>)
+  -t, --template [template] # 使用指定模板
+  -m, --model [model]       # 指定默认模型
   --run                     # 生成并通过安全确认后直接启动 ClientAgent
   --confirm-high-risk       # 使用 high 风险等级模板时的额外确认
 ```
@@ -64,7 +64,18 @@ agentforge run ./client-agents/my-agent \
 agentforge dashboard [options]
   --port [port]             # 端口 (默认 8080)
   --host [host]             # 主机 (默认 localhost)
+
+agentforge dashboard token create [options]   # 为指定节点创建认证令牌
+  --node-name [name]        # 节点名称（生成 nodeId 与令牌）
+  --expires-in [hours]      # 令牌有效期，默认 720（30 天）
+
+agentforge dashboard token revoke <token-id>  # 吊销节点认证令牌
 ```
+
+**对应 API：**
+
+- `POST /api/admin/tokens` — 创建节点 Token，返回 `{ token, nodeId, expiresAt }`
+- `DELETE /api/admin/tokens/:tokenId` — 吊销 Token
 
 ### `agentforge serve`
 
@@ -101,14 +112,15 @@ agentforge batch <config-file>
 
 ```bash
 agentforge list [options]
-  --output [path]           # 指定输出目录 (默认 ./client-agents)
+  --path [dir]              # 指定扫描目录 (默认 ./client-agents)
+  --output [format]         # 输出格式：table / json / yaml (默认 table)
 ```
 
 **示例：**
 
 ```bash
 agentforge list
-agentforge list --output ./my-agents
+agentforge list --path ./my-agents --output json
 ```
 
 ---
@@ -120,12 +132,12 @@ agentforge list --output ./my-agents
 agents:
   - name: dev-assistant
     description: "能执行 Git 命令和本地终端操作的编程助手"
-    template: dev-assistant
+    templateId: dev-assistant
     model: gpt-4o
 
   - name: code-reviewer
     description: "审查代码质量，检查潜在 Bug 和安全问题"
-    template: code-reviewer
+    templateId: code-reviewer
     model: claude-sonnet-4-6
 ```
 
@@ -148,6 +160,11 @@ POST   /api/nodes/:id/execute         # 向指定节点下发执行任务
 POST   /api/nodes/:id/stream          # 向指定节点下发流式任务
 POST   /api/nodes/:id/config          # 更新节点运行时配置
 DELETE /api/nodes/:id                 # 注销节点
+
+### 配置与敏感信息
+
+```
+GET /api/config                      # 返回运行时配置，自动脱敏 apiKey 等敏感字段
 ```
 
 ### 能力管理
@@ -239,11 +256,11 @@ ws://localhost:8080/ws/nodes/client-dev-assistant-a1b2c3d?token=AUTH_TOKEN
 
 ### Capability Hub → ClientAgent（控制消息）
 
-`ControlMessage`、`CapabilityDistributePayload` 类型定义见 [01-核心设计.md §1.13](./01-核心设计.md#113-远程控制与客户端运行时类型)。
+`ControlMessage`、`CapabilityDistributePayload` 类型定义见 [01-核心设计.md §1.15](./01-核心设计.md#115-远程控制与客户端运行时类型)。
 
 ### ClientAgent → Capability Hub（上报消息）
 
-`AgentMessage`、`CapabilityAckPayload`、`LocalApprovalRequest` 类型定义见 [01-核心设计.md §1.13](./01-核心设计.md#113-远程控制与客户端运行时类型)。
+`AgentMessage`、`CapabilityAckPayload`、`LocalApprovalRequest` 类型定义见 [01-核心设计.md §1.15](./01-核心设计.md#115-远程控制与客户端运行时类型)。
 
 ### 消息时序示例
 
@@ -283,14 +300,33 @@ Capability Hub 收到控制命令后，校验：
 
 ### 本地确认
 
-敏感操作（如本地命令执行、涉及 `sensitiveOperations` 的任务、Plugin 安装）默认需要客户端本地用户确认：
+敏感操作（如本地命令执行、涉及 `sensitiveOperations` 的任务、Plugin 安装）默认需要客户端本地用户确认。本地确认辅助函数签名见 [10-安全模型.md §10.4](./10-安全模型.md#104-敏感操作本地确认)。
 
 ```typescript
-if (isSensitiveTask(message.payload)) {
-  const confirmed = await askLocalUserConfirmation(message.payload);
-  if (!confirmed) {
-    this.send({ type: 'error', messageId, nodeId, payload: { code: 'USER_REJECTED' } });
-    return;
+if (message.type === 'execute' && message.payload && 'task' in message.payload) {
+  const task = (message.payload as RemoteTask).task;
+  if (isSensitiveTask(task)) {
+    // 1. 先弹窗/命令行询问本地用户
+    const localConfirmed = await askLocalUserConfirmation(task);
+    if (!localConfirmed) {
+      this.send({ type: 'error', messageId: message.messageId, nodeId: this.node.id, timestamp: Date.now(), payload: { code: 'USER_REJECTED', message: '用户拒绝执行' } });
+      return;
+    }
+
+    // 2. 向 Capability Hub 上报 local-approval-request，等待 Hub 侧最终确认
+    const request: LocalApprovalRequest = {
+      requestId: generateId(),
+      type: 'sensitive-operation',
+      description: '该任务涉及敏感操作，是否继续？',
+      summary: { task },
+    };
+    this.send({ type: 'local-approval-request', nodeId: this.node.id, timestamp: Date.now(), payload: request });
+
+    const hubConfirmed = await waitForLocalApproval(request.requestId, { timeout: 60000 });
+    if (!hubConfirmed) {
+      this.send({ type: 'error', messageId: message.messageId, nodeId: this.node.id, timestamp: Date.now(), payload: { code: 'USER_REJECTED', message: 'Hub 拒绝执行' } });
+      return;
+    }
   }
 }
 ```

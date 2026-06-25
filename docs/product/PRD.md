@@ -2,7 +2,7 @@
 
 > **文档层级**: 第一层 · 产品需求
 > **文档类型**: 产品需求
-> **文档状态**: 重构中
+> **文档状态**: 已定稿
 > **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-24
 > **实现状态**: 未开始
@@ -82,7 +82,7 @@
 | Q1 | ClientAgent 的本地命令执行授权采用几层模型？ | 产品 | — | 已解决（参见 [`docs/design/10-安全模型.md` §10.2](../design/10-安全模型.md#102-本地命令执行授权)） |
 | Q2 | Capability Hub 是独立包还是合并到 Dashboard？ | 架构 | 非阻塞 | 已解决：合并到 `@agentforge/dashboard`，前端与后端统一在该包内实现（参见 [`docs/design/TECH-DESIGN.md` §2](../design/TECH-DESIGN.md#2-系统架构)） |
 | Q3 | Plugin 脚本采用什么沙箱机制？ | 工程 | 非阻塞 | 已解决：运行在隔离沙箱（如 `isolated-vm`），默认无网络、文件系统只读（`readonly`），能力包需签名（参见 [`docs/design/10-安全模型.md` §10.3](../design/10-安全模型.md#103-能力下发安全)） |
-| Q4 | ClientAgent 与 Capability Hub 断连后的重连和缓存策略？ | 工程 | 非阻塞 | 已解决：按 `AgentRuntimeConfig.reconnect` 策略重连，离线时本地已缓存能力仍可调用（参见 [`docs/design/01-核心设计.md` §1.13](../design/01-核心设计.md#113-远程控制与客户端运行时类型)） |
+| Q4 | ClientAgent 与 Capability Hub 断连后的重连和缓存策略？ | 工程 | 非阻塞 | 已解决：按 `AgentRuntimeConfig.reconnect` 策略重连，离线时本地已缓存能力仍可调用（参见 [`docs/design/01-核心设计.md` §1.15](../design/01-核心设计.md#115-远程控制与客户端运行时类型)） |
 | Q5 | StatelessAgent 是否允许调用 ClientAgent 的本地命令能力？ | 产品 | 非阻塞 | 已解决：允许通过 Capability Hub 路由调用 ClientAgent 能力，但涉及本地命令等敏感操作时仍触发 ClientAgent 本地确认（参见 [`docs/design/08-客户端Agent与无状态Agent.md` §8.7](../design/08-客户端Agent与无状态Agent.md#87-安全边界差异)） |
 
 ---

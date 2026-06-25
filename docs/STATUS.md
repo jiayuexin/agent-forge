@@ -6,8 +6,8 @@
 | 文档 | 层级 | 类型 | 文档状态 | 实现状态 |
 |---|---|---|---|---|
 | [product/README.md](./product/README.md) | 第一层 | 索引 | 已定稿 | — |
-| [product/PRD.md](./product/PRD.md) | 第一层 | 产品需求 | 重构中 | 未开始 |
-| [product/08-需求与路线图.md](./product/08-需求与路线图.md) | 第一层 | 产品需求 | 重构中 | 未开始 |
+| [product/PRD.md](./product/PRD.md) | 第一层 | 产品需求 | 已定稿 | 未开始 |
+| [product/08-需求与路线图.md](./product/08-需求与路线图.md) | 第一层 | 产品需求 | 已定稿 | 未开始 |
 | [design/README.md](./design/README.md) | 第二层 | 索引 | 已定稿 | — |
 | [design/01-核心设计.md](./design/01-核心设计.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/02-单个Agent功能.md](./design/02-单个Agent功能.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
@@ -22,9 +22,9 @@
 | [design/TECH-DESIGN.md](./design/TECH-DESIGN.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/附录-生成示例.md](./design/附录-生成示例.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [ops/README.md](./ops/README.md) | 第三层 | 索引 | 已定稿 | — |
-| [ops/GUIDE.md](./ops/GUIDE.md) | 第三层 | 使用指南 | 草案 | 未开始 |
-| [ops/DEPLOY.md](./ops/DEPLOY.md) | 第三层 | 部署手册 | 草案 | 未开始 |
-| [ops/TEST.md](./ops/TEST.md) | 第三层 | 测试策略 | 草案 | 未开始 |
+| [ops/GUIDE.md](./ops/GUIDE.md) | 第三层 | 使用指南 | 已定稿 | 未开始 |
+| [ops/DEPLOY.md](./ops/DEPLOY.md) | 第三层 | 部署手册 | 已定稿 | 未开始 |
+| [ops/TEST.md](./ops/TEST.md) | 第三层 | 测试策略 | 已定稿 | 未开始 |
 
 ## 图例
 
@@ -66,3 +66,8 @@
 | `FrameworkConfig` | 含 `maxToolCalls?: number` 与 `onError?: (error: AgentError) => void` | design/01 §1.11、TECH-DESIGN |
 | `AgentEvent` | 含 ClientAgent 专属事件 `agent:capability:installed`、`agent:hub:connected`、`agent:hub:disconnected` | design/01 §1.1、design/02 |
 | ClientAgent 核心依赖上限 | ≤ 2 个（`@agentforge/core` + `@agentforge/runtime-client`） | README、design/TECH-DESIGN、product/08 |
+| `AgentIdentity` | `id? / name / role / version`；作为 `AgentConfig.identity` 必填字段 | design/01 §1.1、§1.4、design/附录-生成示例 |
+| `ToolDefinition` | 含 `handler?: ToolHandler`，执行上下文为 `ToolContext` | design/01 §1.4、design/附录-生成示例 |
+| `ClientAgentSecurityConfig` | `.agentforge/security.json` 的 Schema，含 `localCommandAuth`、`allowRemoteExecution`、`requireLocalConfirmation` | design/01 §1.2、ops/DEPLOY、ops/GUIDE |
+| `01-核心设计.md` 章节顺序 | `1.1 → 1.2 → 1.3 → … → 1.15` 连续编号 | design/01、全 design 文档锚点 |
+| E2E 测试框架 | 使用 Playwright 覆盖 CLI 流程与 Dashboard 页面 | design/TECH-DESIGN §13、ops/TEST |

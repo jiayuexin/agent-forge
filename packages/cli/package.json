@@ -1,0 +1,38 @@
+{
+  "name": "@agentforge/cli",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "agentforge": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agentforge/types": "workspace:*",
+    "@agentforge/core": "workspace:*",
+    "@agentforge/sdk": "workspace:*",
+    "@agentforge/runtime-client": "workspace:*",
+    "@agentforge/http-server": "workspace:*",
+    "@agentforge/dashboard": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

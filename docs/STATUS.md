@@ -1,7 +1,7 @@
 # 文档状态总表
 
 > **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
+> **最后更新**: 2026-06-25
 
 | 文档 | 层级 | 类型 | 文档状态 | 实现状态 |
 |---|---|---|---|---|
@@ -19,12 +19,14 @@
 | [design/08-客户端Agent与无状态Agent.md](./design/08-客户端Agent与无状态Agent.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/09-能力市场与下发.md](./design/09-能力市场与下发.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/10-安全模型.md](./design/10-安全模型.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
+| [design/11-开发约定.md](./design/11-开发约定.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/TECH-DESIGN.md](./design/TECH-DESIGN.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/附录-生成示例.md](./design/附录-生成示例.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [ops/README.md](./ops/README.md) | 第三层 | 索引 | 已定稿 | — |
 | [ops/GUIDE.md](./ops/GUIDE.md) | 第三层 | 使用指南 | 已定稿 | 未开始 |
 | [ops/DEPLOY.md](./ops/DEPLOY.md) | 第三层 | 部署手册 | 已定稿 | 未开始 |
 | [ops/TEST.md](./ops/TEST.md) | 第三层 | 测试策略 | 已定稿 | 未开始 |
+| [ops/IMPLEMENTATION.md](./ops/IMPLEMENTATION.md) | 第三层 | 开发计划 | 草案 | 进行中 |
 
 ## 图例
 
@@ -44,6 +46,24 @@
 | @agentforge/dashboard | ✅ | ⬜ | ⬜ |
 
 设计 ✅ 表示第二层文档已覆盖该模块规格。
+
+## 实施阶段状态
+
+| 阶段 | 描述 | 状态 |
+|---|---|---|
+| Phase 0 — Monorepo 初始化 | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架 | ✅ 已完成 |
+| Phase 1 — `packages/types` | 核心类型定义 | ⬜ 未开始 |
+| Phase 2 — `packages/core` | BaseAgent、Provider、生成引擎 | ⬜ 未开始 |
+| Phase 3 — Templates | 基础模板与角色模板 | ⬜ 未开始 |
+| Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ⬜ 未开始 |
+| Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ⬜ 未开始 |
+| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ⬜ 未开始 |
+| Phase 7 — `packages/dashboard` 前端 | Capability Hub 可视化面板 | ⬜ 未开始 |
+| Phase 8 — `packages/cli` | CLI 命令 | ⬜ 未开始 |
+| Phase 9 — 安全层 | 本地命令授权、Token、签名、审计 | ⬜ 未开始 |
+| Phase 10 — 可观测性 | 日志、链路追踪、指标、成本守护 | ⬜ 未开始 |
+| Phase 11 — 测试 | 单元/集成/E2E 测试体系 | ⬜ 未开始 |
+| Phase 12 — CI/CD + Docker | GitHub Actions、Docker 镜像、发布 | ⬜ 未开始 |
 
 ## 口径统一记录（docs-v0.4）
 

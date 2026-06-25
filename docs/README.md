@@ -2,7 +2,7 @@
 
 > **项目代号**: AgentForge
 > **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
+> **最后更新**: 2026-06-25
 > **当前阶段**: 设计文档阶段，代码待开发
 
 **AgentForge** 是一个基于 Node.js + TypeScript 的客户端 Agent 应用平台。用户通过一段岗位描述即可生成可本地运行的 **ClientAgent**，ClientAgent 通过 WebSocket 连接到 **Capability Hub**，实现能力下发、远程任务执行与集中监控。开发者还可以通过 `@agentforge/sdk` 编排 **StatelessAgent**，并与 ClientAgent 协同工作。
@@ -22,7 +22,8 @@
 
 1. [design/01-核心设计.md](./design/01-核心设计.md) — IAgent 接口与类型权威定义
 2. [design/TECH-DESIGN.md](./design/TECH-DESIGN.md) — 系统架构与跨模块决策
-3. 按需阅读 [design/02-07](./design/README.md) 专题文档
+3. [design/11-开发约定.md](./design/11-开发约定.md) — 实现阶段的工程约定
+4. 按需阅读 [design/02-10](./design/README.md) 专题文档
 
 ### 运维 / 使用者（草案）
 
@@ -55,6 +56,7 @@
 | [08-客户端Agent与无状态Agent.md](./design/08-客户端Agent与无状态Agent.md) | 设计规格 | 已定稿 | 两种 Agent 形态的分野、接口与场景 |
 | [09-能力市场与下发.md](./design/09-能力市场与下发.md) | 设计规格 | 已定稿 | Tool / Skill / Plugin 定义、版本、下发协议与离线缓存 |
 | [10-安全模型.md](./design/10-安全模型.md) | 设计规格 | 已定稿 | 本地命令授权、能力下发安全、认证鉴权、沙箱隔离 |
+| [11-开发约定.md](./design/11-开发约定.md) | 设计规格 | 已定稿 | 技术栈、monorepo 结构、编码规范、环境变量、CI/CD |
 | [TECH-DESIGN.md](./design/TECH-DESIGN.md) | 设计规格 | 已定稿 | 技术总览、架构图、跨切面设计 |
 | [附录-生成示例.md](./design/附录-生成示例.md) | 设计规格 | 已定稿 | 完整生成示例代码 |
 

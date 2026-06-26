@@ -1,7 +1,7 @@
 # 文档状态总表
 
 > **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-25
+> **最后更新**: 2026-06-26
 
 | 文档 | 层级 | 类型 | 文档状态 | 实现状态 |
 |---|---|---|---|---|
@@ -37,7 +37,7 @@
 
 | 模块 | 设计 | 实现 | 测试 |
 |---|---|---|---|
-| @agentforge/types | ✅ | ⬜ | ⬜ |
+| @agentforge/types | ✅ | ✅ | ✅ |
 | @agentforge/core | ✅ | ⬜ | ⬜ |
 | @agentforge/sdk | ✅ | ⬜ | ⬜ |
 | @agentforge/runtime-client | ✅ | ⬜ | ⬜ |
@@ -52,7 +52,7 @@
 | 阶段 | 描述 | 状态 |
 |---|---|---|
 | Phase 0 — Monorepo 初始化 | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架 | ✅ 已完成 |
-| Phase 1 — `packages/types` | 核心类型定义 | ⬜ 未开始 |
+| Phase 1 — `packages/types` | 核心类型定义 | ✅ 已完成 |
 | Phase 2 — `packages/core` | BaseAgent、Provider、生成引擎 | ⬜ 未开始 |
 | Phase 3 — Templates | 基础模板与角色模板 | ⬜ 未开始 |
 | Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ⬜ 未开始 |

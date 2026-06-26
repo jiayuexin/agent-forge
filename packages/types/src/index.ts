@@ -14,5 +14,6 @@ export * from './plan.js';
 export * from './pipeline.js';
 export * from './framework.js';
 export * from './runtime.js';
+export * from './hub.js';
 export * from './meta.js';
 export * from './debug.js';

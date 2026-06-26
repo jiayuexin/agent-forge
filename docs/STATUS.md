@@ -42,8 +42,8 @@
 | @agentforge/sdk | ✅ | ✅ | ✅ |
 | @agentforge/runtime-client | ✅ | ✅ | ✅ |
 | @agentforge/cli | ✅ | ⬜ | ⬜ |
-| @agentforge/http-server | ✅ | ⬜ | ⬜ |
-| @agentforge/dashboard | ✅ | ⬜ | ⬜ |
+| @agentforge/http-server | ✅ | ✅ | ✅ |
+| @agentforge/dashboard | ✅ | ✅ | ✅ |
 
 设计 ✅ 表示第二层文档已覆盖该模块规格。
 
@@ -57,7 +57,7 @@
 | Phase 3 — Templates | 基础模板与角色模板 | ✅ 已完成 |
 | Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ✅ 已完成 |
 | Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ✅ 已完成 |
-| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ⬜ 未开始 |
+| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ✅ 已完成 |
 | Phase 7 — `packages/dashboard` 前端 | Capability Hub 可视化面板 | ⬜ 未开始 |
 | Phase 8 — `packages/cli` | CLI 命令 | ⬜ 未开始 |
 | Phase 9 — 安全层 | 本地命令授权、Token、签名、审计 | ⬜ 未开始 |

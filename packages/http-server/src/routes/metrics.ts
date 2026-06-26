@@ -1,0 +1,8 @@
+import { eventHandler } from 'h3';
+import type { MetricsRegistry } from '../metrics/MetricsRegistry.js';
+
+export function createMetricsRoute(registry: MetricsRegistry) {
+  return eventHandler(() => {
+    return registry.output();
+  });
+}

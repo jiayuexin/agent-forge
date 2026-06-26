@@ -12,7 +12,7 @@
 | [design/01-核心设计.md](./design/01-核心设计.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/02-单个Agent功能.md](./design/02-单个Agent功能.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/03-生成引擎.md](./design/03-生成引擎.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/04-集成与编排.md](./design/04-集成与编排.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
+| [design/04-集成与编排.md](./design/04-集成与编排.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
 | [design/05-CLI与API.md](./design/05-CLI与API.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/06-可视化面板.md](./design/06-可视化面板.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
 | [design/07-技术选型与架构.md](./design/07-技术选型与架构.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
@@ -39,8 +39,8 @@
 |---|---|---|---|
 | @agentforge/types | ✅ | ✅ | ✅ |
 | @agentforge/core | ✅ | ✅ | ✅ |
-| @agentforge/sdk | ✅ | ⬜ | ⬜ |
-| @agentforge/runtime-client | ✅ | ⬜ | ⬜ |
+| @agentforge/sdk | ✅ | ✅ | ✅ |
+| @agentforge/runtime-client | ✅ | ✅ | ✅ |
 | @agentforge/cli | ✅ | ⬜ | ⬜ |
 | @agentforge/http-server | ✅ | ⬜ | ⬜ |
 | @agentforge/dashboard | ✅ | ⬜ | ⬜ |
@@ -55,8 +55,8 @@
 | Phase 1 — `packages/types` | 核心类型定义 | ✅ 已完成 |
 | Phase 2 — `packages/core` | BaseAgent、Provider、生成引擎 | ✅ 已完成 |
 | Phase 3 — Templates | 基础模板与角色模板 | ✅ 已完成 |
-| Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ⬜ 未开始 |
-| Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ⬜ 未开始 |
+| Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ✅ 已完成 |
+| Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ✅ 已完成 |
 | Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ⬜ 未开始 |
 | Phase 7 — `packages/dashboard` 前端 | Capability Hub 可视化面板 | ⬜ 未开始 |
 | Phase 8 — `packages/cli` | CLI 命令 | ⬜ 未开始 |

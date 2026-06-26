@@ -99,7 +99,7 @@ agentforge/
 ### `@agentforge/runtime-client`
 
 - **职责**：客户端 Agent 运行时。每个生成的 ClientAgent 依赖此包，用于连接 Capability Hub 并接收远程控制，同时管理本地能力缓存。
-- **关键文件（planned）**：
+- **关键文件（implemented）**：
   - `packages/runtime-client/src/AgentRuntimeClient.ts` — 运行时主类
   - `packages/runtime-client/src/WebSocketTransport.ts` — WebSocket 连接管理
   - `packages/runtime-client/src/HeartbeatManager.ts` — 心跳管理
@@ -110,7 +110,7 @@ agentforge/
 ### `@agentforge/sdk`
 
 - **职责**：面向开发者的编排 SDK。核心是基于 LLM 的模型驱动编排器。
-- **关键文件（planned）**：
+- **关键文件（implemented）**：
   - `packages/sdk/src/index.ts` — 统一导出
   - `packages/sdk/src/AgentFramework.ts` — 框架主类
   - `packages/sdk/src/CapabilityRegistry.ts` — 能力注册表
@@ -119,6 +119,8 @@ agentforge/
   - `packages/sdk/src/Pipeline.ts` — Pipeline 底层执行引擎
   - `packages/sdk/src/EventBus.ts` — 事件总线
   - `packages/sdk/src/ModelRegistry.ts` — 多端点模型解析（实现类）
+  - `packages/sdk/src/ClientAgentProxy.ts` — 远程 ClientAgent 代理
+  - `packages/sdk/src/errors.ts` — SDK 错误类型
 - **设计权威**：`docs/design/04-集成与编排.md`、`docs/design/TECH-DESIGN.md` §5
 
 ### `@agentforge/cli`
@@ -176,16 +178,16 @@ agentforge/
 | `IAgent` / `AgentStatus` / `AgentCapability` | `01-核心设计.md` §1.1 | `types` / `core` | `packages/types/src/agent.ts` | [planned] |
 | `AgentConfig` / `ModelConfig` | `01-核心设计.md` §1.2 | `types` | `packages/types/src/config.ts` | [planned] |
 | `AgentTask` / `Message` | `01-核心设计.md` §1.3 | `types` | `packages/types/src/task.ts` | [planned] |
-| `ModelRegistry` / `ModelEndpoint` / `ModelRef` | `01-核心设计.md` §1.4 | `types` / `sdk` | `packages/types/src/model-registry.ts`（类型） / `packages/sdk/src/ModelRegistry.ts`（实现） | [planned] |
+| `ModelRegistry` / `ModelEndpoint` / `ModelRef` | `01-核心设计.md` §1.4 | `types` / `sdk` | `packages/types/src/model.ts`（类型） / `packages/sdk/src/ModelRegistry.ts`（实现） | [implemented] |
 | `AgentResult` / `AgentError` / `Artifact` / `ToolCallRecord` | `01-核心设计.md` §1.5 | `types` | `packages/types/src/result.ts` | [planned] |
 | `IPlugin` / `Middleware` / `MiddlewareChain` | `01-核心设计.md` §1.6 | `core` | `packages/core/src/plugin/IPlugin.ts` / `packages/core/src/runtime/MiddlewareChain.ts` | [planned] |
 | `AgentMeta` / `AgentTemplate` / `ExecutionRecord` / `AgentNode` / `AgentNodeStatus` / `AgentLifeCycle` | `01-核心设计.md` §1.7 | `types` | `packages/types/src/models.ts` | [planned] |
-| `PipelineControlSignal` / `StepSnapshot` / `BacktrackEvent` | `01-核心设计.md` §1.8 | `types` / `sdk` | `packages/types/src/pipeline.ts` | [planned] |
+| `PipelineControlSignal` / `StepSnapshot` / `BacktrackEvent` | `01-核心设计.md` §1.10 | `types` / `sdk` | `packages/types/src/pipeline.ts` / `packages/sdk/src/Pipeline.ts` | [implemented] |
 | `DebugConfig` / `InjectedTool` / `MockToolConfig` / `CallTrace` | `01-核心设计.md` §1.9 | `types` | `packages/types/src/debug.ts` | [planned] |
 | `IProvider` / `ChatParams` / `ChatResponse` / `ChatChunk` | `01-核心设计.md` §1.10 | `core` / `types` | `packages/core/src/provider/IProvider.ts` | [planned] |
-| `FrameworkConfig` / `StepOptions` / `ParallelStep` / `ForkBranch` / `AgentRegistry` | `01-核心设计.md` §1.11 | `sdk` / `types` | `packages/sdk/src/framework/types.ts` | [planned] |
-| `Capability` / `CapabilityRegistry` / `ExecutionPlan` / `PlanStep` / `PlanResult` / `IPlannerAgent` / `IPlanExecutor` / `ApprovalHandler` / `ApprovalResult` | `01-核心设计.md` §1.12 | `types` / `sdk` | `packages/types/src/orchestration.ts` / `packages/sdk/src/CapabilityRegistry.ts` / `packages/sdk/src/planner/` | [planned] |
-| `AgentRuntimeConfig` / `RemoteTask` / `ControlMessage` / `AgentMessage` / `IAgentRuntimeClient` | `01-核心设计.md` §1.13 | `types` / `runtime-client` | `packages/types/src/runtime.ts` / `packages/runtime-client/src/` | [planned] |
+| `FrameworkConfig` / `StepOptions` / `ParallelStep` / `ForkBranch` / `AgentRegistry` | `01-核心设计.md` §1.13 | `sdk` / `types` | `packages/types/src/config.ts` / `packages/types/src/plan.ts` / `packages/types/src/pipeline.ts` / `packages/sdk/src/AgentFramework.ts` / `packages/sdk/src/Pipeline.ts` | [implemented] |
+| `Capability` / `CapabilityRegistry` / `ExecutionPlan` / `PlanStep` / `PlanResult` / `IPlannerAgent` / `IPlanExecutor` / `ApprovalHandler` / `ApprovalResult` | `01-核心设计.md` §1.14 | `types` / `sdk` | `packages/types/src/capability.ts` / `packages/types/src/plan.ts` / `packages/sdk/src/CapabilityRegistry.ts` / `packages/sdk/src/planner/` | [implemented] |
+| `AgentRuntimeConfig` / `RemoteTask` / `ControlMessage` / `AgentMessage` / `IAgentRuntimeClient` | `01-核心设计.md` §1.13 | `types` / `runtime-client` | `packages/types/src/runtime.ts` / `packages/runtime-client/src/` | [implemented] |
 | `AgentNode` | `01-核心设计.md` §1.7 | `types` / `dashboard` | `packages/types/src/models.ts` / `packages/dashboard/src/store/` | [planned] |
 
 ---

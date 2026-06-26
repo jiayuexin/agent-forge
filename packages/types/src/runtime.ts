@@ -46,6 +46,7 @@ export interface AgentRuntimeConfig {
   };
   allowRemoteExecution?: boolean;
   requireLocalConfirmation?: string[];
+  capabilityCacheDir?: string;
 }
 
 export interface RemoteTask {
@@ -117,14 +118,22 @@ export interface LocalApprovalRequest {
   summary: Record<string, unknown>;
 }
 
+export type RuntimeClientStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+export type ControlMessageType = ControlMessage['type'];
+
+export type TaskHandler = (task: RemoteTask) => Promise<AgentResult>;
+
+export type CapabilityDistributeHandler = (
+  payload: CapabilityDistributePayload
+) => Promise<CapabilityAckPayload>;
+
 export interface IAgentRuntimeClient {
-  readonly status: 'connecting' | 'connected' | 'disconnected' | 'error';
+  readonly status: RuntimeClientStatus;
   readonly node: AgentNode;
   start(): Promise<void>;
   stop(): Promise<void>;
   send(message: AgentMessage): void;
-  onTask(handler: (task: RemoteTask) => Promise<AgentResult>): void;
-  onCapabilityDistribute(
-    handler: (payload: CapabilityDistributePayload) => Promise<CapabilityAckPayload>
-  ): void;
+  onTask(handler: TaskHandler): void;
+  onCapabilityDistribute(handler: CapabilityDistributeHandler): void;
 }

@@ -159,7 +159,13 @@ importers:
       '@agentforge/types':
         specifier: workspace:*
         version: link:../types
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.0
     devDependencies:
+      '@types/ws':
+        specifier: ^8.5.0
+        version: 8.5.0
       tsup:
         specifier: ^8.0.0
         version: 8.0.0(typescript@5.4.2)
@@ -1035,6 +1041,12 @@ packages:
     resolution: {integrity: sha512-jVC7fWX1Did5TNn8mmGsE81mdyv+7a+nHNlUiNVys8G392CfNfhqAVRd+cuY0+OBU2vN6GzpiRX/MgJ9b3rtpQ==}
     dependencies:
       undici-types: 5.26.5
+
+  /@types/ws@8.5.0:
+    resolution: {integrity: sha512-mTClfhq5cuGyW4jthaFuig6Q8OVfB3IRyZfN/9SCyJtiM5H0SubwM89cHoT9UngO6HyUFic88HvT1zSNLNyxWA==}
+    dependencies:
+      '@types/node': 20.12.0
+    dev: true
 
   /@typescript-eslint/eslint-plugin@8.0.0(@typescript-eslint/parser@8.0.0)(eslint@9.0.0)(typescript@5.4.2):
     resolution: {integrity: sha512-STIZdwEQRXAHvNUS6ILDf5z3u95Gc8jzywunxSNqX00OooIemaaNIA0vEgynJlycL5AjabYLLrIyHd4iazyvtg==}
@@ -3257,6 +3269,19 @@ packages:
   /wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: true
+
+  /ws@8.18.0:
+    resolution: {integrity: sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
 
   /yaml@2.9.0:
     resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}

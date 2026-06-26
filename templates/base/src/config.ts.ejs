@@ -1,0 +1,17 @@
+import type { ClientAgentConfig } from '@agentforge/types';
+import { systemPrompt } from './prompts.js';
+import { tools } from './tools.js';
+
+export const config: ClientAgentConfig = {
+  identity: {
+    id: '<%= identity.id %>',
+    name: '<%= identity.name %>',
+    role: '<%= identity.role %>',
+    version: '<%= identity.version %>',
+  },
+  model: <%- JSON.stringify(config.model || { provider: 'openai', modelName: 'gpt-4', apiKey: 'REPLACE_WITH_OPENAI_API_KEY' }) %>,
+  systemPrompt,
+  tools,
+  hubUrl: process.env.AGENTFORGE_HUB_URL,
+  authToken: process.env.AGENTFORGE_HUB_TOKEN,
+};

@@ -27,6 +27,7 @@ export interface AgentTemplate {
   displayName: string;
   description: string;
   category: string;
+  riskLevel?: 'low' | 'medium' | 'high';
   systemPromptTemplate: string;
   defaultTools: ToolDefinition[];
   defaultConfig: Partial<AgentConfig>;

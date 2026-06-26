@@ -54,7 +54,7 @@
 | Phase 0 — Monorepo 初始化 | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架 | ✅ 已完成 |
 | Phase 1 — `packages/types` | 核心类型定义 | ✅ 已完成 |
 | Phase 2 — `packages/core` | BaseAgent、Provider、生成引擎 | ✅ 已完成 |
-| Phase 3 — Templates | 基础模板与角色模板 | ⬜ 未开始 |
+| Phase 3 — Templates | 基础模板与角色模板 | ✅ 已完成 |
 | Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ⬜ 未开始 |
 | Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ⬜ 未开始 |
 | Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ⬜ 未开始 |

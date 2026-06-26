@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type {
   AgentIdentity,
+  AgentTemplate,
   ClientAgentConfig,
   ClientAgentSecurityConfig,
+  ToolDefinition,
 } from '@agentforge/types';
 import type {
   GenerateInput,
@@ -24,10 +26,12 @@ export class AgentGenerator {
   ) {}
 
   async generate(input: GenerateInput): Promise<GenerateResult> {
-    const parsed = this.parseDescription(input);
-    const template = this.templateEngine.load(input.templateId ?? 'general');
-    const systemPrompt = this.promptBuilder.build(parsed);
-    const tools = this.skillMatcher.match(parsed);
+    const template = await this.templateEngine.load(input.templateId ?? 'general');
+    const parsed = this.parseDescription(input, template.meta);
+    const systemPrompt = this.promptBuilder.build(parsed, template.meta.systemPromptTemplate);
+
+    const matchedTools = this.skillMatcher.match(parsed);
+    const tools = this.mergeTools(template.meta.defaultTools ?? [], matchedTools);
 
     const identity: AgentIdentity = {
       id: randomUUID(),
@@ -40,6 +44,7 @@ export class AgentGenerator {
       identity,
       systemPrompt,
       tools,
+      ...template.meta.defaultConfig,
       ...input.config,
     };
 
@@ -75,7 +80,7 @@ export class AgentGenerator {
     return Promise.all(inputs.map((input) => this.generate(input)));
   }
 
-  private parseDescription(input: GenerateInput): ParsedDescription {
+  private parseDescription(input: GenerateInput, meta: Partial<AgentTemplate>): ParsedDescription {
     const name =
       input.name ??
       input.description.split(/\s+/).slice(0, 3).join('-').toLowerCase() ??
@@ -84,11 +89,11 @@ export class AgentGenerator {
     return {
       role: name,
       name,
-      displayName: name,
+      displayName: meta?.displayName ?? name,
       capabilities: [],
       scenarios: [input.description],
       toolCategories: this.extractToolCategories(input.description),
-      riskLevel: 'low',
+      riskLevel: meta?.riskLevel ?? 'low',
     };
   }
 
@@ -99,5 +104,19 @@ export class AgentGenerator {
     if (lowered.includes('http') || lowered.includes('api')) categories.push('http');
     if (lowered.includes('data') || lowered.includes('sql')) categories.push('data');
     return categories;
+  }
+
+  private mergeTools(defaultTools: ToolDefinition[], matchedTools: ToolDefinition[]): ToolDefinition[] {
+    const seen = new Set<string>();
+    const tools: ToolDefinition[] = [];
+
+    for (const tool of [...defaultTools, ...matchedTools]) {
+      if (!seen.has(tool.name)) {
+        seen.add(tool.name);
+        tools.push(tool);
+      }
+    }
+
+    return tools;
   }
 }

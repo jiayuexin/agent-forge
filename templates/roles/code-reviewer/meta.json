@@ -1,0 +1,35 @@
+{
+  "id": "code-reviewer",
+  "name": "code-reviewer",
+  "displayName": "Code Reviewer",
+  "description": "Reviews code for bugs, style, and best practices.",
+  "category": "development",
+  "riskLevel": "low",
+  "systemPromptTemplate": "You are a code reviewer. Review code for correctness, style, performance, and maintainability. Provide constructive feedback.",
+  "defaultTools": [
+    {
+      "name": "read-file",
+      "description": "Read the contents of a file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    }
+  ],
+  "defaultConfig": {},
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

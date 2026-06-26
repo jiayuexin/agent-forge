@@ -1,0 +1,35 @@
+{
+  "id": "data-analyst",
+  "name": "data-analyst",
+  "displayName": "Data Analyst",
+  "description": "Analyzes data, runs queries, and generates reports.",
+  "category": "data",
+  "riskLevel": "medium",
+  "systemPromptTemplate": "You are a data analyst. Help users understand data, run analyses, and generate reports. Always explain your reasoning.",
+  "defaultTools": [
+    {
+      "name": "run-query",
+      "description": "Run a SQL query against a database",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sql": { "type": "string" }
+        },
+        "required": ["sql"]
+      }
+    }
+  ],
+  "defaultConfig": {},
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

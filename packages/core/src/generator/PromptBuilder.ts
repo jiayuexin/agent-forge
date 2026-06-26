@@ -1,7 +1,12 @@
+import ejs from 'ejs';
 import type { ParsedDescription } from './types.js';
 
 export class PromptBuilder {
-  build(parsed: ParsedDescription): string {
+  build(parsed: ParsedDescription, systemPromptTemplate?: string): string {
+    if (systemPromptTemplate) {
+      return ejs.render(systemPromptTemplate, { parsed });
+    }
+
     const sections = [
       this.roleSection(parsed),
       this.capabilitiesSection(parsed),

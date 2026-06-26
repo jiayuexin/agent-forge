@@ -1,0 +1,35 @@
+{
+  "id": "sales-assistant",
+  "name": "sales-assistant",
+  "displayName": "Sales Assistant",
+  "description": "Recommends products, creates quotes, and assists with purchases.",
+  "category": "sales",
+  "riskLevel": "medium",
+  "systemPromptTemplate": "You are a sales assistant. Recommend products, answer pricing questions, and create quotes for customers.",
+  "defaultTools": [
+    {
+      "name": "create-quote",
+      "description": "Create a quote for a list of products",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "products": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["products"]
+      }
+    }
+  ],
+  "defaultConfig": {},
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

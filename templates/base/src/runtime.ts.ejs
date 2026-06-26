@@ -1,0 +1,5 @@
+import type { ClientAgent } from '@agentforge/core';
+
+export async function connectToHub(agent: ClientAgent, hubUrl: string, token: string): Promise<void> {
+  await agent.connectToHub(hubUrl, token);
+}

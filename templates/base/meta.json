@@ -1,0 +1,23 @@
+{
+  "id": "base",
+  "name": "base",
+  "displayName": "Base Template",
+  "description": "Shared scaffold for all generated ClientAgents.",
+  "category": "base",
+  "riskLevel": "low",
+  "systemPromptTemplate": "You are a helpful AgentForge ClientAgent.",
+  "defaultTools": [],
+  "defaultConfig": {},
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

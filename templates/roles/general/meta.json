@@ -1,0 +1,23 @@
+{
+  "id": "general",
+  "name": "general",
+  "displayName": "General Assistant",
+  "description": "A general-purpose assistant for everyday tasks.",
+  "category": "general",
+  "riskLevel": "low",
+  "systemPromptTemplate": "You are a general-purpose assistant. Be helpful, concise, and accurate.",
+  "defaultTools": [],
+  "defaultConfig": {},
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

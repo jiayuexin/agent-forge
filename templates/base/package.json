@@ -1,6 +1,0 @@
-{
-  "name": "@agentforge/template-base",
-  "private": true,
-  "version": "0.0.0",
-  "description": "Base template for generated AgentForge ClientAgents"
-}

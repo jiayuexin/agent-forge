@@ -1,0 +1,48 @@
+{
+  "id": "dev-assistant",
+  "name": "dev-assistant",
+  "displayName": "Developer Assistant",
+  "description": "Assists with local development tasks: file operations, git, and commands.",
+  "category": "development",
+  "riskLevel": "high",
+  "systemPromptTemplate": "You are a developer assistant. Help with local development tasks. You can read files and run commands, but always ask for confirmation before destructive actions.",
+  "defaultTools": [
+    {
+      "name": "read-file",
+      "description": "Read the contents of a file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "run-command",
+      "description": "Run a shell command",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" }
+        },
+        "required": ["command"]
+      }
+    }
+  ],
+  "defaultConfig": {
+    "localCommandAuth": { "level": "whitelist", "whitelist": ["git", "npm", "pnpm"] }
+  },
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

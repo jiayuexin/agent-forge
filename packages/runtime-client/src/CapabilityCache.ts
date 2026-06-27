@@ -6,10 +6,12 @@ import type {
   CapabilityDistributePayload,
   Logger,
 } from '@agentforge/types';
+import { verifyPluginSignature } from '@agentforge/core';
 
 export interface CapabilityCacheOptions {
   cacheDir?: string;
   logger?: Logger;
+  trustStoreDir?: string;
 }
 
 export interface CapabilityInstallOptions {
@@ -24,11 +26,13 @@ interface CacheManifest {
 export class CapabilityCache {
   readonly cacheDir: string;
   private readonly logger: Logger;
+  private readonly trustStoreDir: string;
   private readonly capabilities = new Map<string, Capability>();
   private manifest: CacheManifest = { version: '1', capabilities: {} };
 
   constructor(options?: CapabilityCacheOptions) {
     this.cacheDir = options?.cacheDir ?? '.agentforge/capabilities';
+    this.trustStoreDir = options?.trustStoreDir ?? '.agentforge/trust-keys';
     this.logger = options?.logger ?? consoleLogger();
   }
 
@@ -154,6 +158,17 @@ export class CapabilityCache {
     }
 
     if (payload.signature) {
+      const payloadBuffer = payload.downloadUrl
+        ? await readFile(join(dir, 'package.tgz'))
+        : Buffer.from(JSON.stringify(payload.capability));
+      const valid = await verifyPluginSignature({
+        payload: payloadBuffer,
+        signature: payload.signature,
+        trustStoreDir: this.trustStoreDir,
+      });
+      if (!valid) {
+        throw new Error('Plugin signature verification failed');
+      }
       await writeFile(join(dir, 'signature.pem'), payload.signature);
     }
   }

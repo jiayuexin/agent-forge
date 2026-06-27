@@ -5,7 +5,7 @@
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-23
-> **实现状态**: 未开始
+> **实现状态**: 已完成
 >
 > AgentForge 的对外接口：CLI 命令行工具 + Capability Hub HTTP/WebSocket API。
 

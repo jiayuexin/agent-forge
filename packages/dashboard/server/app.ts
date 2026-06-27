@@ -32,8 +32,13 @@ export function createHubApp(options: HubAppOptions) {
   const logger = options.logger ?? new SimpleLogger({ component: 'HubServer' });
   const metrics = options.metrics ?? new MetricsRegistry();
 
+  const requestCounter = metrics.counter('hub_http_requests_total', 'Total Hub HTTP requests');
+  const nodeGauge = metrics.gauge('hub_connected_nodes', 'Connected ClientAgent nodes');
+
   const app = createApp({
     onRequest: eventHandler((event: H3Event) => {
+      requestCounter.inc({ method: event.method ?? 'GET' });
+      nodeGauge.set({}, options.nodeRegistry.list().length);
       logRequest(event, logger);
     }),
     onError: (error, event) => handleError(error, event as H3Event),

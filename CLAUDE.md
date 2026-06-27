@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-**AgentForge** 目前处于**设计文档阶段**。仓库在 `docs/` 目录下包含产品需求、设计规范和运维手册。实际代码（Node.js/TypeScript monorepo）已规划但尚未实现。`docs/STATUS.md` 是判定哪些规范已最终定稿、哪些模块已实现代码的权威依据。
+**AgentForge** 目前处于**核心平台已实现阶段**（Phase 0–12）。仓库包含完整设计文档与 Monorepo 实现（types/core/sdk/runtime-client/http-server/dashboard/cli）。`docs/STATUS.md` 是判定哪些规范已最终定稿、哪些模块已实现代码的权威依据。
 
 - 根 README：`README.md`
 - 文档总览：`docs/README.md`

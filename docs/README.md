@@ -3,7 +3,7 @@
 > **项目代号**: AgentForge
 > **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-25
-> **当前阶段**: 设计文档阶段，代码待开发
+> **当前阶段**: 核心平台已实现（Phase 0–12），CLI 与 Hub 可运行
 
 **AgentForge** 是一个基于 Node.js + TypeScript 的客户端 Agent 应用平台。用户通过一段岗位描述即可生成可本地运行的 **ClientAgent**，ClientAgent 通过 WebSocket 连接到 **Capability Hub**，实现能力下发、远程任务执行与集中监控。开发者还可以通过 `@agentforge/sdk` 编排 **StatelessAgent**，并与 ClientAgent 协同工作。
 
@@ -39,8 +39,8 @@
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|
-| [PRD.md](./product/PRD.md) | 产品需求 | 重构中 | 问题陈述、产品目标、非目标、开放问题 |
-| [08-需求与路线图.md](./product/08-需求与路线图.md) | 产品需求 | 重构中 | 用户故事、需求规格、路线图、成功指标 |
+| [PRD.md](./product/PRD.md) | 产品需求 | 已定稿 | 问题陈述、产品目标、非目标、开放问题 |
+| [08-需求与路线图.md](./product/08-需求与路线图.md) | 产品需求 | 已定稿 | 用户故事、需求规格、路线图、成功指标 |
 
 ### 第二层 · 设计规格 — [design/README.md](./design/README.md)
 
@@ -66,10 +66,10 @@
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|
-| [GUIDE.md](./ops/GUIDE.md) | 使用指南 | 草案 | CLI、SDK、Capability Hub 用法（目标行为） |
-| [DEPLOY.md](./ops/DEPLOY.md) | 部署手册 | 草案 | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入（目标行为） |
-| [TEST.md](./ops/TEST.md) | 测试策略 | 草案 | 测试分层、用例索引与 Vitest 约定（目标行为） |
-| [IMPLEMENTATION.md](./ops/IMPLEMENTATION.md) | 开发计划 | 草案 | v1 开发任务拆分、实施顺序、包依赖与验收标准 |
+| [GUIDE.md](./ops/GUIDE.md) | 使用指南 | 已定稿 | CLI、SDK、Capability Hub 用法 |
+| [DEPLOY.md](./ops/DEPLOY.md) | 部署手册 | 已定稿 | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入 |
+| [TEST.md](./ops/TEST.md) | 测试策略 | 已定稿 | 测试分层、用例索引与 Vitest 约定 |
+| [IMPLEMENTATION.md](./ops/IMPLEMENTATION.md) | 开发计划 | 已定稿 | v1 开发任务拆分、实施顺序、包依赖与验收标准 |
 
 ---
 

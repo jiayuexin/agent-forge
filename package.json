@@ -9,7 +9,8 @@
     "type-check": "pnpm -r run type-check",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @agentforge/dashboard test:e2e"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",

@@ -2,7 +2,7 @@
 
 AgentForge 是一个**客户端 Agent 应用平台**：从岗位描述生成可本地运行的 **ClientAgent**，并通过 **Capability Hub** 集中管理其能力、远程下发任务与监控运行状态。也支持开发者通过 SDK 编排 **StatelessAgent** 并与 ClientAgent 协同。
 
-**当前阶段**：设计文档阶段，代码待开发。完整文档见 [docs/README.md](docs/README.md)。
+**当前阶段**：核心平台已实现（Phase 0–12），Monorepo 可 build/test。完整文档见 [docs/README.md](docs/README.md)，实现进度见 [docs/STATUS.md](docs/STATUS.md)。
 
 ## 文档三层结构
 

@@ -20,8 +20,11 @@ export interface BaseAppOptions {
 export function createBaseApp(options: BaseAppOptions) {
   const { agent, metrics, logger, prefix = '/api' } = options;
 
+  const requestCounter = metrics.counter('http_requests_total', 'Total HTTP requests');
+
   const app = createApp({
     onRequest: eventHandler((event) => {
+      requestCounter.inc({ method: event.method ?? 'GET', service: 'debug-server' });
       logRequest(event, logger);
     }),
     onError: (error, event) => {

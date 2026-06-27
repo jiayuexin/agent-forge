@@ -5,7 +5,7 @@
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-23
-> **实现状态**: 未开始
+> **实现状态**: 已完成
 >
 > AgentForge 中的 Agent 分为两种形态：ClientAgent 与 StatelessAgent。两者共享 `IAgent` 接口，但功能侧重不同。
 

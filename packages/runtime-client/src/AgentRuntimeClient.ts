@@ -18,7 +18,7 @@ import type {
   TaskHandler,
 } from '@agentforge/types';
 import { AgentStatus as Status } from '@agentforge/types';
-import { CoreError, SimpleLogger } from '@agentforge/core';
+import { CoreError, SimpleLogger, askLocalUserConfirmation, isSensitiveTask } from '@agentforge/core';
 import { CapabilityCache } from './CapabilityCache.js';
 import { HeartbeatManager } from './HeartbeatManager.js';
 import { WebSocketTransport } from './WebSocketTransport.js';
@@ -226,6 +226,14 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
         'Remote execution is disabled for this node'
       );
       return;
+    }
+
+    if (isSensitiveTask(message.payload.task, this.config.requireLocalConfirmation ?? [])) {
+      const confirmed = await askLocalUserConfirmation(message.payload.task);
+      if (!confirmed) {
+        this.sendError(message.messageId, 'USER_REJECTED', 'User rejected execution');
+        return;
+      }
     }
 
     try {

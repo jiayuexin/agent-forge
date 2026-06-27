@@ -1,7 +1,7 @@
 # 文档状态总表
 
-> **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-26
+> **文档版本**: docs-v0.5
+> **最后更新**: 2026-06-27
 
 | 文档 | 层级 | 类型 | 文档状态 | 实现状态 |
 |---|---|---|---|---|
@@ -9,29 +9,29 @@
 | [product/PRD.md](./product/PRD.md) | 第一层 | 产品需求 | 已定稿 | 未开始 |
 | [product/08-需求与路线图.md](./product/08-需求与路线图.md) | 第一层 | 产品需求 | 已定稿 | 未开始 |
 | [design/README.md](./design/README.md) | 第二层 | 索引 | 已定稿 | — |
-| [design/01-核心设计.md](./design/01-核心设计.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/02-单个Agent功能.md](./design/02-单个Agent功能.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/03-生成引擎.md](./design/03-生成引擎.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
+| [design/01-核心设计.md](./design/01-核心设计.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/02-单个Agent功能.md](./design/02-单个Agent功能.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/03-生成引擎.md](./design/03-生成引擎.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
 | [design/04-集成与编排.md](./design/04-集成与编排.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
-| [design/05-CLI与API.md](./design/05-CLI与API.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/06-可视化面板.md](./design/06-可视化面板.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/07-技术选型与架构.md](./design/07-技术选型与架构.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/08-客户端Agent与无状态Agent.md](./design/08-客户端Agent与无状态Agent.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/09-能力市场与下发.md](./design/09-能力市场与下发.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/10-安全模型.md](./design/10-安全模型.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/11-开发约定.md](./design/11-开发约定.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/TECH-DESIGN.md](./design/TECH-DESIGN.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
-| [design/附录-生成示例.md](./design/附录-生成示例.md) | 第二层 | 设计规格 | 已定稿 | 未开始 |
+| [design/05-CLI与API.md](./design/05-CLI与API.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/06-可视化面板.md](./design/06-可视化面板.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/07-技术选型与架构.md](./design/07-技术选型与架构.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/08-客户端Agent与无状态Agent.md](./design/08-客户端Agent与无状态Agent.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/09-能力市场与下发.md](./design/09-能力市场与下发.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/10-安全模型.md](./design/10-安全模型.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/11-开发约定.md](./design/11-开发约定.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/TECH-DESIGN.md](./design/TECH-DESIGN.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
+| [design/附录-生成示例.md](./design/附录-生成示例.md) | 第二层 | 设计规格 | 已定稿 | 已完成 |
 | [ops/README.md](./ops/README.md) | 第三层 | 索引 | 已定稿 | — |
-| [ops/GUIDE.md](./ops/GUIDE.md) | 第三层 | 使用指南 | 已定稿 | 未开始 |
-| [ops/DEPLOY.md](./ops/DEPLOY.md) | 第三层 | 部署手册 | 已定稿 | 未开始 |
-| [ops/TEST.md](./ops/TEST.md) | 第三层 | 测试策略 | 已定稿 | 未开始 |
-| [ops/IMPLEMENTATION.md](./ops/IMPLEMENTATION.md) | 第三层 | 开发计划 | 草案 | 进行中 |
+| [ops/GUIDE.md](./ops/GUIDE.md) | 第三层 | 使用指南 | 已定稿 | 已完成 |
+| [ops/DEPLOY.md](./ops/DEPLOY.md) | 第三层 | 部署手册 | 已定稿 | 已完成 |
+| [ops/TEST.md](./ops/TEST.md) | 第三层 | 测试策略 | 已定稿 | 已完成 |
+| [ops/IMPLEMENTATION.md](./ops/IMPLEMENTATION.md) | 第三层 | 开发计划 | 已定稿 | 已完成 |
 
 ## 图例
 
 - **文档状态**：已定稿 = 设计内容稳定；草案 = 目标行为描述，待实现验证
-- **实现状态**：未开始 = 对应代码尚未开发
+- **实现状态**：未开始 = 对应代码尚未开发；已完成 = 对应代码已实现并通过基础测试
 
 ## 模块实现进度（规划）
 
@@ -41,7 +41,7 @@
 | @agentforge/core | ✅ | ✅ | ✅ |
 | @agentforge/sdk | ✅ | ✅ | ✅ |
 | @agentforge/runtime-client | ✅ | ✅ | ✅ |
-| @agentforge/cli | ✅ | ⬜ | ⬜ |
+| @agentforge/cli | ✅ | ✅ | ✅ |
 | @agentforge/http-server | ✅ | ✅ | ✅ |
 | @agentforge/dashboard | ✅ | ✅ | ✅ |
 
@@ -59,11 +59,11 @@
 | Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ✅ 已完成 |
 | Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ✅ 已完成 |
 | Phase 7 — `packages/dashboard` 前端 | Capability Hub 可视化面板 | ✅ 已完成 |
-| Phase 8 — `packages/cli` | CLI 命令 | ⬜ 未开始 |
-| Phase 9 — 安全层 | 本地命令授权、Token、签名、审计 | ⬜ 未开始 |
-| Phase 10 — 可观测性 | 日志、链路追踪、指标、成本守护 | ⬜ 未开始 |
-| Phase 11 — 测试 | 单元/集成/E2E 测试体系 | ⬜ 未开始 |
-| Phase 12 — CI/CD + Docker | GitHub Actions、Docker 镜像、发布 | ⬜ 未开始 |
+| Phase 8 — `packages/cli` | CLI 命令 | ✅ 已完成 |
+| Phase 9 — 安全层 | 本地命令授权、Token、签名、审计 | ✅ 已完成 |
+| Phase 10 — 可观测性 | 日志、链路追踪、指标、成本守护 | ✅ 已完成 |
+| Phase 11 — 测试 | 单元/集成/E2E 测试体系 | ✅ 已完成 |
+| Phase 12 — CI/CD + Docker | GitHub Actions、Docker 镜像、发布 | ✅ 已完成 |
 
 ## 口径统一记录（docs-v0.4）
 

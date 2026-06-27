@@ -1,40 +1,49 @@
 import type { Logger } from '@agentforge/types';
-import pino from 'pino';
 
 export class SimpleLogger implements Logger {
-  private readonly logger: pino.Logger;
   private readonly context: Record<string, unknown>;
 
   constructor(context: Record<string, unknown> = {}) {
     this.context = { ...context };
-    const level =
-      (context.level as string | undefined) ??
-      process.env.LOG_LEVEL ??
-      process.env.AGENTFORGE_LOG_LEVEL ??
-      'info';
-    this.logger = pino({
-      level,
-      base: this.context,
-    });
   }
 
   debug(message: string, ...args: unknown[]): void {
-    this.logger.debug({ args }, message);
+    this.write('debug', message, args);
   }
 
   info(message: string, ...args: unknown[]): void {
-    this.logger.info({ args }, message);
+    this.write('info', message, args);
   }
 
   warn(message: string, ...args: unknown[]): void {
-    this.logger.warn({ args }, message);
+    this.write('warn', message, args);
   }
 
   error(message: string, ...args: unknown[]): void {
-    this.logger.error({ args }, message);
+    this.write('error', message, args);
   }
 
   child(context: Record<string, unknown>): Logger {
     return new SimpleLogger({ ...this.context, ...context });
+  }
+
+  private write(level: string, message: string, args: unknown[]): void {
+    const payload = {
+      level,
+      time: new Date().toISOString(),
+      message,
+      ...this.context,
+      ...(args.length > 0 ? { args } : {}),
+    };
+    const line = JSON.stringify(payload);
+    if (level === 'error') {
+      console.error(line);
+      return;
+    }
+    if (level === 'warn') {
+      console.warn(line);
+      return;
+    }
+    console.log(line);
   }
 }

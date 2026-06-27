@@ -49,6 +49,8 @@ describe('Hub nodes API', () => {
     hubServer = await startTestHub();
     const response = await fetch(`http://127.0.0.1:${hubServer.port}/api/metrics`);
     const text = await response.text();
-    expect(text).toBe('');
+    expect(response.status).toBe(200);
+    expect(text).toContain('hub_http_requests_total');
+    expect(text).toContain('hub_connected_nodes');
   });
 });

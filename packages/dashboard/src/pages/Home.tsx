@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useNodeStore } from '../store/nodeStore.js';
 import { useCapabilityStore } from '../store/capabilityStore.js';
-import { useTemplateStore } from '../store/templateStore.js';
+import { useGeneratedAgentStore } from '../store/generatedAgentStore.js';
 import { useMonitorStore } from '../store/monitorStore.js';
 
 export function Home() {
@@ -12,15 +12,15 @@ export function Home() {
   const navigate = useNavigate();
   const { nodes, fetchNodes } = useNodeStore();
   const { capabilities, fetchList: fetchCapabilities } = useCapabilityStore();
-  const { templates, fetchList: fetchTemplates } = useTemplateStore();
+  const { agents, fetchList: fetchAgents } = useGeneratedAgentStore();
   const { events, fetchMetrics } = useMonitorStore();
 
   useEffect(() => {
     fetchNodes();
     fetchCapabilities();
-    fetchTemplates();
+    fetchAgents();
     fetchMetrics();
-  }, [fetchNodes, fetchCapabilities, fetchTemplates, fetchMetrics]);
+  }, [fetchNodes, fetchCapabilities, fetchAgents, fetchMetrics]);
 
   const onlineCount = nodes.filter((node) => node.status === 'online').length;
 
@@ -40,7 +40,7 @@ export function Home() {
         </Col>
         <Col span={8}>
           <Card>
-            <Statistic title={t('clientAgents')} value={templates.length} />
+            <Statistic title={t('clientAgents')} value={agents.length} />
           </Card>
         </Col>
       </Row>

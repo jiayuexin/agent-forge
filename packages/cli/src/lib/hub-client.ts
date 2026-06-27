@@ -6,7 +6,7 @@ export interface HubClientOptions {
 export class HubClient {
   constructor(private readonly options: HubClientOptions) {}
 
-  private headers(): HeadersInit {
+  private headers(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };

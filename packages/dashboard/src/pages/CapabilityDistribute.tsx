@@ -92,7 +92,9 @@ export function CapabilityDistribute() {
                 title: '状态',
                 dataIndex: 'status',
                 render: (status: string) => (
-                  <Tag color={status === 'success' ? 'green' : 'red'}>{status}</Tag>
+                  <Tag color={status === 'installed' || status === 'downloaded' ? 'green' : status === 'failed' ? 'red' : 'default'}>
+                    {status}
+                  </Tag>
                 ),
               },
               { title: '错误', dataIndex: 'error' },

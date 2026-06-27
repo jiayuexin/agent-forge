@@ -2,6 +2,7 @@ import type {
   AgentNode,
   AgentResult,
   AgentStreamChunk,
+  DebugConfig,
   NodeConfigUpdateRequest,
   NodeExecuteRequest,
 } from '@agentforge/types';
@@ -33,16 +34,27 @@ export async function unregisterNode(id: string): Promise<void> {
 
 export async function* streamNodeTask(
   id: string,
-  request: NodeExecuteRequest
+  request: NodeExecuteRequest,
+  debugConfig?: DebugConfig
 ): AsyncIterable<AgentStreamChunk> {
   const token = useAuthStore.getState().token;
+  const body: NodeExecuteRequest = {
+    ...request,
+    context: {
+      ...request.context,
+      metadata: {
+        ...request.context?.metadata,
+        debugConfig,
+      },
+    },
+  };
   const response = await fetch(`/api/nodes/${id}/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token ?? ''}`,
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok || !response.body) {

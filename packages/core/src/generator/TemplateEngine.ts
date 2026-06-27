@@ -26,7 +26,7 @@ export class TemplateEngine {
     'src/prompts.ts': `export const systemPrompt = \`<%= systemPrompt %>\`;\n`,
     'src/tools.ts': `import type { ToolDefinition } from '@agentforge/types';\n\nexport const tools: ToolDefinition[] = <%- JSON.stringify(tools, null, 2) %>;\n`,
     'src/types.ts': `export type { ClientAgentConfig } from '@agentforge/types';\n`,
-    'src/runtime.ts': `import type { ClientAgent } from '@agentforge/core';\n\nexport async function connectToHub(agent: ClientAgent, hubUrl: string, token: string): Promise<void> {\n  await agent.connectToHub(hubUrl, token);\n}\n`,
+    'src/runtime.ts': `import { AgentRuntimeClient } from '@agentforge/runtime-client';\nimport type { ClientAgent } from '@agentforge/core';\n\nlet runtimeClient: AgentRuntimeClient | undefined;\n\nexport async function connectToHub(agent: ClientAgent, hubUrl: string, token: string): Promise<void> {\n  runtimeClient = new AgentRuntimeClient(agent, {\n    hubUrl,\n    authToken: token,\n    nodeName: agent.name,\n    allowRemoteExecution: true,\n    capabilityCacheDir: '.agentforge/capabilities',\n  });\n  await runtimeClient.start();\n}\n`,
     'package.json': `{\n  "name": "<%= parsed.name %>",\n  "version": "0.0.1",\n  "type": "module",\n  "scripts": {\n    "dev": "tsx src/main.ts",\n    "build": "tsc"\n  },\n  "dependencies": {\n    "@agentforge/core": "workspace:*",\n    "@agentforge/runtime-client": "workspace:*",\n    "@agentforge/types": "workspace:*"\n  },\n  "devDependencies": {\n    "tsx": "^4.0.0",\n    "typescript": "^5.4.0"\n  }\n}\n`,
     'tsconfig.json': `{\n  "extends": "../../tsconfig.base.json",\n  "compilerOptions": {\n    "outDir": "./dist",\n    "rootDir": "./src"\n  },\n  "include": ["src/**/*"]\n}\n`,
     'README.md': `# <%= parsed.displayName %>\n\n<%= parsed.description || parsed.role %>\n`,
@@ -82,7 +82,7 @@ export class TemplateEngine {
     for (const { fullPath, relativePath } of entries) {
       if (!fullPath.endsWith('.ejs')) continue;
       const content = await readFile(fullPath, 'utf-8');
-      const outputPath = relativePath.replace(/\.ejs$/, '');
+      const outputPath = relativePath.replace(/\.ejs$/, '').replace(/\\/g, '/');
       files[outputPath] = content;
     }
 

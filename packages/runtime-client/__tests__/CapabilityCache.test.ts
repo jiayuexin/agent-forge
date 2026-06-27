@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CapabilityCache } from '../src/CapabilityCache.js';
@@ -103,6 +103,8 @@ describe('CapabilityCache', () => {
   });
 
   it('install plugin downloads package.tgz when downloadUrl is provided', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network unavailable')));
+
     const payload: CapabilityDistributePayload = {
       action: 'add',
       capability: {
@@ -116,11 +118,11 @@ describe('CapabilityCache', () => {
       signature: 'fake-signature',
     };
 
-    // Since we cannot rely on external network in tests, we expect fetch to fail
-    // and return a failed ack.
     const ack = await cache.install(payload);
     expect(ack.status).toBe('failed');
     expect(ack.error).toBeDefined();
+
+    vi.unstubAllGlobals();
   });
 
   it('failed install returns failed ack with error', async () => {

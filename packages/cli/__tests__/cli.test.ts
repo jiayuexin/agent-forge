@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { slugifyName, defaultOutputDir } from '../../lib/generator.js';
-import { formatAgentList } from '../../lib/list-agents.js';
-import { resolveHubBaseUrl } from '../../lib/hub-client.js';
+import { slugifyName, defaultOutputDir } from '../src/lib/generator.js';
+import { formatAgentList } from '../src/lib/list-agents.js';
+import { resolveHubBaseUrl } from '../src/lib/hub-client.js';
 
 describe('CLI helpers', () => {
   it('slugifies agent names', () => {

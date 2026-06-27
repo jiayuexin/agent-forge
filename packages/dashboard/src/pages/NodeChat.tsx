@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { UserOutlined, RobotOutlined } from '@ant-design/icons';
 import { useNodeStore } from '../store/nodeStore.js';
 import { streamNodeTask } from '../api/nodes.js';
-import type { AgentStreamChunk } from '@agentforge/types';
+import type { AgentStreamChunk, CallTrace } from '@agentforge/types';
+import { MarkdownMessage } from '../components/playground/MarkdownMessage.js';
+import { buildCallTraces, buildStreamContent } from '../lib/callTrace.js';
 
 const { TextArea } = Input;
 
@@ -14,6 +16,7 @@ interface ChatMessage {
   role: 'user' | 'agent';
   content: string;
   chunks: AgentStreamChunk[];
+  traces: CallTrace[];
   duration?: number;
   tokens?: { input: number; output: number; total: number };
   model?: string;
@@ -46,11 +49,13 @@ export function NodeChat() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
+    const messageText = input;
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: input,
+      content: messageText,
       chunks: [],
+      traces: [],
       timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, userMessage]);
@@ -63,16 +68,22 @@ export function NodeChat() {
       role: 'agent',
       content: '',
       chunks: [],
+      traces: [],
       timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, agentMessage]);
 
     try {
-      for await (const chunk of streamNodeTask(id!, { type: 'chat', input: { message: input } })) {
+      for await (const chunk of streamNodeTask(id!, {
+        type: 'chat',
+        input: { message: messageText },
+      })) {
+        const chunks = [...agentMessage.chunks, chunk];
         agentMessage = {
           ...agentMessage,
-          chunks: [...agentMessage.chunks, chunk],
-          content: buildContent(agentMessage.chunks, chunk),
+          chunks,
+          content: buildStreamContent(agentMessage.chunks, chunk),
+          traces: buildCallTraces(chunks),
         };
         setMessages((prev) => [...prev.slice(0, -1), agentMessage]);
       }
@@ -95,20 +106,20 @@ export function NodeChat() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-4">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <Space>
+              <Space align="start">
                 {msg.role === 'agent' && <Avatar icon={<RobotOutlined />} />}
                 <div
-                  className={`max-w-md p-3 rounded-lg ${
+                  className={`max-w-lg p-3 rounded-lg ${
                     msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100'
                   }`}
                 >
-                  <Typography.Text className={msg.role === 'user' ? '!text-white' : ''}>
-                    {msg.content}
-                  </Typography.Text>
+                  {msg.role === 'user' ? (
+                    <Typography.Text className="!text-white">{msg.content}</Typography.Text>
+                  ) : (
+                    <MarkdownMessage content={msg.content} />
+                  )}
                   {msg.duration && (
-                    <div className="text-xs opacity-70 mt-1">
-                      {msg.duration}ms {msg.model ? `· ${msg.model}` : ''}
-                    </div>
+                    <div className="text-xs opacity-70 mt-1">{msg.duration}ms</div>
                   )}
                 </div>
                 {msg.role === 'user' && <Avatar icon={<UserOutlined />} />}
@@ -136,11 +147,4 @@ export function NodeChat() {
       </Card>
     </div>
   );
-}
-
-function buildContent(chunks: AgentStreamChunk[], newChunk: AgentStreamChunk): string {
-  const textChunks = [...chunks, newChunk]
-    .filter((chunk) => chunk.type === 'text')
-    .map((chunk) => (chunk as { content?: string }).content ?? '');
-  return textChunks.join('');
 }

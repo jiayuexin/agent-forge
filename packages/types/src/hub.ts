@@ -62,6 +62,32 @@ export interface ClientAgentTemplateListItem {
   tags: string[];
 }
 
+/** 已生成的 ClientAgent 列表项 */
+export interface GeneratedClientAgentListItem {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  templateId: string;
+  model?: string;
+  createdAt: number;
+}
+
+/** 已生成的 ClientAgent 详情 */
+export interface GeneratedClientAgentDetail extends GeneratedClientAgentListItem {
+  outputDir: string;
+  systemPrompt: string;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+/** Web 端创建 ClientAgent 请求 */
+export interface CreateClientAgentRequest {
+  name: string;
+  description: string;
+  templateId: string;
+  model?: string;
+}
+
 /** 能力下发请求 */
 export interface DistributeCapabilityRequest {
   /** 目标节点 ID 列表 */

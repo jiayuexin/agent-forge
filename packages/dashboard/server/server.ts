@@ -8,8 +8,10 @@ import { NodeRegistry } from './services/NodeRegistry.js';
 import { CapabilityStore } from './services/CapabilityStore.js';
 import { TokenStore } from './services/TokenStore.js';
 import { ClientAgentTemplateStore } from './services/ClientAgentTemplateStore.js';
+import { GeneratedClientAgentStore } from './services/GeneratedClientAgentStore.js';
 import { DashboardEventBroadcaster } from './services/DashboardEventBroadcaster.js';
 import { NodeWebSocketServer } from './websocket/NodeWebSocketServer.js';
+import { resolveTemplatesDir } from './lib/paths.js';
 
 export { type HubAppOptions };
 
@@ -29,6 +31,7 @@ export interface HubServer {
   nodeRegistry: NodeRegistry;
   capabilityStore: CapabilityStore;
   tokenStore: TokenStore;
+  generatedAgentStore: GeneratedClientAgentStore;
   dashboardBroadcaster?: DashboardEventBroadcaster;
   stop(): Promise<void>;
 }
@@ -58,10 +61,12 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
   });
 
   const capabilityStore = new CapabilityStore({ dataDir });
-  const templateStore = new ClientAgentTemplateStore();
+  const templateStore = new ClientAgentTemplateStore({ templatesDir: resolveTemplatesDir() });
+  const generatedAgentStore = new GeneratedClientAgentStore({ dataDir });
 
   await capabilityStore.load();
   await tokenStore.load();
+  await generatedAgentStore.load();
 
   const runtimeConfig: HubRuntimeConfig = {
     port: options.port ?? 8080,
@@ -75,6 +80,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     capabilityStore,
     tokenStore,
     templateStore,
+    generatedAgentStore,
     runtimeConfig,
     metrics,
     logger,
@@ -105,6 +111,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     nodeRegistry,
     capabilityStore,
     tokenStore,
+    generatedAgentStore,
     dashboardBroadcaster,
     stop: () =>
       new Promise<void>((resolve, reject) => {

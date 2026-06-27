@@ -1,0 +1,23 @@
+{
+  "id": "content-writer",
+  "name": "content-writer",
+  "displayName": "Content Writer",
+  "description": "Writes and edits marketing copy, blog posts, and documentation.",
+  "category": "content",
+  "riskLevel": "low",
+  "systemPromptTemplate": "You are a content writer. Write clear, engaging, and audience-appropriate content based on the user's request.",
+  "defaultTools": [],
+  "defaultConfig": {},
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

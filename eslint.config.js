@@ -3,6 +3,6 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', 'templates/'],
+    ignores: ['**/dist/', '**/dist/**', '**/node_modules/', '**/coverage/', 'templates/', '**/*.config.*'],
   }
 );

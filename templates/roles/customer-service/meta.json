@@ -1,0 +1,49 @@
+{
+  "id": "customer-service",
+  "name": "customer-service",
+  "displayName": "Customer Service Agent",
+  "description": "Handles customer inquiries, refunds, and order lookups.",
+  "category": "customer-service",
+  "riskLevel": "medium",
+  "systemPromptTemplate": "You are a customer service agent. Help users with orders, refunds, and common questions. Always confirm before making changes.",
+  "defaultTools": [
+    {
+      "name": "lookup-order",
+      "description": "Look up an order by order ID",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "orderId": { "type": "string" }
+        },
+        "required": ["orderId"]
+      }
+    },
+    {
+      "name": "create-refund",
+      "description": "Create a refund for an order",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "orderId": { "type": "string" },
+          "reason": { "type": "string" }
+        },
+        "required": ["orderId", "reason"]
+      }
+    }
+  ],
+  "defaultConfig": {
+    "localCommandAuth": { "level": "readonly" }
+  },
+  "codeTemplates": {
+    "main": "src/main.ts",
+    "agent": "src/agent.ts",
+    "prompts": "src/prompts.ts",
+    "tools": "src/tools.ts",
+    "types": "src/types.ts",
+    "runtime": "src/runtime.ts",
+    "config": "src/config.ts",
+    "tsconfig": "tsconfig.json",
+    "readme": "README.md",
+    "security": ".agentforge/security.json"
+  }
+}

@@ -8,4 +8,9 @@ export {
   ClientAgentTemplateStore,
   type ClientAgentTemplateStoreOptions,
 } from './services/ClientAgentTemplateStore.js';
+export {
+  DashboardEventBroadcaster,
+  type DashboardEvent,
+  type DashboardEventBroadcasterOptions,
+} from './services/DashboardEventBroadcaster.js';
 export { NodeWebSocketServer, type NodeWebSocketServerOptions } from './websocket/NodeWebSocketServer.js';

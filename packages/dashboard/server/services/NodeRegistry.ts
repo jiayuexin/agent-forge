@@ -14,12 +14,13 @@ import type {
 } from '@agentforge/types';
 import type { RemoteAgentInvoker } from '@agentforge/sdk';
 import { createHttpError } from '@agentforge/http-server';
-import { NodeSession } from './NodeSession.js';
+import { NodeSession, type NodeSessionEventListener } from './NodeSession.js';
 
 export interface NodeRegistryOptions {
   heartbeatTimeoutMs?: number;
   cleanupIntervalMs?: number;
   logger?: Logger;
+  onEvent?: NodeSessionEventListener;
 }
 
 export class NodeRegistry implements RemoteAgentInvoker {
@@ -27,11 +28,13 @@ export class NodeRegistry implements RemoteAgentInvoker {
   private logger: Logger;
   private heartbeatTimeoutMs: number;
   private cleanupTimer?: ReturnType<typeof setInterval>;
+  private onEvent?: NodeSessionEventListener;
 
   constructor(options: NodeRegistryOptions = {}) {
     this.logger = options.logger ?? consoleLogger();
     this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 120000;
     this.cleanupTimer = setInterval(() => this.cleanup(), options.cleanupIntervalMs ?? 30000);
+    this.onEvent = options.onEvent;
   }
 
   register(
@@ -58,6 +61,7 @@ export class NodeRegistry implements RemoteAgentInvoker {
       capabilities: options.capabilities,
       hostInfo: options.hostInfo,
       logger: this.logger.child({ nodeId }),
+      onEvent: this.onEvent,
     });
 
     ws.on('message', (data: WebSocket.RawData) => {

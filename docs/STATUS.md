@@ -58,7 +58,7 @@
 | Phase 4 — `packages/runtime-client` | WebSocket 运行时客户端 | ✅ 已完成 |
 | Phase 5 — `packages/sdk` | AgentFramework、Pipeline、编排 | ✅ 已完成 |
 | Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API | ✅ 已完成 |
-| Phase 7 — `packages/dashboard` 前端 | Capability Hub 可视化面板 | ⬜ 未开始 |
+| Phase 7 — `packages/dashboard` 前端 | Capability Hub 可视化面板 | ✅ 已完成 |
 | Phase 8 — `packages/cli` | CLI 命令 | ⬜ 未开始 |
 | Phase 9 — 安全层 | 本地命令授权、Token、签名、审计 | ⬜ 未开始 |
 | Phase 10 — 可观测性 | 日志、链路追踪、指标、成本守护 | ⬜ 未开始 |

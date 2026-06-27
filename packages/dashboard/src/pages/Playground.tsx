@@ -1,0 +1,201 @@
+import { useEffect, useState } from 'react';
+import {
+  Card,
+  Button,
+  Input,
+  Select,
+  Slider,
+  Space,
+  Typography,
+  List,
+  Avatar,
+  message,
+} from 'antd';
+import { RobotOutlined, UserOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { usePlaygroundStore } from '../store/playgroundStore.js';
+import { useNodeStore } from '../store/nodeStore.js';
+import { streamNodeTask } from '../api/nodes.js';
+
+const { TextArea } = Input;
+const { Option } = Select;
+
+export function Playground() {
+  const { t } = useTranslation();
+  const { nodes, fetchNodes } = useNodeStore();
+  const {
+    sessions,
+    currentSessionId,
+    selectedNodeId,
+    config,
+    streaming,
+    createSession,
+    selectSession,
+    setSelectedNodeId,
+    setConfig,
+    addUserMessage,
+    appendChunk,
+    finishStream,
+    clearCurrentSession,
+  } = usePlaygroundStore();
+
+  const [input, setInput] = useState('');
+
+  useEffect(() => {
+    fetchNodes();
+    if (!currentSessionId) {
+      createSession();
+    }
+  }, [fetchNodes, createSession, currentSessionId]);
+
+  const currentSession = sessions.find((s) => s.id === currentSessionId);
+
+  const handleSend = async () => {
+    if (!input.trim() || !selectedNodeId) {
+      message.warning('请选择节点并输入消息');
+      return;
+    }
+
+    addUserMessage(input);
+    setInput('');
+
+    const startTime = Date.now();
+    try {
+      for await (const chunk of streamNodeTask(selectedNodeId, {
+        type: 'chat',
+        input: { message: input },
+      })) {
+        appendChunk(chunk);
+      }
+      finishStream({ duration: Date.now() - startTime });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : String(error));
+      finishStream();
+    }
+  };
+
+  return (
+    <div className="h-[calc(100vh-140px)] flex gap-4">
+      {/* Left panel */}
+      <Card className="w-64 flex flex-col" title="会话与配置">
+        <Button type="primary" block className="mb-4" onClick={createSession}>
+          新会话
+        </Button>
+        <List
+          size="small"
+          dataSource={sessions}
+          renderItem={(session) => (
+            <List.Item
+              className={`cursor-pointer ${session.id === currentSessionId ? 'bg-blue-50' : ''}`}
+              onClick={() => selectSession(session.id)}
+            >
+              {session.title}
+            </List.Item>
+          )}
+        />
+        <div className="mt-4 space-y-4">
+          <div>
+            <Typography.Text type="secondary">选择节点</Typography.Text>
+            <Select
+              className="w-full"
+              placeholder="选择节点"
+              value={selectedNodeId}
+              onChange={(value) => setSelectedNodeId(value)}
+            >
+              {nodes.map((node) => (
+                <Option key={node.id} value={node.id}>
+                  {node.name}
+                </Option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Typography.Text type="secondary">模型</Typography.Text>
+            <Input value={config.model} onChange={(e) => setConfig({ model: e.target.value })} />
+          </div>
+          <div>
+            <Typography.Text type="secondary">Temperature</Typography.Text>
+            <Slider
+              min={0}
+              max={2}
+              step={0.1}
+              value={config.temperature}
+              onChange={(value) => setConfig({ temperature: value })}
+            />
+          </div>
+          <div>
+            <Typography.Text type="secondary">Max Tokens</Typography.Text>
+            <Input
+              type="number"
+              value={config.maxTokens}
+              onChange={(e) => setConfig({ maxTokens: Number(e.target.value) })}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Center panel */}
+      <Card className="flex-1 flex flex-col" title={t('playground')}>
+        <div className="flex-1 overflow-y-auto space-y-4 p-2">
+          {currentSession?.messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <Space>
+                {msg.role === 'agent' && <Avatar icon={<RobotOutlined />} />}
+                <div className={`max-w-md p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}>
+                  <Typography.Text className={msg.role === 'user' ? '!text-white' : ''}>
+                    {msg.content}
+                  </Typography.Text>
+                </div>
+                {msg.role === 'user' && <Avatar icon={<UserOutlined />} />}
+              </Space>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex gap-2">
+          <TextArea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onPressEnter={(e) => {
+              if (!e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="输入消息..."
+            autoSize={{ minRows: 2, maxRows: 6 }}
+          />
+          <Button type="primary" loading={streaming} onClick={handleSend}>
+            发送
+          </Button>
+          <Button icon={<DeleteOutlined />} onClick={clearCurrentSession}>
+            清空
+          </Button>
+        </div>
+      </Card>
+
+      {/* Right panel */}
+      <Card className="w-72" title="统计与调用链">
+        {currentSession?.messages[currentSession.messages.length - 1]?.role === 'agent' && (
+          <div className="space-y-2">
+            <Typography.Text strong>本次调用</Typography.Text>
+            <div>耗时: {currentSession.messages[currentSession.messages.length - 1].duration}ms</div>
+            <div>模型: {currentSession.messages[currentSession.messages.length - 1].model || config.model}</div>
+          </div>
+        )}
+        <div className="mt-4">
+          <Typography.Text strong>调用链</Typography.Text>
+          <div className="text-sm text-gray-500 mt-2">
+            <div>System Prompt 构建 ✅</div>
+            <div>LLM 调用 ✅</div>
+            <div>工具调用: -</div>
+            <div>结构化输出解析 ✅</div>
+          </div>
+        </div>
+        <div className="mt-4">
+          <Typography.Text strong>Mock 工具</Typography.Text>
+          <div className="text-sm text-gray-500 mt-2">暂不支持动态 Mock 工具</div>
+        </div>
+      </Card>
+    </div>
+  );
+}

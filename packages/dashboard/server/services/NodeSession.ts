@@ -28,6 +28,8 @@ interface StreamQueue {
   error?: Error;
 }
 
+export type NodeSessionEventListener = (nodeId: string, message: AgentMessage) => void;
+
 export interface NodeSessionOptions {
   nodeId: string;
   name?: string;
@@ -36,6 +38,7 @@ export interface NodeSessionOptions {
   capabilities?: AgentNode['capabilities'];
   hostInfo?: AgentNode['hostInfo'];
   logger?: Logger;
+  onEvent?: NodeSessionEventListener;
 }
 
 export class NodeSession {
@@ -45,6 +48,7 @@ export class NodeSession {
   private pending = new Map<string, PendingRequest>();
   private streams = new Map<string, StreamQueue>();
   private messageCounter = 0;
+  private onEvent?: NodeSessionEventListener;
 
   constructor(ws: WebSocket, options: NodeSessionOptions) {
     this.ws = ws;
@@ -67,6 +71,7 @@ export class NodeSession {
       },
     };
     this.logger = options.logger ?? consoleLogger();
+    this.onEvent = options.onEvent;
   }
 
   send(message: ControlMessage): void {
@@ -183,6 +188,8 @@ export class NodeSession {
   }
 
   handleMessage(message: AgentMessage): void {
+    this.onEvent?.(this.node.id, message);
+
     switch (message.type) {
       case 'pong':
         this.node.connection!.lastPingAt = Date.now();

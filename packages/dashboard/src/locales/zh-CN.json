@@ -1,0 +1,21 @@
+{
+  "appTitle": "AgentForge Capability Hub",
+  "home": "首页",
+  "clientAgents": "ClientAgent 模板",
+  "nodes": "节点",
+  "capabilities": "能力",
+  "playground": "调试台",
+  "monitor": "监控",
+  "login": "登录",
+  "tokenRequired": "请输入管理员 Token",
+  "submit": "提交",
+  "cancel": "取消",
+  "create": "创建",
+  "delete": "删除",
+  "edit": "编辑",
+  "save": "保存",
+  "search": "搜索",
+  "loading": "加载中",
+  "error": "错误",
+  "retry": "重试"
+}

@@ -4,10 +4,12 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { Logger } from '@agentforge/types';
 import type { NodeRegistry } from '../services/NodeRegistry.js';
 import type { TokenStore } from '../services/TokenStore.js';
+import type { DashboardEventBroadcaster } from '../services/DashboardEventBroadcaster.js';
 
 export interface NodeWebSocketServerOptions {
   nodeRegistry: NodeRegistry;
   tokenStore: TokenStore;
+  dashboardBroadcaster?: DashboardEventBroadcaster;
   logger?: Logger;
 }
 
@@ -15,11 +17,13 @@ export class NodeWebSocketServer {
   private wss: WebSocketServer;
   private nodeRegistry: NodeRegistry;
   private tokenStore: TokenStore;
+  private dashboardBroadcaster?: DashboardEventBroadcaster;
   private logger: Logger;
 
   constructor(options: NodeWebSocketServerOptions) {
     this.nodeRegistry = options.nodeRegistry;
     this.tokenStore = options.tokenStore;
+    this.dashboardBroadcaster = options.dashboardBroadcaster;
     this.logger = options.logger ?? consoleLogger();
     this.wss = new WebSocketServer({ noServer: true });
   }
@@ -27,6 +31,13 @@ export class NodeWebSocketServer {
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): void {
     try {
       const { pathname, searchParams } = this.parseUrl(request);
+      const token = searchParams.get('token') ?? '';
+
+      if (pathname === '/ws/events') {
+        this.handleDashboardUpgrade(request, socket, head, token);
+        return;
+      }
+
       const match = pathname.match(/^\/ws\/nodes\/([^/]+)$/);
       if (!match) {
         this.destroySocket(socket, 'Invalid WebSocket path');
@@ -34,7 +45,6 @@ export class NodeWebSocketServer {
       }
 
       const nodeId = decodeURIComponent(match[1]);
-      const token = searchParams.get('token') ?? '';
       const validation = this.tokenStore.validate(token, { nodeId });
 
       if (!validation.valid) {
@@ -43,7 +53,7 @@ export class NodeWebSocketServer {
       }
 
       this.wss.handleUpgrade(request, socket, head, (ws) => {
-        this.handleConnection(ws, nodeId);
+        this.handleNodeConnection(ws, nodeId);
       });
     } catch (error) {
       this.logger.error('WebSocket upgrade error', error);
@@ -60,7 +70,23 @@ export class NodeWebSocketServer {
     });
   }
 
-  private handleConnection(ws: WebSocket, nodeId: string): void {
+  private handleDashboardUpgrade(
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    token: string
+  ): void {
+    if (!this.dashboardBroadcaster) {
+      this.destroySocket(socket, 'Dashboard events not enabled');
+      return;
+    }
+
+    this.wss.handleUpgrade(request, socket, head, (ws) => {
+      this.dashboardBroadcaster!.handleConnection(ws, token);
+    });
+  }
+
+  private handleNodeConnection(ws: WebSocket, nodeId: string): void {
     this.nodeRegistry.register(nodeId, ws, { name: nodeId });
   }
 

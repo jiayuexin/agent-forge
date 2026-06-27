@@ -1,0 +1,21 @@
+{
+  "appTitle": "AgentForge Capability Hub",
+  "home": "Home",
+  "clientAgents": "ClientAgent Templates",
+  "nodes": "Nodes",
+  "capabilities": "Capabilities",
+  "playground": "Playground",
+  "monitor": "Monitor",
+  "login": "Login",
+  "tokenRequired": "Please enter admin token",
+  "submit": "Submit",
+  "cancel": "Cancel",
+  "create": "Create",
+  "delete": "Delete",
+  "edit": "Edit",
+  "save": "Save",
+  "search": "Search",
+  "loading": "Loading",
+  "error": "Error",
+  "retry": "Retry"
+}

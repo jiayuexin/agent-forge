@@ -8,6 +8,7 @@ import { NodeRegistry } from './services/NodeRegistry.js';
 import { CapabilityStore } from './services/CapabilityStore.js';
 import { TokenStore } from './services/TokenStore.js';
 import { ClientAgentTemplateStore } from './services/ClientAgentTemplateStore.js';
+import { DashboardEventBroadcaster } from './services/DashboardEventBroadcaster.js';
 import { NodeWebSocketServer } from './websocket/NodeWebSocketServer.js';
 
 export { type HubAppOptions };
@@ -19,6 +20,7 @@ export interface HubServerOptions {
   adminToken?: string;
   logger?: Logger;
   metrics?: MetricsRegistry;
+  staticDir?: string;
 }
 
 export interface HubServer {
@@ -27,6 +29,7 @@ export interface HubServer {
   nodeRegistry: NodeRegistry;
   capabilityStore: CapabilityStore;
   tokenStore: TokenStore;
+  dashboardBroadcaster?: DashboardEventBroadcaster;
   stop(): Promise<void>;
 }
 
@@ -35,9 +38,26 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
   const dataDir = options.dataDir ?? '.agentforge/hub';
   const metrics = options.metrics ?? new MetricsRegistry();
 
-  const nodeRegistry = new NodeRegistry({ logger: logger.child({ component: 'NodeRegistry' }) });
-  const capabilityStore = new CapabilityStore({ dataDir });
   const tokenStore = new TokenStore({ dataDir });
+  const dashboardBroadcaster = new DashboardEventBroadcaster({
+    tokenStore,
+    adminToken: options.adminToken,
+    logger: logger.child({ component: 'DashboardEventBroadcaster' }),
+  });
+
+  const nodeRegistry = new NodeRegistry({
+    logger: logger.child({ component: 'NodeRegistry' }),
+    onEvent: (nodeId, message) => {
+      dashboardBroadcaster.broadcast({
+        type: 'agent-message',
+        nodeId,
+        message,
+        timestamp: Date.now(),
+      });
+    },
+  });
+
+  const capabilityStore = new CapabilityStore({ dataDir });
   const templateStore = new ClientAgentTemplateStore();
 
   await capabilityStore.load();
@@ -59,6 +79,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     metrics,
     logger,
     adminToken: options.adminToken,
+    staticDir: options.staticDir,
   });
 
   const listener = toNodeListener(app);
@@ -66,6 +87,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
   const wsServer = new NodeWebSocketServer({
     nodeRegistry,
     tokenStore,
+    dashboardBroadcaster,
     logger: logger.child({ component: 'NodeWebSocketServer' }),
   });
 
@@ -83,8 +105,10 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     nodeRegistry,
     capabilityStore,
     tokenStore,
+    dashboardBroadcaster,
     stop: () =>
       new Promise<void>((resolve, reject) => {
+        dashboardBroadcaster.close().catch(reject);
         wsServer.close().catch(reject);
         nodeRegistry.destroy();
         server.close((error) => {

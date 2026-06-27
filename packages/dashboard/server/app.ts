@@ -14,6 +14,7 @@ import { createNodesRoute } from './routes/nodes.js';
 import { createCapabilitiesRoute } from './routes/capabilities.js';
 import { createAdminTokensRoute } from './routes/admin-tokens.js';
 import { createClientAgentTemplatesRoute } from './routes/client-agent-templates.js';
+import { createStaticHandler } from './static.js';
 
 export interface HubAppOptions {
   nodeRegistry: NodeRegistry;
@@ -24,6 +25,7 @@ export interface HubAppOptions {
   metrics?: MetricsRegistry;
   logger?: Logger;
   adminToken?: string;
+  staticDir?: string;
 }
 
 export function createHubApp(options: HubAppOptions) {
@@ -45,7 +47,7 @@ export function createHubApp(options: HubAppOptions) {
 
   app.use(publicRouter);
   app.use('/api/config', authMiddleware);
-  app.use('/api/config', createConfigRoute(options.runtimeConfig));
+  app.use('/api/config', eventHandler(createConfigRoute(options.runtimeConfig)));
   app.use('/api/nodes', authMiddleware);
   app.use('/api/nodes', eventHandler(createNodesRoute(options.nodeRegistry)));
   app.use('/api/capabilities', authMiddleware);
@@ -54,6 +56,9 @@ export function createHubApp(options: HubAppOptions) {
   app.use('/api/admin/tokens', eventHandler(createAdminTokensRoute(options.tokenStore)));
   app.use('/api/client-agent-templates', authMiddleware);
   app.use('/api/client-agent-templates', eventHandler(createClientAgentTemplatesRoute(options.templateStore)));
+
+  const staticDir = options.staticDir ?? './dist/static';
+  app.use(createStaticHandler({ staticDir }));
 
   return app;
 }

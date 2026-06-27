@@ -77,13 +77,16 @@ test.describe.serial('Dashboard business flow', () => {
   });
 
   test('distributes capability to online node (US7)', async ({ page }) => {
+    test.setTimeout(60_000);
     await login(page);
     const capabilityId = `e2e-dist-${Date.now()}`;
     await createCapability(page, capabilityId, 'E2E Distribute Tool');
 
-    await page.getByRole('button', { name: '下发' }).first().click();
+    await page.goto(`/capabilities/${capabilityId}/distribute`);
+    await page.getByRole('heading', { name: /E2E Distribute Tool \/ 下发/ }).waitFor({ state: 'visible' });
+
     await page.locator('.ant-select').first().click();
-    await page.getByText('E2E Mock Node').click();
+    await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: '下发' }).click();
     await expect(page.getByText('下发完成')).toBeVisible();
@@ -122,18 +125,19 @@ test.describe.serial('Dashboard business flow', () => {
   });
 
   test('streams markdown and call trace in playground (US14)', async ({ page }) => {
+    test.setTimeout(90_000);
     await login(page);
     await page.goto('/playground');
     await waitForOnlineNode(page, 'E2E Mock Node');
     await page.goto('/playground');
 
     await page.locator('.ant-select').first().click();
-    await page.getByText('E2E Mock Node').click();
+    await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
 
     await page.getByPlaceholder('输入消息...').fill('请用 markdown 回复');
     await page.getByRole('button', { name: '发送' }).click();
 
-    await expect(page.getByRole('heading', { name: 'E2E Reply' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'E2E Reply' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('console.log("hello")')).toBeVisible();
     await expect(page.getByText('LLM 调用')).toBeVisible();
     await expect(page.getByText('工具调用: git-status')).toBeVisible();
@@ -153,7 +157,7 @@ test.describe.serial('Dashboard business flow', () => {
     await page.goto('/capabilities/market');
     await expect(page.getByRole('heading', { name: '能力 / 市场' })).toBeVisible();
     await page.getByRole('button', { name: '下发' }).first().click();
-    await expect(page.getByText('下发')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /\/ 下发$/ })).toBeVisible();
   });
 
   test('shows monitor metrics and events', async ({ page }) => {

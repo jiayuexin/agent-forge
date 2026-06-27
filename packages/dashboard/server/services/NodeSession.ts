@@ -202,9 +202,28 @@ export class NodeSession {
         this.node.metrics = message.payload as AgentNode['metrics'];
         this.node.lastHeartbeat = Date.now();
         return;
-      case 'event':
+      case 'event': {
         this.node.lastHeartbeat = Date.now();
+        const payload = message.payload as { event?: string; node?: Partial<AgentNode> };
+        if (payload.event === 'node:register' && payload.node) {
+          if (payload.node.name) {
+            this.node.name = payload.node.name;
+          }
+          if (payload.node.agentId) {
+            this.node.agentId = payload.node.agentId;
+          }
+          if (payload.node.tags) {
+            this.node.tags = payload.node.tags;
+          }
+          if (payload.node.capabilities) {
+            this.node.capabilities = payload.node.capabilities;
+          }
+          if (payload.node.hostInfo) {
+            this.node.hostInfo = payload.node.hostInfo;
+          }
+        }
         return;
+      }
       case 'stream-chunk': {
         const queue = this.streams.get(message.messageId ?? '');
         if (!queue) return;

@@ -28,7 +28,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm run build:web && pnpm exec tsx e2e/start-e2e-env.ts',
-    url: `${e2eBaseUrl}/api/health`,
+    url: `http://127.0.0.1:${process.env.AGENTFORGE_E2E_READY_PORT ?? '8092'}/ready`,
     reuseExistingServer: false,
     timeout: 180_000,
     env: {

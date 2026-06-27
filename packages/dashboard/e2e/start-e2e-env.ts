@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { createServer, type Server } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,7 @@ const dashboardDir = join(fileURLToPath(import.meta.url), '..', '..');
 const pidFile = join(dashboardDir, '.e2e-mock-runtime.pid');
 const adminToken = process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token';
 const e2ePort = process.env.AGENTFORGE_E2E_PORT ?? '8090';
+const readyPort = process.env.AGENTFORGE_E2E_READY_PORT ?? '8092';
 const hubUrl = `http://127.0.0.1:${e2ePort}`;
 
 process.env.AGENTFORGE_HOST = process.env.AGENTFORGE_HOST ?? '127.0.0.1';
@@ -16,6 +18,7 @@ process.env.AGENTFORGE_PORT = process.env.AGENTFORGE_PORT ?? e2ePort;
 
 let hubProcess: ChildProcess | undefined;
 let runtimeClient: AgentRuntimeClient | undefined;
+let readyServer: Server | undefined;
 
 async function waitForHealth(timeoutMs = 120_000): Promise<void> {
   const started = Date.now();
@@ -76,6 +79,9 @@ async function startMockRuntime(nodeId: string, token: string): Promise<void> {
 }
 
 async function shutdown(): Promise<void> {
+  if (readyServer) {
+    await new Promise<void>((resolve) => readyServer!.close(() => resolve()));
+  }
   if (runtimeClient) {
     await runtimeClient.stop();
   }
@@ -116,6 +122,20 @@ await startMockRuntime(tokenData.nodeId, tokenData.token);
 await waitForMockNode();
 
 writeFileSync(join(dashboardDir, '.e2e-ready'), 'ready', 'utf-8');
+readyServer = createServer((request, response) => {
+  if (request.url === '/ready') {
+    response.writeHead(200, { 'Content-Type': 'text/plain' });
+    response.end('ready');
+    return;
+  }
+  response.writeHead(404);
+  response.end();
+});
+await new Promise<void>((resolve, reject) => {
+  readyServer!.listen(Number(readyPort), '127.0.0.1', () => resolve());
+  readyServer!.once('error', reject);
+});
+
 console.log('E2E Hub and mock runtime are ready');
 
 await new Promise(() => {});

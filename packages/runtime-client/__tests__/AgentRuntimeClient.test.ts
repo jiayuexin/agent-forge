@@ -352,6 +352,201 @@ describe('AgentRuntimeClient', () => {
     await client.stop();
   });
 
+  it('rejects start when client has been stopped', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+      allowRemoteExecution: true,
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+    await client.stop();
+
+    await expect(client.start()).rejects.toMatchObject({ code: 'CLIENT_STOPPED' });
+  });
+
+  it('updates config on config-update control message', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+      allowRemoteExecution: false,
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+
+    const clientWs = await server.nextClient();
+    clientWs.send(
+      JSON.stringify({
+        type: 'config-update',
+        messageId: 'cfg-1',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: { allowRemoteExecution: true },
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(
+      (client as unknown as { config: { allowRemoteExecution: boolean } }).config
+        .allowRemoteExecution
+    ).toBe(true);
+
+    await client.stop();
+  });
+
+  it('uses custom capability handler when registered', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+    });
+
+    client.onCapabilityDistribute(async () => ({
+      capabilityId: 'custom-cap',
+      status: 'installed',
+      installedVersion: '2.0.0',
+    }));
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+
+    const clientWs = await server.nextClient();
+    clientWs.send(
+      JSON.stringify({
+        type: 'capability-distribute',
+        messageId: 'cap-custom',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {
+          action: 'add',
+          capability: {
+            id: 'custom-cap',
+            type: 'tool',
+            name: 'custom',
+            description: 'Custom',
+            version: '1.0.0',
+          },
+        },
+      })
+    );
+
+    const ack = await server.waitForMessage((m) => m.type === 'capability-ack');
+    expect(ack.messageId).toBe('cap-custom');
+    expect(ack.payload).toMatchObject({ status: 'installed', installedVersion: '2.0.0' });
+
+    await client.stop();
+  });
+
+  it('uses custom task handler for stream control message', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+      allowRemoteExecution: true,
+    });
+
+    client.onTask(async () => ({
+      success: true,
+      output: { content: 'stream-custom' },
+      meta: { duration: 0, tokensUsed: { input: 0, output: 0, total: 0 }, model: 'custom' },
+    }));
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+
+    const clientWs = await server.nextClient();
+    clientWs.send(
+      JSON.stringify({
+        type: 'stream',
+        messageId: 'stream-custom',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {
+          taskId: 'task-stream',
+          type: 'stream',
+          task: { type: 'test', input: {} },
+          source: 'dashboard',
+          issuedAt: Date.now(),
+        },
+      })
+    );
+
+    const chunks: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < 2; i++) {
+      chunks.push(await server.waitForMessage((m) => m.type === 'stream-chunk'));
+    }
+
+    expect(chunks[0].payload).toMatchObject({ type: 'text', content: 'stream-custom' });
+    expect(chunks[1].payload).toMatchObject({ type: 'done' });
+
+    await client.stop();
+  });
+
+  it('sends error when stream throws', async () => {
+    const agent = createMockAgent({
+      stream: vi.fn().mockImplementation(async function* () {
+        throw new Error('stream failed');
+      }),
+    });
+
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+      allowRemoteExecution: true,
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+
+    const clientWs = await server.nextClient();
+    clientWs.send(
+      JSON.stringify({
+        type: 'stream',
+        messageId: 'stream-error',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {
+          taskId: 'task-err',
+          type: 'stream',
+          task: { type: 'test', input: {} },
+          source: 'dashboard',
+          issuedAt: Date.now(),
+        },
+      })
+    );
+
+    const error = await server.waitForMessage((m) => m.type === 'error');
+    expect(error.messageId).toBe('stream-error');
+    expect(error.payload).toMatchObject({ code: 'RUNTIME_ERROR', message: 'stream failed' });
+
+    await client.stop();
+  });
+
+  it('logs warning for unknown control message type', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+
+    const clientWs = await server.nextClient();
+    clientWs.send(
+      JSON.stringify({
+        type: 'unknown',
+        messageId: 'unknown-1',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {},
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(client.status).toBe('connected');
+
+    await client.stop();
+  });
+
   it('uses custom task handler when registered', async () => {
     const agent = createMockAgent();
     const client = new AgentRuntimeClient(agent, {

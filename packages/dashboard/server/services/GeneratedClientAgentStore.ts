@@ -20,7 +20,7 @@ export interface GeneratedClientAgentStoreOptions {
   dataDir?: string;
 }
 
-interface StoredGeneratedClientAgent extends GeneratedClientAgentDetail {}
+type StoredGeneratedClientAgent = GeneratedClientAgentDetail;
 
 export class GeneratedClientAgentStore {
   private agents = new Map<string, StoredGeneratedClientAgent>();

@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-const e2ePort = process.env.AGENTFORGE_E2E_PORT ?? '8090';
+const e2ePort = process.env.AGENTFORGE_E2E_PORT ?? '8091';
 const e2eBaseUrl = `http://127.0.0.1:${e2ePort}`;
 
 export default defineConfig({
@@ -28,7 +28,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm run build:web && pnpm exec tsx e2e/start-e2e-env.ts',
-    url: `http://127.0.0.1:${process.env.AGENTFORGE_E2E_READY_PORT ?? '8092'}/ready`,
+    url: `${e2eBaseUrl}/api/health`,
     reuseExistingServer: false,
     timeout: 180_000,
     env: {
@@ -36,8 +36,10 @@ export default defineConfig({
       AGENTFORGE_ADMIN_TOKEN: process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token',
       AGENTFORGE_E2E_PORT: e2ePort,
       AGENTFORGE_PORT: e2ePort,
-      AGENTFORGE_TEMPLATES_DIR: process.env.AGENTFORGE_TEMPLATES_DIR ?? join(repoRoot, 'templates', 'roles'),
-      AGENTFORGE_DATA_DIR: process.env.AGENTFORGE_DATA_DIR ?? join(repoRoot, '.agentforge', 'e2e-hub'),
+      AGENTFORGE_TEMPLATES_DIR:
+        process.env.AGENTFORGE_TEMPLATES_DIR ?? join(repoRoot, 'templates', 'roles'),
+      AGENTFORGE_DATA_DIR:
+        process.env.AGENTFORGE_DATA_DIR ?? join(repoRoot, '.agentforge', 'e2e-hub'),
     },
   },
 });

@@ -251,4 +251,162 @@ describe('AgentFramework', () => {
     const proxy = await framework.connectToClientAgent('node-1');
     expect(proxy.nodeId).toBe('node-1');
   });
+
+  it('get throws AgentNotFoundError for unknown agent', () => {
+    const framework = new AgentFramework();
+    expect(() => framework.get('missing')).toThrow('Agent "missing" is not registered');
+  });
+
+  it('run throws AgentNotFoundError when agent is not registered', async () => {
+    const framework = new AgentFramework();
+    await expect(framework.run('missing', { type: 'test', input: {} })).rejects.toThrow(
+      'Agent "missing" is not registered'
+    );
+  });
+
+  it('destroy clears instances and allows re-registration', async () => {
+    const framework = new AgentFramework();
+    const createEchoAgent = () =>
+      class extends MockAgent {
+        constructor() {
+          super('echo', (task) => ({
+            success: true,
+            output: { content: String(task.input.value) },
+            meta: { duration: 0, tokensUsed: { input: 0, output: 0, total: 0 }, model: 'mock' },
+          }));
+        }
+      };
+
+    framework.register('echo', createEchoAgent());
+    await framework.init();
+    expect(framework.get('echo')).toBeDefined();
+
+    await framework.destroy();
+    expect(() => framework.get('echo')).toThrow('Agent "echo" is not registered');
+
+    framework.register('echo', createEchoAgent());
+    const result = await framework.run('echo', { type: 'echo', input: { value: 'again' } });
+    expect(result.output.content).toBe('again');
+  });
+
+  it('event bus supports once, off, and removeAllListeners', async () => {
+    const framework = new AgentFramework();
+    const handler = vi.fn();
+
+    framework.once('evt', handler);
+    framework.emit('evt', 1);
+    framework.emit('evt', 2);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    const handler2 = vi.fn();
+    framework.on('evt2', handler2);
+    framework.off('evt2', handler2);
+    framework.emit('evt2', 1);
+    expect(handler2).not.toHaveBeenCalled();
+
+    const handler3 = vi.fn();
+    framework.on('evt3', handler3);
+    framework.removeAllListeners('evt3');
+    framework.emit('evt3', 1);
+    expect(handler3).not.toHaveBeenCalled();
+  });
+
+  it('executeCapability throws for missing capability', async () => {
+    const framework = new AgentFramework();
+    await expect(
+      (
+        framework as unknown as {
+          executeCapability: (id: string, task: AgentTask) => Promise<AgentResult>;
+        }
+      ).executeCapability('missing', { type: 'test', input: {} })
+    ).rejects.toMatchObject({ code: 'CAPABILITY_NOT_FOUND' });
+  });
+
+  it('executeCapability throws for missing agent provider', async () => {
+    const framework = new AgentFramework();
+    (framework.discovery as ICapabilityRegistry).register({
+      id: 'orphan-capability',
+      type: 'agent',
+      name: 'orphan',
+      description: 'No agent provides this',
+    });
+
+    await expect(
+      (
+        framework as unknown as {
+          executeCapability: (id: string, task: AgentTask) => Promise<AgentResult>;
+        }
+      ).executeCapability('orphan-capability', { type: 'test', input: {} })
+    ).rejects.toMatchObject({ code: 'CAPABILITY_AGENT_NOT_FOUND' });
+  });
+
+  it('executePlan lazily creates planner and executor', async () => {
+    const planResponse = JSON.stringify({
+      goal: 'Greet',
+      capabilitiesUsed: ['agent-greeter:work'],
+      steps: [
+        {
+          id: 's1',
+          name: 'greet',
+          capability: 'agent-greeter:work',
+          type: 'agent',
+          task: 'Greet the user',
+          input: {},
+        },
+      ],
+    });
+
+    const framework = new AgentFramework({
+      modelRegistry: {
+        endpoints: [
+          {
+            id: 'static-endpoint',
+            baseUrl: 'http://localhost',
+            provider: 'static',
+            models: ['static'],
+            extra: {},
+          },
+        ],
+        defaultEndpoint: 'static-endpoint',
+        defaultModel: 'static',
+      },
+    });
+
+    framework.register(
+      'greeter',
+      class extends MockAgent {
+        constructor() {
+          super('greeter', () => ({
+            success: true,
+            output: { content: 'hello from greeter' },
+            meta: { duration: 0, tokensUsed: { input: 0, output: 0, total: 0 }, model: 'mock' },
+          }));
+        }
+      },
+      { id: 'agent-greeter:work', name: 'work', description: 'Greets', type: 'agent' }
+    );
+
+    framework['config'].modelRegistry!.endpoints[0].extra = { response: planResponse };
+
+    const result = await framework.executePlan(
+      {
+        goal: 'Greet',
+        capabilitiesUsed: ['agent-greeter:work'],
+        steps: [
+          {
+            id: 's1',
+            name: 'greet',
+            capability: 'agent-greeter:work',
+            type: 'agent',
+            task: { type: 'greet', input: {} },
+            input: {},
+          },
+        ],
+      },
+      {}
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.output.content).toBe('hello from greeter');
+  });
 });

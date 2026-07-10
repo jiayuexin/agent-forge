@@ -19,10 +19,3 @@ export function resolveTemplatesDir(): string {
   }
   return join(resolveRepoRoot(), 'templates', 'roles');
 }
-
-function extractSystemPrompt(files: Record<string, string>): string {
-  const prompts = files['src/prompts.ts'];
-  if (!prompts) return '';
-  const match = prompts.match(/export const systemPrompt = `([\s\S]*)`;/);
-  return match?.[1] ?? prompts;
-}

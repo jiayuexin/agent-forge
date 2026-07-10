@@ -10,12 +10,16 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "pnpm --filter @agentforge/dashboard test:e2e"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "pnpm --filter @agentforge/dashboard test:e2e",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",
     "@vitest/coverage-v8": "^2.1.0",
     "eslint": "^9.0.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0",
     "pino": "^9.0.0",
     "pino-pretty": "^11.0.0",
     "prettier": "^3.2.0",
@@ -23,5 +27,14 @@
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^2.1.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,jsx,mjs,cjs,json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

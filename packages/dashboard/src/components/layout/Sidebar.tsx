@@ -26,12 +26,17 @@ export function Sidebar() {
   const location = useLocation();
   const { t } = useTranslation();
 
-  const selectedKey = menuItems.find((item) => location.pathname.startsWith(item.key))?.key ?? '/';
+  const selectedKey =
+    menuItems.find((item) =>
+      item.key === '/' ? location.pathname === '/' : location.pathname.startsWith(item.key)
+    )?.key ?? '/';
 
   return (
-    <Sider theme="dark" collapsible defaultCollapsed={false}>
-      <div className="h-12 flex items-center justify-center text-white font-bold">
-        AgentForge
+    <Sider theme="dark" collapsible defaultCollapsed={false} width={240}>
+      <div className="h-16 flex items-center justify-center border-b border-[var(--tech-border)]">
+        <span className="font-['Orbitron'] font-bold text-[var(--tech-primary)] text-xl glow-text tracking-wider">
+          AGENT<span className="text-[var(--tech-secondary)]">FORGE</span>
+        </span>
       </div>
       <Menu
         theme="dark"
@@ -40,7 +45,7 @@ export function Sidebar() {
         items={menuItems.map((item) => ({
           key: item.key,
           icon: item.icon,
-          label: t(item.label),
+          label: <span className="font-medium">{t(item.label)}</span>,
           onClick: () => navigate(item.key),
         }))}
       />

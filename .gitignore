@@ -6,3 +6,6 @@ dist/
 coverage/
 *.log
 .agentforge/
+*.pid
+.e2e-ready
+test-results/

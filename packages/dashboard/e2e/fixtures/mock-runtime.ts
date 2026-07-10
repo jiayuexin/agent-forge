@@ -1,5 +1,4 @@
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { AgentRuntimeClient } from '@agentforge/runtime-client';
 import { createE2EMockAgent } from './mock-agent.js';
 

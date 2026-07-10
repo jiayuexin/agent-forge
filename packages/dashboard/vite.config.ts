@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+import tailwindcss from 'tailwindcss';
+import tailwindcssNesting from 'tailwindcss/nesting/index.js';
+import autoprefixer from 'autoprefixer';
 
 export default defineConfig({
   plugins: [react()],
@@ -9,8 +12,13 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+  css: {
+    postcss: {
+      plugins: [tailwindcssNesting(), tailwindcss, autoprefixer],
+    },
+  },
   server: {
-    port: 3000,
+    port: 8888,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
@@ -26,6 +34,7 @@ export default defineConfig({
     outDir: 'dist/static',
     emptyOutDir: true,
     sourcemap: true,
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks: {

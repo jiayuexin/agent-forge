@@ -22,7 +22,30 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run type-check
       - run: pnpm run test
+      - run: pnpm run test:coverage
       - run: pnpm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  docker:
+    needs: lint-typecheck-test-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: docker build -t agentforge:test .
 
   e2e:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

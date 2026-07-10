@@ -131,12 +131,12 @@ agentforge list --path ./my-agents --output json
 # client-agents.yaml — 批量生成配置
 agents:
   - name: dev-assistant
-    description: "能执行 Git 命令和本地终端操作的编程助手"
+    description: '能执行 Git 命令和本地终端操作的编程助手'
     templateId: dev-assistant
     model: gpt-4o
 
   - name: code-reviewer
-    description: "审查代码质量，检查潜在 Bug 和安全问题"
+    description: '审查代码质量，检查潜在 Bug 和安全问题'
     templateId: code-reviewer
     model: claude-sonnet-4-6
 ```
@@ -164,34 +164,49 @@ DELETE /api/nodes/:id                 # 注销节点
 ### 配置与敏感信息
 
 ```
-GET /api/config                      # 返回运行时配置，自动脱敏 apiKey 等敏感字段
+
+GET /api/config # 返回运行时配置，自动脱敏 apiKey 等敏感字段
+
 ```
 
 ### 能力管理
 
 ```
-GET    /api/capabilities              # 列出所有能力
-POST   /api/capabilities              # 创建/发布能力
-GET    /api/capabilities/:id          # 获取能力详情
-PUT    /api/capabilities/:id          # 更新能力
-DELETE /api/capabilities/:id          # 删除能力
-GET    /api/capabilities/:id/versions # 获取能力版本历史
-POST   /api/capabilities/:id/distribute # 下发能力到指定节点
+
+GET /api/capabilities # 列出所有能力
+POST /api/capabilities # 创建/发布能力
+GET /api/capabilities/:id # 获取能力详情
+PUT /api/capabilities/:id # 更新能力
+DELETE /api/capabilities/:id # 删除能力
+GET /api/capabilities/:id/versions # 获取能力版本历史
+POST /api/capabilities/:id/distribute # 下发能力到指定节点
+
 ```
 
 ### ClientAgent 模板管理
 
 ```
-GET    /api/client-agent-templates    # 列出所有生成模板
-GET    /api/client-agent-templates/:id # 获取模板详情
-```
 
-### 5.3.1 健康检查
+GET /api/client-agent-templates # 列出所有生成模板
+GET /api/client-agent-templates/:id # 获取模板详情
 
 ```
-GET    /api/health                    # Capability Hub 服务探活
-GET    /api/metrics                   # Prometheus 指标
+
+### 5.3.1 健康检查端点说明
+
+| 场景 | 端点 | 用途 | 典型响应 |
+|---|---|---|---|
+| ClientAgent 调试 HTTP（`agentforge serve`） | `GET /api/status` | 详细状态（版本、uptime、Provider 就绪） | `{ "status": "ready" \| "degraded" \| "unhealthy", ... }` |
+| ClientAgent 调试 HTTP（`agentforge serve`） | `GET /api/health` | 轻量探活（Docker/K8s liveness） | `{ "status": "ok" }` |
+| Capability Hub（`agentforge dashboard`） | `GET /api/health` | Hub 服务探活 | `{ "status": "ok", "timestamp": ... }` |
+| Capability Hub | `GET /api/metrics` | Prometheus 指标 | Prometheus exposition 格式 |
+
 ```
+
+GET /api/health # Capability Hub 服务探活
+GET /api/metrics # Prometheus 指标
+
+````
 
 ### 5.3.2 能力下发请求示例
 
@@ -203,7 +218,7 @@ curl -X POST http://localhost:8080/api/capabilities/tool-git-status/distribute \
     "nodeIds": ["client-dev-machine-a1b2c3d"],
     "action": "add"
   }'
-```
+````
 
 ### 5.3.3 向节点下发任务请求示例
 
@@ -309,7 +324,13 @@ if (message.type === 'execute' && message.payload && 'task' in message.payload) 
     // 1. 先弹窗/命令行询问本地用户
     const localConfirmed = await askLocalUserConfirmation(task);
     if (!localConfirmed) {
-      this.send({ type: 'error', messageId: message.messageId, nodeId: this.node.id, timestamp: Date.now(), payload: { code: 'USER_REJECTED', message: '用户拒绝执行' } });
+      this.send({
+        type: 'error',
+        messageId: message.messageId,
+        nodeId: this.node.id,
+        timestamp: Date.now(),
+        payload: { code: 'USER_REJECTED', message: '用户拒绝执行' },
+      });
       return;
     }
 
@@ -320,11 +341,22 @@ if (message.type === 'execute' && message.payload && 'task' in message.payload) 
       description: '该任务涉及敏感操作，是否继续？',
       summary: { task },
     };
-    this.send({ type: 'local-approval-request', nodeId: this.node.id, timestamp: Date.now(), payload: request });
+    this.send({
+      type: 'local-approval-request',
+      nodeId: this.node.id,
+      timestamp: Date.now(),
+      payload: request,
+    });
 
     const hubConfirmed = await waitForLocalApproval(request.requestId, { timeout: 60000 });
     if (!hubConfirmed) {
-      this.send({ type: 'error', messageId: message.messageId, nodeId: this.node.id, timestamp: Date.now(), payload: { code: 'USER_REJECTED', message: 'Hub 拒绝执行' } });
+      this.send({
+        type: 'error',
+        messageId: message.messageId,
+        nodeId: this.node.id,
+        timestamp: Date.now(),
+        payload: { code: 'USER_REJECTED', message: 'Hub 拒绝执行' },
+      });
       return;
     }
   }

@@ -29,12 +29,12 @@
 
 ## 部署模式总览
 
-| 模式 | 适用场景 | 复杂度 | 说明 |
-|---|---|---|---|
-| ClientAgent 本地安装包 | 终端用户 | 低 | 生成后打包为可执行文件/安装包 |
-| Capability Hub Docker | 生产环境 | 中 | 独立容器部署 Hub 后端 + 前端 |
-| Capability Hub Kubernetes | 大规模生产 | 高 | 多副本 + HPA + 滚动更新 |
-| SDK 嵌入 | 开发者 | 最低 | `npm install @agentforge/sdk` 后编排 |
+| 模式                      | 适用场景   | 复杂度 | 说明                                 |
+| ------------------------- | ---------- | ------ | ------------------------------------ |
+| ClientAgent 本地安装包    | 终端用户   | 低     | 生成后打包为可执行文件/安装包        |
+| Capability Hub Docker     | 生产环境   | 中     | 独立容器部署 Hub 后端 + 前端         |
+| Capability Hub Kubernetes | 大规模生产 | 高     | 多副本 + HPA + 滚动更新              |
+| SDK 嵌入                  | 开发者     | 最低   | `npm install @agentforge/sdk` 后编排 |
 
 ---
 
@@ -75,11 +75,11 @@ npm run build
 
 推荐使用以下工具打包为可执行文件/安装包：
 
-| 工具 | 输出格式 | 适用平台 |
-|---|---|---|
-| [pkg](https://github.com/vercel/pkg) | 单文件可执行文件 | Linux / macOS / Windows |
-| [electron-forge](https://www.electronforge.io/) | `.dmg` / `.exe` / `.AppImage` | 带 GUI 的桌面应用 |
-| [nexe](https://github.com/nexe/nexe) | 单文件可执行文件 | Linux / macOS / Windows |
+| 工具                                            | 输出格式                      | 适用平台                |
+| ----------------------------------------------- | ----------------------------- | ----------------------- |
+| [pkg](https://github.com/vercel/pkg)            | 单文件可执行文件              | Linux / macOS / Windows |
+| [electron-forge](https://www.electronforge.io/) | `.dmg` / `.exe` / `.AppImage` | 带 GUI 的桌面应用       |
+| [nexe](https://github.com/nexe/nexe)            | 单文件可执行文件              | Linux / macOS / Windows |
 
 **使用 `pkg` 打包示例：**
 
@@ -158,7 +158,7 @@ services:
     build: .
     command: dashboard --port 8080 --host 0.0.0.0
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -169,7 +169,7 @@ services:
       - hub-data:/app/data
       - hub-logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/api/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -245,9 +245,9 @@ metadata:
   namespace: agentforge
 type: Opaque
 stringData:
-  openai-api-key: "sk-xxx"
-  anthropic-api-key: "sk-ant-xxx"
-  node-token-secret: "hub-node-token-secret"
+  openai-api-key: 'sk-xxx'
+  anthropic-api-key: 'sk-ant-xxx'
+  node-token-secret: 'hub-node-token-secret'
 ```
 
 ```yaml
@@ -258,9 +258,9 @@ metadata:
   name: agentforge-config
   namespace: agentforge
 data:
-  LOG_LEVEL: "info"
-  NODE_ENV: "production"
-  AGENTFORGE_PORT: "8080"
+  LOG_LEVEL: 'info'
+  NODE_ENV: 'production'
+  AGENTFORGE_PORT: '8080'
 ```
 
 ### Deployment
@@ -319,11 +319,11 @@ spec:
               mountPath: /app/logs
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: '512Mi'
+              cpu: '500m'
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              memory: '2Gi'
+              cpu: '2000m'
           livenessProbe:
             httpGet:
               path: /api/health
@@ -370,9 +370,9 @@ metadata:
   name: agentforge-hub
   namespace: agentforge
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
 spec:
   ingressClassName: nginx
   tls:
@@ -548,10 +548,10 @@ agentforge dashboard token create --node-name "dev-machine-a"
 
 Token 权限：
 
-| Token 类型 | 权限 |
-|---|---|
-| 节点 Token | 只能操作自身 `nodeId`：上报状态、接收任务、确认能力下发 |
-| 管理员 Token | 管理全部节点、发布能力、查看审计日志 |
+| Token 类型   | 权限                                                    |
+| ------------ | ------------------------------------------------------- |
+| 节点 Token   | 只能操作自身 `nodeId`：上报状态、接收任务、确认能力下发 |
+| 管理员 Token | 管理全部节点、发布能力、查看审计日志                    |
 
 ### TLS / mTLS
 
@@ -611,18 +611,18 @@ function authorizeControlMessage(token: string, message: ControlMessage): boolea
 
 ### 环境变量
 
-| 变量 | 作用域 | 必填 | 说明 | 默认值 |
-|---|---|---|---|---|
-| `OPENAI_API_KEY` | 全局 | 使用 OpenAI 时 | OpenAI API 密钥 | — |
-| `ANTHROPIC_API_KEY` | 全局 | 使用 Anthropic 时 | Anthropic API 密钥 | — |
-| `OLLAMA_BASE_URL` | 全局 | 使用 Ollama 时 | Ollama 服务地址 | `http://localhost:11434` |
-| `AGENTFORGE_HUB_URL` | ClientAgent | 连接 Hub 时 | Capability Hub 端点 | — |
-| `AGENTFORGE_NODE_TOKEN` | ClientAgent | 连接 Hub 时 | 节点认证令牌 | — |
-| `AGENTFORGE_NODE_TOKEN_SECRET` | Hub | 签发 Token 时 | Hub 签发节点 Token 的密钥 | — |
-| `AGENTFORGE_PORT` | `serve` / `dashboard` | ❌ | 服务端口 | `3001`（serve）/ `8080`（dashboard） |
-| `LOG_LEVEL` | 全局 | ❌ | `debug` / `info` / `warn` / `error` | `info` |
-| `MONTHLY_COST_LIMIT` | Framework | ❌ | 月度成本守护阈值（USD） | — |
-| `NODE_ENV` | Hub | ❌ | `development` / `production` | `development` |
+| 变量                           | 作用域                | 必填              | 说明                                | 默认值                               |
+| ------------------------------ | --------------------- | ----------------- | ----------------------------------- | ------------------------------------ |
+| `OPENAI_API_KEY`               | 全局                  | 使用 OpenAI 时    | OpenAI API 密钥                     | —                                    |
+| `ANTHROPIC_API_KEY`            | 全局                  | 使用 Anthropic 时 | Anthropic API 密钥                  | —                                    |
+| `OLLAMA_BASE_URL`              | 全局                  | 使用 Ollama 时    | Ollama 服务地址                     | `http://localhost:11434`             |
+| `AGENTFORGE_HUB_URL`           | ClientAgent           | 连接 Hub 时       | Capability Hub 端点                 | —                                    |
+| `AGENTFORGE_NODE_TOKEN`        | ClientAgent           | 连接 Hub 时       | 节点认证令牌                        | —                                    |
+| `AGENTFORGE_NODE_TOKEN_SECRET` | Hub                   | 签发 Token 时     | Hub 签发节点 Token 的密钥           | —                                    |
+| `AGENTFORGE_PORT`              | `serve` / `dashboard` | ❌                | 服务端口                            | `3001`（serve）/ `8080`（dashboard） |
+| `LOG_LEVEL`                    | 全局                  | ❌                | `debug` / `info` / `warn` / `error` | `info`                               |
+| `MONTHLY_COST_LIMIT`           | Framework             | ❌                | 月度成本守护阈值（USD）             | —                                    |
+| `NODE_ENV`                     | Hub                   | ❌                | `development` / `production`        | `development`                        |
 
 ### ClientAgent 安全配置
 
@@ -654,6 +654,9 @@ curl http://localhost:8080/api/health
 ### ClientAgent 调试服务
 
 ```bash
+curl http://localhost:3001/api/status
+# → {"status":"ready","uptime":3600,"timestamp":...}
+
 curl http://localhost:3001/api/health
 # → {"status":"ok"}
 ```
@@ -667,7 +670,12 @@ curl http://localhost:3001/api/health
 生产环境使用 pino 输出 JSON 结构化日志：
 
 ```json
-{"level":"info","msg":"ClientAgent connected to Hub","nodeId":"client-dev-machine-a1b2c3d","hubUrl":"wss://hub.example.com"}
+{
+  "level": "info",
+  "msg": "ClientAgent connected to Hub",
+  "nodeId": "client-dev-machine-a1b2c3d",
+  "hubUrl": "wss://hub.example.com"
+}
 ```
 
 开发环境使用 `pino-pretty` 格式化输出：
@@ -798,11 +806,11 @@ kubectl -n agentforge rollout status deployment/agentforge-hub
 
 ### RPO / RTO 建议
 
-| 组件 | RPO | RTO | 说明 |
-|---|---|---|---|
-| ClientAgent 配置 | 24h | 30min | 备份 `.agentforge/` 目录 |
-| Capability Hub 数据 | 1h | 1h | 持久化卷 + 定期快照 |
-| 能力市场包 | 0 | 2h | 能力包存储在对象存储，多副本 |
+| 组件                | RPO | RTO   | 说明                         |
+| ------------------- | --- | ----- | ---------------------------- |
+| ClientAgent 配置    | 24h | 30min | 备份 `.agentforge/` 目录     |
+| Capability Hub 数据 | 1h  | 1h    | 持久化卷 + 定期快照          |
+| 能力市场包          | 0   | 2h    | 能力包存储在对象存储，多副本 |
 
 ### 故障场景
 

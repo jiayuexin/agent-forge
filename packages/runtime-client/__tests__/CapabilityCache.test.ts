@@ -125,6 +125,78 @@ describe('CapabilityCache', () => {
     vi.unstubAllGlobals();
   });
 
+  it('get and has return correct values after load', async () => {
+    const payload: CapabilityDistributePayload = {
+      action: 'add',
+      capability: {
+        id: 'tool-git-status',
+        type: 'tool',
+        name: 'git-status',
+        description: 'Show git status',
+        version: '1.0.0',
+      },
+    };
+
+    await cache.install(payload);
+    expect(cache.has('tool-git-status')).toBe(true);
+    expect(cache.get('tool-git-status')?.name).toBe('git-status');
+
+    const loaded = await cache.load();
+    expect(loaded).toHaveLength(1);
+    expect(cache.has('tool-git-status')).toBe(true);
+    expect(cache.get('missing')).toBeUndefined();
+  });
+
+  it('load skips missing definition files and logs error', async () => {
+    await cache.load();
+    const payload: CapabilityDistributePayload = {
+      action: 'add',
+      capability: {
+        id: 'tool-a',
+        type: 'tool',
+        name: 'a',
+        description: 'A',
+        version: '1.0.0',
+      },
+    };
+    await cache.install(payload);
+
+    // Corrupt the cache by deleting the definition file while keeping the manifest entry.
+    await rm(join(TEST_CACHE_DIR, 'tool-a', 'definition.json'), { force: true });
+
+    const loaded = await cache.load();
+    expect(loaded).toHaveLength(0);
+  });
+
+  it('install with backup preserves existing files', async () => {
+    const payload: CapabilityDistributePayload = {
+      action: 'add',
+      capability: {
+        id: 'tool-versioned',
+        type: 'tool',
+        name: 'versioned',
+        description: 'v1',
+        version: '1.0.0',
+      },
+    };
+
+    await cache.install(payload);
+    const updatePayload: CapabilityDistributePayload = {
+      action: 'update',
+      capability: {
+        id: 'tool-versioned',
+        type: 'tool',
+        name: 'versioned',
+        description: 'v2',
+        version: '2.0.0',
+      },
+    };
+
+    const ack = await cache.update(updatePayload, { backup: true });
+    expect(ack.status).toBe('installed');
+    expect(cache.get('tool-versioned')?.description).toBe('v2');
+  });
+
   it('failed install returns failed ack with error', async () => {
     // Create cache dir as a file to force mkdir failure
     await rm(TEST_CACHE_DIR, { recursive: true, force: true });

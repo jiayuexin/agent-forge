@@ -1,6 +1,8 @@
 import { createPublicKey, createVerify } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile, realpath } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+
+const KEY_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export interface SignatureVerifyInput {
   payload: Buffer | string;
@@ -19,8 +21,23 @@ export async function loadTrustStorePublicKey(
   trustStoreDir: string,
   keyId = 'default'
 ): Promise<string | undefined> {
+  if (!KEY_ID_PATTERN.test(keyId)) {
+    return undefined;
+  }
+
   try {
-    return await readFile(join(trustStoreDir, `${keyId}.pem`), 'utf-8');
+    const trustStorePath = await realpath(trustStoreDir);
+    const keyPath = resolve(trustStorePath, `${keyId}.pem`);
+    if (dirname(keyPath) !== trustStorePath) {
+      return undefined;
+    }
+
+    const resolvedKeyPath = await realpath(keyPath);
+    if (dirname(resolvedKeyPath) !== trustStorePath) {
+      return undefined;
+    }
+
+    return await readFile(resolvedKeyPath, 'utf-8');
   } catch {
     return undefined;
   }

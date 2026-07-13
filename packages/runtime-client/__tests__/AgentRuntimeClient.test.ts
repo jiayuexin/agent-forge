@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { AgentRuntimeClient } from '../src/AgentRuntimeClient.js';
 import { AgentStatus, type AgentResult, type AgentStreamChunk } from '@agentforge/types';
 import { createMockAgent, createTestServer, waitFor } from './helpers.js';
@@ -217,6 +220,9 @@ describe('AgentRuntimeClient', () => {
             name: 'git-status',
             description: 'Show git status',
             version: '1.0.0',
+            endpointType: 'local-command',
+            endpoint: { target: 'git status --porcelain', method: 'exec' },
+            inputSchema: { type: 'object' },
           },
         },
       })
@@ -227,6 +233,165 @@ describe('AgentRuntimeClient', () => {
     expect(ack.payload).toMatchObject({ status: 'installed', capabilityId: 'tool-git-status' });
 
     await client.stop();
+  });
+
+  it('executes a distributed Tool after install and after a runtime restart', async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'agentforge-runtime-cache-'));
+    const localFunction = vi.fn(async (_tool, args) => ({
+      total: Number(args.left) + Number(args.right),
+    }));
+    const firstAgent = createMockAgent();
+    const firstClient = new AgentRuntimeClient(
+      firstAgent,
+      {
+        hubUrl: server.url,
+        capabilityCacheDir: cacheDir,
+      },
+      {
+        additionalToolAdapters: {
+          'local-function': localFunction,
+        },
+      }
+    );
+
+    try {
+      expect(firstAgent.setCapabilitySource).toHaveBeenCalledOnce();
+      await firstClient.start();
+      await server.waitForMessage((message) => message.type === 'event');
+      const clientWs = await server.nextClient();
+      clientWs.send(
+        JSON.stringify({
+          type: 'capability-distribute',
+          messageId: 'cap-execute',
+          nodeId: 'agent-1',
+          timestamp: Date.now(),
+          payload: {
+            action: 'add',
+            capability: {
+              id: 'tool-add',
+              type: 'tool',
+              name: 'add',
+              description: 'Add values',
+              endpointType: 'local-function',
+              endpoint: { target: 'math.add', method: 'call' },
+              inputSchema: { type: 'object' },
+            },
+          },
+        })
+      );
+      await server.waitForMessage(
+        (message) => message.type === 'capability-ack' && message.messageId === 'cap-execute'
+      );
+      clientWs.send(
+        JSON.stringify({
+          type: 'capability-distribute',
+          messageId: 'cap-update',
+          nodeId: 'agent-1',
+          timestamp: Date.now(),
+          payload: {
+            action: 'update',
+            capability: {
+              id: 'tool-add',
+              type: 'tool',
+              name: 'add',
+              description: 'Add values v2',
+              version: '2.0.0',
+              endpointType: 'local-function',
+              endpoint: { target: 'math.add', method: 'call' },
+              inputSchema: { type: 'object' },
+            },
+          },
+        })
+      );
+      await server.waitForMessage(
+        (message) => message.type === 'capability-ack' && message.messageId === 'cap-update'
+      );
+      expect(firstClient.node.capabilities).toEqual([
+        expect.objectContaining({
+          id: 'tool-add',
+          description: 'Add values v2',
+          version: '2.0.0',
+        }),
+      ]);
+
+      await expect(
+        firstClient.executeCapability('tool-add', {
+          type: 'tool',
+          input: { left: 2, right: 3 },
+        })
+      ).resolves.toMatchObject({
+        success: true,
+        output: { structured: { result: { total: 5 } } },
+      });
+      await firstClient.stop();
+
+      const secondAgent = createMockAgent();
+      const secondClient = new AgentRuntimeClient(
+        secondAgent,
+        {
+          hubUrl: server.url,
+          capabilityCacheDir: cacheDir,
+        },
+        {
+          additionalToolAdapters: {
+            'local-function': localFunction,
+          },
+        }
+      );
+      await secondClient.start();
+      await server.waitForMessage((message) => message.type === 'event');
+      expect(secondAgent.setCapabilitySource).toHaveBeenCalledOnce();
+      expect(secondClient.node.capabilities).toEqual([
+        expect.objectContaining({
+          id: 'tool-add',
+          description: 'Add values v2',
+          version: '2.0.0',
+        }),
+      ]);
+      await expect(
+        secondClient.executeCapability('tool-add', {
+          type: 'tool',
+          input: { left: 4, right: 5 },
+        })
+      ).resolves.toMatchObject({
+        output: { structured: { result: { total: 9 } } },
+      });
+      const secondWs = await server.nextClient();
+      secondWs.send(
+        JSON.stringify({
+          type: 'capability-distribute',
+          messageId: 'cap-remove',
+          nodeId: 'agent-1',
+          timestamp: Date.now(),
+          payload: {
+            action: 'remove',
+            capability: {
+              id: 'tool-add',
+              type: 'tool',
+              name: 'add',
+              description: 'Add values v2',
+              version: '2.0.0',
+              endpointType: 'local-function',
+              endpoint: { target: 'math.add', method: 'call' },
+              inputSchema: { type: 'object' },
+            },
+          },
+        })
+      );
+      await server.waitForMessage(
+        (message) => message.type === 'capability-ack' && message.messageId === 'cap-remove'
+      );
+      expect(secondClient.node.capabilities).toEqual([]);
+      await expect(
+        secondClient.executeCapability('tool-add', {
+          type: 'tool',
+          input: {},
+        })
+      ).rejects.toMatchObject({ code: 'CAPABILITY_NOT_FOUND' });
+      await secondClient.stop();
+    } finally {
+      await rm(cacheDir, { recursive: true, force: true });
+    }
   });
 
   it('handles stop control message', async () => {
@@ -426,6 +591,9 @@ describe('AgentRuntimeClient', () => {
             name: 'custom',
             description: 'Custom',
             version: '1.0.0',
+            endpointType: 'local-function',
+            endpoint: { target: 'tools.custom' },
+            inputSchema: { type: 'object' },
           },
         },
       })

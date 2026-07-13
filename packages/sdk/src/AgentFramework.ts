@@ -1,6 +1,8 @@
 import { SimpleLogger } from '@agentforge/core';
 import type {
   AgentConstructor,
+  AgentCapabilityDefinition,
+  AgentCapabilityRegistration,
   AgentResult,
   AgentTask,
   Capability,
@@ -18,8 +20,19 @@ import type {
   PlanExecutionOptions,
   PlanOptions,
   PlanResult,
-  RemoteAgentCapability,
 } from '@agentforge/types';
+import {
+  AgentCapabilityExecutor,
+  CapabilityExecutorRegistry,
+  PluginCapabilityExecutor,
+  RemoteAgentCapabilityExecutor,
+  SkillCapabilityExecutor,
+  ToolCapabilityExecutor,
+  type CapabilityExecutionContext,
+  type PluginCapabilityInvoker,
+  type SkillAgentFactory,
+  type ToolEndpointAdapters,
+} from './capability-executors/index.js';
 import { CapabilityRegistry } from './CapabilityRegistry.js';
 import { ClientAgentProxy, type RemoteAgentInvoker } from './ClientAgentProxy.js';
 import { EventBus } from './EventBus.js';
@@ -29,6 +42,8 @@ import { PlanExecutor, type PlanExecutionContext } from './planner/PlanExecutor.
 import { PlannerAgent, type PlannerAgentConfig } from './planner/PlannerAgent.js';
 import { AgentNotFoundError, RemoteAgentNotConnectedError, SDKError } from './errors.js';
 
+export const DEFAULT_MAX_CAPABILITY_DEPTH = 16;
+
 export class AgentFramework implements PipelineRuntime {
   readonly discovery: ICapabilityRegistry;
   private config: FrameworkConfig;
@@ -37,33 +52,71 @@ export class AgentFramework implements PipelineRuntime {
   private agentRegistry = new Map<string, AgentConstructor>();
   private agentInstances = new Map<string, IAgent>();
   private capabilityToAgent = new Map<string, IAgent>();
+  private explicitCapabilityIds = new Map<string, string[]>();
+  private capabilityExecutors = new CapabilityExecutorRegistry();
+  private skillCapabilityExecutor: SkillCapabilityExecutor;
   private planner?: PlannerAgent;
   private planExecutor?: PlanExecutor;
   private remoteInvoker?: RemoteAgentInvoker;
+  private pluginInvoker?: PluginCapabilityInvoker;
+  private toolAdapters: ToolEndpointAdapters = {};
   private initialized = false;
   private logger: Logger;
+  private readonly maxCapabilityDepth: number;
 
   constructor(config?: FrameworkConfig) {
     this.config = config ?? {};
+    this.maxCapabilityDepth = this.config.maxCapabilityDepth ?? DEFAULT_MAX_CAPABILITY_DEPTH;
+    if (!Number.isInteger(this.maxCapabilityDepth) || this.maxCapabilityDepth < 1) {
+      throw new SDKError(
+        'INVALID_MAX_CAPABILITY_DEPTH',
+        'maxCapabilityDepth must be a positive integer',
+        { maxCapabilityDepth: this.maxCapabilityDepth }
+      );
+    }
     this.discovery = new CapabilityRegistry();
     this.eventBus = new EventBus();
     this.modelRegistry = new ModelRegistry(this.config.modelRegistry);
     this.logger = new SimpleLogger({ component: 'AgentFramework' });
+    this.capabilityExecutors.register(
+      new AgentCapabilityExecutor((capabilityId) => this.capabilityToAgent.get(capabilityId))
+    );
+    this.capabilityExecutors.register(new RemoteAgentCapabilityExecutor(() => this.remoteInvoker));
+    this.capabilityExecutors.register(
+      new ToolCapabilityExecutor({
+        getAdapters: () => this.toolAdapters,
+        logger: this.logger,
+      })
+    );
+    this.skillCapabilityExecutor = new SkillCapabilityExecutor({
+      resolveModel: () => this.resolveModel(),
+      getAdapters: () => this.toolAdapters,
+      logger: this.logger,
+      maxToolCalls: this.config.maxToolCalls,
+    });
+    this.capabilityExecutors.register(this.skillCapabilityExecutor);
+    this.capabilityExecutors.register(new PluginCapabilityExecutor(() => this.pluginInvoker));
   }
 
-  register(name: string, AgentClass: AgentConstructor, capability?: Partial<Capability>): this {
+  register(
+    name: string,
+    AgentClass: AgentConstructor,
+    capability?: AgentCapabilityRegistration
+  ): this {
     this.agentRegistry.set(name, AgentClass);
 
-    if (capability || AgentClass.capability) {
-      const cap = (capability ?? AgentClass.capability) as Partial<Capability>;
-      const fullCapability: Capability = {
+    const cap = capability ?? AgentClass.capability;
+    if (cap) {
+      const fullCapability: AgentCapabilityDefinition = {
+        ...cap,
         id: cap.id ?? `${name}:${cap.name ?? 'default'}`,
-        type: cap.type ?? 'agent',
+        type: 'agent',
         name: cap.name ?? name,
         description: cap.description ?? `Agent ${name}`,
-        ...cap,
-      } as Capability;
+      };
       this.discovery.register(fullCapability);
+      const ids = this.explicitCapabilityIds.get(name) ?? [];
+      this.explicitCapabilityIds.set(name, [...ids, fullCapability.id]);
     }
 
     return this;
@@ -84,6 +137,9 @@ export class AgentFramework implements PipelineRuntime {
       const agent = new AgentClass();
       await agent.init();
       this.agentInstances.set(name, agent);
+      for (const capabilityId of this.explicitCapabilityIds.get(name) ?? []) {
+        this.capabilityToAgent.set(capabilityId, agent);
+      }
 
       for (const cap of agent.capabilities) {
         const capability: Capability = {
@@ -115,6 +171,7 @@ export class AgentFramework implements PipelineRuntime {
     }
     this.agentInstances.clear();
     this.capabilityToAgent.clear();
+    this.explicitCapabilityIds.clear();
     this.agentRegistry.clear();
     this.initialized = false;
   }
@@ -158,7 +215,25 @@ export class AgentFramework implements PipelineRuntime {
     return this;
   }
 
-  async connectToClientAgent(nodeId: string, options?: ConnectToClientAgentOptions): Promise<IClientAgentProxy> {
+  setToolAdapters(adapters: ToolEndpointAdapters): this {
+    this.toolAdapters = adapters;
+    return this;
+  }
+
+  setPluginInvoker(invoker: PluginCapabilityInvoker): this {
+    this.pluginInvoker = invoker;
+    return this;
+  }
+
+  setSkillAgentFactory(agentFactory: SkillAgentFactory): this {
+    this.skillCapabilityExecutor.setAgentFactory(agentFactory);
+    return this;
+  }
+
+  async connectToClientAgent(
+    nodeId: string,
+    options?: ConnectToClientAgentOptions
+  ): Promise<IClientAgentProxy> {
     void options;
     if (!this.remoteInvoker) {
       throw new RemoteAgentNotConnectedError();
@@ -215,7 +290,9 @@ export class AgentFramework implements PipelineRuntime {
       maxTokens: 4096,
       maxReplanAttempts: 3,
     };
-    const planner = new PlannerAgent(config, this.discovery as CapabilityRegistry);
+    const planner = new PlannerAgent(config, this.discovery as CapabilityRegistry, (capability) =>
+      this.canExecuteCapability(capability.id)
+    );
     await planner.init();
     return planner;
   }
@@ -230,29 +307,62 @@ export class AgentFramework implements PipelineRuntime {
     return new PlanExecutor(context);
   }
 
-  private async executeCapability(capabilityId: string, task: AgentTask): Promise<AgentResult> {
+  async executeCapability(capabilityId: string, task: AgentTask): Promise<AgentResult> {
+    return this.executeCapabilityWithContext(capabilityId, task);
+  }
+
+  private async executeCapabilityWithContext(
+    capabilityId: string,
+    task: AgentTask,
+    parentContext?: CapabilityExecutionContext
+  ): Promise<AgentResult> {
     const cap = this.discovery.get(capabilityId);
     if (!cap) {
       throw new SDKError('CAPABILITY_NOT_FOUND', `Capability "${capabilityId}" not found`);
     }
 
-    if (cap.type === 'agent') {
-      const agent = this.capabilityToAgent.get(capabilityId);
-      if (!agent) {
-        throw new SDKError('CAPABILITY_AGENT_NOT_FOUND', `No agent provides capability "${capabilityId}"`);
-      }
-      return agent.execute(task);
+    const parentCallStack = parentContext?.callStack ?? [];
+    const callStack = Object.freeze([...parentCallStack, capabilityId]);
+    if (parentCallStack.includes(capabilityId)) {
+      throw new SDKError(
+        'CAPABILITY_EXECUTION_CYCLE',
+        `Capability execution cycle detected at "${capabilityId}"`,
+        { callStack }
+      );
     }
-
-    if (cap.type === 'remote-agent') {
-      if (!this.remoteInvoker) {
-        throw new RemoteAgentNotConnectedError();
-      }
-      const remoteCap = cap as RemoteAgentCapability;
-      const proxy = new ClientAgentProxy(remoteCap.nodeId, this.remoteInvoker);
-      return proxy.execute(task);
+    if (callStack.length > this.maxCapabilityDepth) {
+      throw new SDKError(
+        'MAX_CAPABILITY_DEPTH_EXCEEDED',
+        `Capability execution exceeded maximum depth ${this.maxCapabilityDepth}`,
+        { maxDepth: this.maxCapabilityDepth, callStack }
+      );
     }
+    const context = this.createCapabilityExecutionContext(callStack);
+    return this.capabilityExecutors.execute(cap, task, context);
+  }
 
-    throw new SDKError('NOT_IMPLEMENTED', `Capability type "${cap.type}" execution is not implemented`);
+  private canExecuteCapability(
+    capabilityId: string,
+    context?: CapabilityExecutionContext
+  ): boolean {
+    const capability = this.discovery.get(capabilityId);
+    if (!capability) return false;
+    const executionContext = context ?? this.createCapabilityExecutionContext(Object.freeze([]));
+    return this.capabilityExecutors.canExecute(capability, executionContext);
+  }
+
+  private createCapabilityExecutionContext(
+    callStack: readonly string[]
+  ): CapabilityExecutionContext {
+    const context: CapabilityExecutionContext = Object.freeze({
+      callStack,
+      maxDepth: this.maxCapabilityDepth,
+      capabilities: this.discovery,
+      executeCapability: (capabilityId: string, task: AgentTask) =>
+        this.executeCapabilityWithContext(capabilityId, task, context),
+      canExecuteCapability: (capabilityId: string) =>
+        this.canExecuteCapability(capabilityId, context),
+    });
+    return context;
   }
 }

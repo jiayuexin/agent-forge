@@ -1,12 +1,10 @@
 # AgentForge 使用文档
 
-> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
->
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 使用指南
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
+> **文档版本**: docs-v0.6
+> **最后更新**: 2026-07-13
 > **实现状态**: 已完成
 
 ## 目录
@@ -191,6 +189,8 @@ agentforge capability list                          # 列出 Hub 上的能力
 agentforge capability install <capability-id>     # 安装能力到本地缓存
 agentforge capability distribute <capability-id> --node [node-id]  # 下发到指定节点
 ```
+
+ClientAgent 安装后会把 Tool、Skill 与 Plugin 纳入动态能力源；重启时从本地 manifest 恢复。Tool 通过显式端点适配器执行，Skill 使用受限 Tool 子集，Plugin 必须是签名 WASM 且在 Worker-backed WASI 中运行。`GET /api/capabilities` 同时返回 Agent 声明和本地缓存能力。
 
 ---
 

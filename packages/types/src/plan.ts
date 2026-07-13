@@ -1,4 +1,4 @@
-import type { Capability } from './capability.js';
+import type { AgentCapabilityRegistration, Capability } from './capability.js';
 import type { CapabilityType } from './core.js';
 import type { AgentResult } from './result.js';
 import type { AgentTask } from './task.js';
@@ -113,9 +113,11 @@ export interface OrchestrateOptions {
   fixedWorkflow?: boolean;
 }
 
-export interface AgentConstructor<TConfig extends import('./config.js').AgentConfig = import('./config.js').AgentConfig> {
+export interface AgentConstructor<
+  TConfig extends import('./config.js').AgentConfig = import('./config.js').AgentConfig,
+> {
   new (...args: unknown[]): IAgent<TConfig>;
-  capability?: Partial<Capability>;
+  capability?: AgentCapabilityRegistration;
 }
 
 export interface AgentRegistry {

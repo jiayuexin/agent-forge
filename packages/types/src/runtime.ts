@@ -47,6 +47,7 @@ export interface AgentRuntimeConfig {
   allowRemoteExecution?: boolean;
   requireLocalConfirmation?: string[];
   capabilityCacheDir?: string;
+  capabilityTrustStoreDir?: string;
 }
 
 export interface RemoteTask {
@@ -73,8 +74,6 @@ export interface ControlMessage {
 export interface CapabilityDistributePayload {
   action: 'add' | 'update' | 'remove';
   capability: Capability;
-  downloadUrl?: string;
-  signature?: string;
   targetVersion?: string;
 }
 
@@ -133,6 +132,7 @@ export interface IAgentRuntimeClient {
   readonly node: AgentNode;
   start(): Promise<void>;
   stop(): Promise<void>;
+  executeCapability(capabilityId: string, task: AgentTask): Promise<AgentResult>;
   send(message: AgentMessage): void;
   onTask(handler: TaskHandler): void;
   onCapabilityDistribute(handler: CapabilityDistributeHandler): void;

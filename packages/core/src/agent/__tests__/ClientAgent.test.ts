@@ -2,7 +2,15 @@ import { describe, it, expect, beforeAll, vi, beforeEach, afterEach } from 'vite
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentStatus, type ClientAgentConfig } from '@agentforge/types';
+import {
+  AgentStatus,
+  type AgentResult,
+  type Capability,
+  type ClientCapabilitySource,
+  type ClientAgentConfig,
+  type IProvider,
+  type ToolDefinition,
+} from '@agentforge/types';
 import { ClientAgent } from '../ClientAgent.js';
 import { ProviderFactory } from '../../provider/ProviderFactory.js';
 import { MockProvider } from '../../provider/MockProvider.js';
@@ -183,6 +191,52 @@ describe('ClientAgent', () => {
     expect(result.output.content).toBe('mock: {"message":"hello"}');
   });
 
+  it('executes a handler supplied by the dynamic tool provider', async () => {
+    const handler = vi.fn().mockResolvedValue('dynamic-result');
+    const dynamicTool: ToolDefinition = {
+      name: 'dynamic-tool',
+      description: 'Dynamic tool',
+      parameters: { type: 'object' },
+      handler,
+    };
+    const provider: IProvider = {
+      provider: 'tool-test',
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [{ callId: 'call-1', name: 'dynamic-tool', args: {} }],
+          usage: { input: 1, output: 1, total: 2 },
+          model: 'tool-test',
+          finishReason: 'tool_calls',
+        })
+        .mockResolvedValueOnce({
+          content: 'done',
+          usage: { input: 1, output: 1, total: 2 },
+          model: 'tool-test',
+          finishReason: 'stop',
+        }),
+      chatStream: async function* () {},
+      validate: async () => true,
+    };
+    const agent = new ClientAgent(clientConfig, {
+      toolProvider: () => [dynamicTool],
+    });
+    await agent.init();
+    (agent as unknown as { provider: IProvider }).provider = provider;
+
+    const result = await agent.execute({ type: 'test', input: {} });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(result.meta.toolsCalled).toEqual([
+      expect.objectContaining({
+        name: 'dynamic-tool',
+        result: 'dynamic-result',
+        status: 'success',
+      }),
+    ]);
+  });
+
   it('stopDaemon, connectToHub, disconnectFromHub are safe no-ops', async () => {
     const agent = new ClientAgent(clientConfig);
     await expect(agent.stopDaemon()).resolves.toBeUndefined();
@@ -190,8 +244,114 @@ describe('ClientAgent', () => {
     await expect(agent.disconnectFromHub()).resolves.toBeUndefined();
   });
 
-  it('getLocalCapabilityCache returns empty array', () => {
+  it('uses an attached capability source for cache listing and dynamic tools', async () => {
+    const capability: Capability = {
+      id: 'tool:cached',
+      type: 'tool',
+      name: 'cached-tool',
+      description: 'Cached tool',
+      endpointType: 'local-function',
+      endpoint: { target: 'cached.tool' },
+      inputSchema: { type: 'object' },
+    };
+    const handler = vi.fn(async () => 'cached-result');
+    const tool: ToolDefinition = {
+      name: capability.name,
+      description: capability.description,
+      parameters: capability.inputSchema,
+      handler,
+    };
+    const execution: AgentResult = {
+      success: true,
+      output: { content: 'direct-result' },
+      meta: {
+        duration: 0,
+        tokensUsed: { input: 0, output: 0, total: 0 },
+        model: 'capability',
+      },
+    };
+    const source: ClientCapabilitySource = {
+      listCapabilities: () => [capability],
+      listTools: () => [tool],
+      executeCapability: vi.fn(async () => execution),
+    };
+    const provider: IProvider = {
+      provider: 'tool-test',
+      chat: vi
+        .fn()
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [{ callId: 'call-1', name: tool.name, args: {} }],
+          usage: { input: 1, output: 1, total: 2 },
+          model: 'tool-test',
+          finishReason: 'tool_calls',
+        })
+        .mockResolvedValueOnce({
+          content: 'done',
+          usage: { input: 1, output: 1, total: 2 },
+          model: 'tool-test',
+          finishReason: 'stop',
+        }),
+      chatStream: async function* () {},
+      validate: async () => true,
+    };
     const agent = new ClientAgent(clientConfig);
-    expect(agent.getLocalCapabilityCache()).toEqual([]);
+    agent.setCapabilitySource(source);
+    await agent.init();
+    (agent as unknown as { provider: IProvider }).provider = provider;
+
+    expect(agent.getLocalCapabilityCache()).toEqual([capability]);
+    await expect(
+      agent.executeLocalCapability(capability.id, {
+        type: 'direct',
+        input: {},
+      })
+    ).resolves.toBe(execution);
+    await agent.execute({ type: 'agent', input: {} });
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('executes a scoped task with an isolated prompt and tool list', async () => {
+    const provider: IProvider = {
+      provider: 'scope-test',
+      chat: vi.fn(async () => ({
+        content: 'scoped-result',
+        usage: { input: 1, output: 1, total: 2 },
+        model: 'scope-test',
+        finishReason: 'stop',
+      })),
+      chatStream: async function* () {},
+      validate: async () => true,
+    };
+    const agent = new ClientAgent(clientConfig);
+    await agent.init();
+    (agent as unknown as { provider: IProvider }).provider = provider;
+    const tools: ToolDefinition[] = [
+      {
+        name: 'only-tool',
+        description: 'Only scoped tool',
+        parameters: { type: 'object' },
+        handler: async () => 'unused',
+      },
+    ];
+
+    await expect(
+      agent.executeScopedTask(
+        { type: 'scope', input: { value: 1 } },
+        { systemPrompt: 'scoped prompt', tools }
+      )
+    ).resolves.toMatchObject({ output: { content: 'scoped-result' } });
+    expect(provider.chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([{ role: 'system', content: 'scoped prompt' }]),
+        tools: [
+          expect.objectContaining({
+            name: tools[0].name,
+            description: tools[0].description,
+            parameters: tools[0].parameters,
+          }),
+        ],
+      })
+    );
   });
 });

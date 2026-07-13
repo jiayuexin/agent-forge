@@ -5,8 +5,9 @@ import type {
   CapabilityAckPayload,
   CapabilityDistributePayload,
   Logger,
+  PluginCapability,
 } from '@agentforge/types';
-import { verifyPluginSignature } from '@agentforge/core';
+import { CoreError, verifyPluginArtifact } from '@agentforge/core';
 
 export interface CapabilityCacheOptions {
   cacheDir?: string;
@@ -23,10 +24,15 @@ interface CacheManifest {
   capabilities: Record<string, { version?: string; installedAt: number }>;
 }
 
+interface PreparedPluginArtifacts {
+  wasmBytes: Buffer;
+  signature: string;
+}
+
 export class CapabilityCache {
   readonly cacheDir: string;
+  readonly trustStoreDir: string;
   private readonly logger: Logger;
-  private readonly trustStoreDir: string;
   private readonly capabilities = new Map<string, Capability>();
   private manifest: CacheManifest = { version: '1', capabilities: {} };
 
@@ -49,7 +55,19 @@ export class CapabilityCache {
 
     for (const id of Object.keys(this.manifest.capabilities)) {
       try {
+        assertCapabilityId(id);
         const definition = await this.readDefinition(id);
+        if (definition.id !== id) {
+          throw new CoreError(
+            'CAPABILITY_ID_MISMATCH',
+            `Cached capability "${id}" contains definition id "${definition.id}"`
+          );
+        }
+        if (definition.type === 'plugin') {
+          await verifyPluginArtifact(definition, await this.readPluginArtifact(id), {
+            trustStoreDir: this.trustStoreDir,
+          });
+        }
         this.capabilities.set(id, definition);
       } catch (error) {
         this.logger.error(`Failed to load capability ${id} from cache`, error);
@@ -71,6 +89,11 @@ export class CapabilityCache {
     return this.capabilities.has(id);
   }
 
+  async readPluginArtifact(capabilityId: string): Promise<Uint8Array> {
+    assertCapabilityId(capabilityId);
+    return readFile(join(this.capabilityDir(capabilityId), 'plugin.wasm'));
+  }
+
   async install(
     payload: CapabilityDistributePayload,
     options?: CapabilityInstallOptions
@@ -87,6 +110,7 @@ export class CapabilityCache {
 
   async remove(capabilityId: string): Promise<CapabilityAckPayload> {
     try {
+      assertCapabilityId(capabilityId);
       await this.ensureDir();
       const dir = this.capabilityDir(capabilityId);
       await rm(dir, { recursive: true, force: true });
@@ -112,7 +136,11 @@ export class CapabilityCache {
     const capabilityId = capability.id;
 
     try {
+      assertCapabilityId(capabilityId);
       await this.ensureDir();
+
+      const pluginArtifacts =
+        capability.type === 'plugin' ? await this.preparePluginArtifacts(capability) : undefined;
 
       if (options?.backup && this.manifest.capabilities[capabilityId]) {
         await this.backup(capabilityId);
@@ -122,8 +150,8 @@ export class CapabilityCache {
       await mkdir(dir, { recursive: true });
       await this.writeDefinition(capability);
 
-      if (payload.capability.type === 'plugin') {
-        await this.handlePluginPayload(payload, dir);
+      if (pluginArtifacts) {
+        await this.writePluginArtifacts(pluginArtifacts, dir);
       }
 
       this.manifest.capabilities[capabilityId] = {
@@ -144,33 +172,30 @@ export class CapabilityCache {
     }
   }
 
-  private async handlePluginPayload(
-    payload: CapabilityDistributePayload,
+  private async preparePluginArtifacts(
+    capability: PluginCapability
+  ): Promise<PreparedPluginArtifacts> {
+    const response = await fetch(capability.downloadUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download plugin: ${response.status} ${response.statusText}`);
+    }
+    const wasmBytes = Buffer.from(await response.arrayBuffer());
+    await verifyPluginArtifact(capability, wasmBytes, {
+      trustStoreDir: this.trustStoreDir,
+    });
+
+    return {
+      wasmBytes,
+      signature: capability.signature,
+    };
+  }
+
+  private async writePluginArtifacts(
+    artifacts: PreparedPluginArtifacts,
     dir: string
   ): Promise<void> {
-    if (payload.downloadUrl) {
-      const response = await fetch(payload.downloadUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to download plugin: ${response.status} ${response.statusText}`);
-      }
-      const buffer = Buffer.from(await response.arrayBuffer());
-      await writeFile(join(dir, 'package.tgz'), buffer);
-    }
-
-    if (payload.signature) {
-      const payloadBuffer = payload.downloadUrl
-        ? await readFile(join(dir, 'package.tgz'))
-        : Buffer.from(JSON.stringify(payload.capability));
-      const valid = await verifyPluginSignature({
-        payload: payloadBuffer,
-        signature: payload.signature,
-        trustStoreDir: this.trustStoreDir,
-      });
-      if (!valid) {
-        throw new Error('Plugin signature verification failed');
-      }
-      await writeFile(join(dir, 'signature.pem'), payload.signature);
-    }
+    await writeFile(join(dir, 'plugin.wasm'), artifacts.wasmBytes);
+    await writeFile(join(dir, 'signature.txt'), artifacts.signature);
   }
 
   private async backup(capabilityId: string): Promise<void> {
@@ -206,6 +231,7 @@ export class CapabilityCache {
   }
 
   private capabilityDir(id: string): string {
+    assertCapabilityId(id);
     return join(this.cacheDir, id);
   }
 
@@ -240,6 +266,15 @@ export class CapabilityCache {
       status: 'failed',
       error: message,
     };
+  }
+}
+
+function assertCapabilityId(capabilityId: string): void {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(capabilityId)) {
+    throw new CoreError(
+      'INVALID_CAPABILITY_ID',
+      `Capability id "${capabilityId}" is not a valid cache identifier`
+    );
   }
 }
 

@@ -1,9 +1,5 @@
 import type { AddressInfo } from 'node:net';
-import type {
-  AgentResult,
-  AgentStreamChunk,
-  IClientAgent,
-} from '@agentforge/types';
+import type { AgentResult, AgentStreamChunk, IClientAgent } from '@agentforge/types';
 import { AgentStatus } from '@agentforge/types';
 import { WebSocketServer, WebSocket } from 'ws';
 import { vi } from 'vitest';
@@ -31,7 +27,6 @@ export function createMockAgent(overrides?: Partial<IClientAgent>): IClientAgent
       yield { type: 'done', index: 1 } as AgentStreamChunk;
     }),
     destroy: vi.fn().mockResolvedValue(undefined),
-    use: vi.fn().mockReturnThis(),
     on: vi.fn().mockReturnThis(),
     off: vi.fn().mockReturnThis(),
     startDaemon: vi.fn().mockResolvedValue(undefined),
@@ -39,6 +34,26 @@ export function createMockAgent(overrides?: Partial<IClientAgent>): IClientAgent
     connectToHub: vi.fn().mockResolvedValue(undefined),
     disconnectFromHub: vi.fn().mockResolvedValue(undefined),
     getLocalCapabilityCache: vi.fn().mockReturnValue([]),
+    setCapabilitySource: vi.fn(),
+    executeLocalCapability: vi.fn().mockResolvedValue({
+      success: true,
+      output: { content: 'local' },
+      meta: {
+        duration: 0,
+        tokensUsed: { input: 0, output: 0, total: 0 },
+        model: 'mock',
+      },
+    } as AgentResult),
+    executeScopedTask: vi.fn().mockResolvedValue({
+      success: true,
+      output: { content: 'scoped' },
+      meta: {
+        duration: 0,
+        tokensUsed: { input: 0, output: 0, total: 0 },
+        model: 'mock',
+      },
+    } as AgentResult),
+    authorizeLocalCommand: vi.fn().mockResolvedValue(undefined),
     getLocalCommandAuthorization: vi.fn().mockReturnValue('disabled'),
     ...overrides,
   };
@@ -51,7 +66,9 @@ export interface TestServer {
   url: string;
   close(): Promise<void>;
   nextClient(): Promise<WebSocket>;
-  waitForMessage(predicate?: (message: Record<string, unknown>) => boolean): Promise<Record<string, unknown>>;
+  waitForMessage(
+    predicate?: (message: Record<string, unknown>) => boolean
+  ): Promise<Record<string, unknown>>;
 }
 
 export function createTestServer(): TestServer {

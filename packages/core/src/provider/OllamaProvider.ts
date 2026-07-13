@@ -1,14 +1,18 @@
-import { Ollama } from 'ollama';
+import {
+  Ollama,
+  type ChatRequest as OllamaChatRequest,
+  type Message as OllamaMessage,
+} from 'ollama';
 import type {
   ChatParams,
   ChatResponse,
   ChatChunk,
   IProvider,
+  Message,
   ModelConfig,
   OllamaModelConfig,
-  ToolCallRequest,
-  ToolDefinition,
 } from '@agentforge/types';
+import { CoreError } from '../errors.js';
 
 export class OllamaProvider implements IProvider {
   readonly provider = 'ollama';
@@ -24,49 +28,24 @@ export class OllamaProvider implements IProvider {
   }
 
   async chat(params: ChatParams): Promise<ChatResponse> {
+    assertToolFieldsSupported(params);
     const request = {
       model: this.config.modelName,
       messages: params.messages.map(toOllamaMessage),
-      tools: params.tools?.map(toOllamaTool),
       options: {
         temperature: params.temperature,
         stop: params.stop,
       },
-    } as unknown as Parameters<Ollama['chat']>[0];
+    } satisfies OllamaChatRequest & { stream?: false };
 
-    const response = (await this.client.chat(request)) as {
-      model: string;
-      message: {
-        content?: string;
-        tool_calls?: Array<{
-          function: { name: string; arguments: string };
-        }>;
-      };
-      prompt_eval_count?: number;
-      eval_count?: number;
-    };
-    const message = response.message as {
-      content?: string;
-      tool_calls?: Array<{
-        function: { name: string; arguments: string };
-      }>;
-    };
-
-    const toolCalls = message.tool_calls?.map(
-      (tc): ToolCallRequest => ({
-        name: tc.function.name,
-        args: parseJson(tc.function.arguments),
-        callId: tc.function.name,
-      })
-    );
+    const response = await this.client.chat(request);
 
     return {
-      content: message.content ?? '',
-      toolCalls,
+      content: response.message.content,
       usage: {
-        input: response.prompt_eval_count ?? 0,
-        output: response.eval_count ?? 0,
-        total: (response.prompt_eval_count ?? 0) + (response.eval_count ?? 0),
+        input: response.prompt_eval_count,
+        output: response.eval_count,
+        total: response.prompt_eval_count + response.eval_count,
       },
       model: response.model,
       finishReason: 'stop',
@@ -74,26 +53,22 @@ export class OllamaProvider implements IProvider {
   }
 
   async *chatStream(params: ChatParams): AsyncIterable<ChatChunk> {
+    assertToolFieldsSupported(params);
     const request = {
       model: this.config.modelName,
       messages: params.messages.map(toOllamaMessage),
-      tools: params.tools?.map(toOllamaTool),
       options: {
         temperature: params.temperature,
         stop: params.stop,
       },
       stream: true,
-    } as unknown as Parameters<Ollama['chat']>[0];
+    } satisfies OllamaChatRequest & { stream: true };
 
-    const stream = (await this.client.chat(request)) as unknown as AsyncIterable<{
-      message: { content?: string };
-      done: boolean;
-    }>;
+    const stream = await this.client.chat(request);
 
     for await (const chunk of stream) {
-      const message = chunk.message as { content?: string };
-      if (message.content) {
-        yield { type: 'text', delta: message.content };
+      if (chunk.message.content) {
+        yield { type: 'text', delta: chunk.message.content };
       }
       if (chunk.done) {
         yield { type: 'done' };
@@ -111,35 +86,18 @@ export class OllamaProvider implements IProvider {
   }
 }
 
-function toOllamaMessage(message: {
-  role: string;
-  content: string;
-}): { role: string; content: string } {
-  return { role: message.role, content: message.content };
-}
-
-function toOllamaTool(tool: ToolDefinition): {
-  type: string;
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-  };
-} {
-  return {
-    type: 'function',
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters as Record<string, unknown>,
-    },
-  };
-}
-
-function parseJson(value: string): Record<string, unknown> {
-  try {
-    return JSON.parse(value) as Record<string, unknown>;
-  } catch {
-    return {};
+function assertToolFieldsSupported(params: ChatParams): void {
+  const hasToolMessages = params.messages.some(
+    (message) => message.role === 'tool' || Boolean(message.toolCalls?.length)
+  );
+  if (hasToolMessages) {
+    throw new CoreError(
+      'UNSUPPORTED_OLLAMA_TOOLS',
+      'Installed Ollama SDK 0.5 does not support tool definitions or tool messages'
+    );
   }
+}
+
+function toOllamaMessage(message: Message): OllamaMessage {
+  return { role: message.role, content: message.content };
 }

@@ -3,8 +3,8 @@
 > **文档层级**: 第二层 · 设计规格
 > **文档类型**: 设计规格
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
+> **文档版本**: docs-v0.6
+> **最后更新**: 2026-07-13
 > **实现状态**: 已完成
 > **配套文档**: [PRD.md](../product/PRD.md)（产品需求）、[01-核心设计.md](./01-核心设计.md)（接口定义）、[08-客户端Agent与无状态Agent.md](./08-客户端Agent与无状态Agent.md)（形态分野）、[09-能力市场与下发.md](./09-能力市场与下发.md)（能力模型）、[10-安全模型.md](./10-安全模型.md)（安全设计）
 
@@ -143,15 +143,16 @@ agentforge/
 │   ├── core/                  # 核心运行时
 │   │   └── src/
 │   │       ├── agent/         # IAgent + BaseAgent + ClientAgent + StatelessAgent
-│   │       ├── runtime/       # MiddlewareChain, PluginManager
+│   │       ├── runtime/       # MiddlewareChain, ToolRegistry, ToolRunner, AgentExecutor
 │   │       ├── provider/      # IProvider + OpenAI/Anthropic/Ollama 实现
-│   │       ├── plugin/        # IPlugin
+│   │       ├── plugin/        # WASI Plugin 运行时与制品验签
 │   │       └── generator/     # AgentGenerator + PromptBuilder + TemplateEngine
 │   ├── types/                 # 纯类型定义（零运行时依赖）
 │   ├── sdk/                   # 编排 SDK
 │   │   └── src/
 │   │       ├── AgentFramework.ts   # 框架主类
 │   │       ├── CapabilityRegistry.ts
+│   │       ├── capability-executors/ # 五类能力执行器
 │   │       ├── ModelRegistry.ts    # 多端点模型解析（实现类）
 │   │       ├── planner/            # PlannerAgent + PlanExecutor
 │   │       ├── Pipeline.ts         # 流水线
@@ -253,11 +254,9 @@ async init(config?: TConfig): Promise<void> {
   this.config = finalConfig;
   // 2. 创建 Provider
   this.provider = ProviderFactory.create(finalConfig.model);
-  // 3. 加载插件
-  this.pluginManager.loadPlugins(finalConfig);
-  // 4. 调用子类初始化钩子
+  // 3. 调用子类初始化钩子
   await this.doInit?.();
-  // 5. 验证状态
+  // 4. 验证 Provider
   await this.provider.validate();
   this._status = AgentStatus.READY;
   this.emit('agent:init');
@@ -288,7 +287,7 @@ async execute(task: AgentTask): Promise<AgentResult> {
 
 ### 3.5 中间件链
 
-`Middleware` 类型定义见 [01-核心设计.md §1.8](./01-核心设计.md#18-iplugin-插件接口)。
+`Middleware` 类型定义见 [01-核心设计.md §1.8](./01-核心设计.md#18-middleware-与日志接口)。
 
 ```typescript
 class MiddlewareChain {
@@ -301,9 +300,9 @@ class MiddlewareChain {
 }
 ```
 
-### 3.6 插件系统
+### 3.6 Tool 与 WASI Plugin 运行时
 
-`IPlugin`、`PluginContext`、`ToolDefinition` 等类型定义见 [01-核心设计.md §1.8](./01-核心设计.md#18-iplugin-插件接口)。
+Agent 工具调用由 `ToolRegistry` 解析、`ToolRunner` 执行、`AgentExecutor` 编排多轮 Provider 对话。Plugin 不再加载进 Agent 进程；签名 WASM 由 Worker-backed WASI 运行时执行，并仅通过能力白名单 Host Function 与系统交互。类型定义见 [01-核心设计.md](./01-核心设计.md) 与 [09-能力市场与下发.md](./09-能力市场与下发.md)。
 
 ---
 
@@ -449,7 +448,7 @@ Agent / Tool / Skill
 能力来源：
 
 - `framework.register()` 注册的 Agent
-- `PluginContext.registerTool()` 注册的工具
+- 显式注册或 Capability Hub 下发的 Tool
 - 显式注册的 Skill / Plugin
 
 ### 5.4 PlannerAgent
@@ -791,7 +790,8 @@ packages/
 │   ├── agent/__tests__/AgentLifeCycle.test.ts      # 状态机转换
 │   ├── provider/__tests__/ProviderFactory.test.ts  # Provider 创建 + 自定义 Provider
 │   ├── runtime/__tests__/MiddlewareChain.test.ts   # 中间件顺序 + 错误处理
-│   ├── plugin/__tests__/PluginManager.test.ts      # 插件安装 + 卸载
+│   ├── plugin/__tests__/WasiPluginRunner.test.ts   # WASI 隔离、白名单与资源限制
+│   ├── runtime/__tests__/ToolRunner.test.ts        # 工具执行与错误边界
 │   └── generator/__tests__/AgentGenerator.test.ts  # 端到端生成流程
 ├── sdk/src/
 │   ├── __tests__/Pipeline.test.ts                  # 串行 / 并行 / 分支

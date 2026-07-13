@@ -1,8 +1,4 @@
-import type {
-  AgentResult,
-  AgentStreamChunk,
-  IClientAgent,
-} from '@agentforge/types';
+import type { AgentResult, AgentStreamChunk, IClientAgent } from '@agentforge/types';
 import { AgentStatus } from '@agentforge/types';
 
 export function createE2EMockAgent(overrides?: Partial<IClientAgent>): IClientAgent {
@@ -48,9 +44,6 @@ export function createE2EMockAgent(overrides?: Partial<IClientAgent>): IClientAg
       yield { type: 'done', index: 4 } as AgentStreamChunk;
     },
     destroy: async () => undefined,
-    use: function () {
-      return this;
-    },
     on: function () {
       return this;
     },

@@ -5,6 +5,12 @@ import type { NodeRegistry } from '../../../server/services/NodeRegistry.js';
 import type { Capability, CapabilityDistributePayload } from '@agentforge/types';
 import { startRouteServer, type RouteServer } from '../route-helpers.js';
 
+const TOOL_CONTRACT = {
+  endpointType: 'local-function',
+  endpoint: { target: 'tools.example' },
+  inputSchema: { type: 'object' },
+} as const;
+
 function createMockStore() {
   const capabilities = new Map<string, Capability>();
   return {
@@ -61,6 +67,7 @@ describe('capabilities route', () => {
 
   it('GET /api/capabilities lists capabilities', async () => {
     await store.create({
+      ...TOOL_CONTRACT,
       id: 'cap-1',
       type: 'tool',
       name: 'tool-one',
@@ -84,13 +91,121 @@ describe('capabilities route', () => {
         type: 'skill',
         name: 'skill-one',
         description: 'First skill',
+        tools: ['tool-one'],
+        promptTemplate: 'Use tool-one to complete the task.',
+        examples: [{ input: 'request', output: 'result' }],
       }),
     });
 
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ success: true });
-    expect(store.get('cap-2')).toBeDefined();
+    expect(store.get('cap-2')).toEqual({
+      id: 'cap-2',
+      type: 'skill',
+      name: 'skill-one',
+      description: 'First skill',
+      tools: ['tool-one'],
+      promptTemplate: 'Use tool-one to complete the task.',
+      examples: [{ input: 'request', output: 'result' }],
+    });
+  });
+
+  it.each([
+    {
+      id: 'tool-preserved',
+      type: 'tool',
+      name: 'preserved-tool',
+      description: 'Preserves Tool fields',
+      endpointType: 'http',
+      endpoint: { target: '/tools/preserved', method: 'post' },
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'string' },
+    },
+    {
+      id: 'remote-preserved',
+      type: 'remote-agent',
+      name: 'preserved-remote',
+      description: 'Preserves Remote Agent fields',
+      nodeId: 'node-remote',
+      endpoint: 'wss://hub.example.com/ws/nodes/node-remote',
+    },
+    {
+      id: 'plugin-preserved',
+      type: 'plugin',
+      name: 'preserved-plugin',
+      description: 'Preserves Plugin fields',
+      downloadUrl: 'https://example.com/plugin.wasm',
+      signature: 'base64-signature',
+      keyId: 'release-key',
+      entry: 'plugin.wasm',
+      allowedCapabilities: ['tool-preserved'],
+      sandbox: {
+        timeoutMs: 30_000,
+        maxMemoryPages: 256,
+      },
+    },
+  ] satisfies Capability[])('POST preserves $type-specific fields', async (capability) => {
+    const response = await fetch(`${url}/api/capabilities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(capability),
+    });
+
+    expect(response.status).toBe(200);
+    expect(store.get(capability.id)).toEqual(capability);
+  });
+
+  it('POST rejects a Tool capability without its execution contract', async () => {
+    const response = await fetch(`${url}/api/capabilities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'tool-incomplete',
+        type: 'tool',
+        name: 'incomplete-tool',
+        description: 'Missing endpoint and schema',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(store.get('tool-incomplete')).toBeUndefined();
+  });
+
+  it.each([
+    {
+      id: 'skill-incomplete',
+      type: 'skill',
+      name: 'incomplete-skill',
+      description: 'Missing promptTemplate',
+      tools: ['tool-preserved'],
+    },
+    {
+      id: 'plugin-incomplete',
+      type: 'plugin',
+      name: 'incomplete-plugin',
+      description: 'Missing sandbox',
+      downloadUrl: 'https://example.com/plugin.wasm',
+      signature: 'base64-signature',
+      keyId: 'release-key',
+      entry: 'plugin.wasm',
+      allowedCapabilities: [],
+    },
+    {
+      id: 'remote-incomplete',
+      type: 'remote-agent',
+      name: 'incomplete-remote',
+      description: 'Missing nodeId',
+    },
+  ])('POST rejects an incomplete $type capability', async (capability) => {
+    const response = await fetch(`${url}/api/capabilities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(capability),
+    });
+
+    expect(response.status).toBe(400);
+    expect(store.get(capability.id)).toBeUndefined();
   });
 
   it('GET /api/capabilities/:id returns 404 for unknown id', async () => {
@@ -103,6 +218,7 @@ describe('capabilities route', () => {
 
   it('PUT /api/capabilities/:id updates and returns { success: true }', async () => {
     await store.create({
+      ...TOOL_CONTRACT,
       id: 'cap-3',
       type: 'tool',
       name: 'tool-three',
@@ -113,6 +229,7 @@ describe('capabilities route', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        ...TOOL_CONTRACT,
         id: 'cap-3',
         type: 'tool',
         name: 'tool-three',
@@ -128,6 +245,7 @@ describe('capabilities route', () => {
 
   it('DELETE /api/capabilities/:id deletes and returns { success: true }', async () => {
     await store.create({
+      ...TOOL_CONTRACT,
       id: 'cap-4',
       type: 'tool',
       name: 'tool-four',

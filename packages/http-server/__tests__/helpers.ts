@@ -1,4 +1,11 @@
-import type { IAgent, AgentTask, AgentResult, AgentStreamChunk, AgentStatus, AgentCapability } from '@agentforge/types';
+import type {
+  IAgent,
+  AgentTask,
+  AgentResult,
+  AgentStreamChunk,
+  AgentStatus,
+  AgentCapability,
+} from '@agentforge/types';
 import { AgentStatus as Status } from '@agentforge/types';
 import { createDebugServer, type DebugServer } from '../src/server.js';
 
@@ -43,10 +50,10 @@ export class MockAgent implements IAgent {
       }));
     this.streamHandler =
       options.streamHandler ??
-      (async function* () {
+      async function* () {
         yield { type: 'text', content: 'mock chunk', index: 0 };
         yield { type: 'done', index: 1 };
-      });
+      };
   }
 
   async init(): Promise<void> {
@@ -65,10 +72,6 @@ export class MockAgent implements IAgent {
     this.status = Status.DESTROYED;
   }
 
-  use(): this {
-    return this;
-  }
-
   on(): this {
     return this;
   }
@@ -78,7 +81,9 @@ export class MockAgent implements IAgent {
   }
 }
 
-export async function startTestServer(agent: IAgent): Promise<{ server: DebugServer; port: number }> {
+export async function startTestServer(
+  agent: IAgent
+): Promise<{ server: DebugServer; port: number }> {
   const debugServer = createDebugServer(agent, {
     port: 0,
     host: '127.0.0.1',
@@ -98,7 +103,11 @@ export async function startTestServer(agent: IAgent): Promise<{ server: DebugSer
   return { server: debugServer, port };
 }
 
-export async function requestJson(port: number, path: string, init?: RequestInit): Promise<unknown> {
+export async function requestJson(
+  port: number,
+  path: string,
+  init?: RequestInit
+): Promise<unknown> {
   const response = await fetch(`http://127.0.0.1:${port}${path}`, init);
   const text = await response.text();
   return text ? JSON.parse(text) : null;

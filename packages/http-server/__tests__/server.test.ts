@@ -57,6 +57,37 @@ describe('DebugServer', () => {
     }
   });
 
+  it('includes capabilities installed in a ClientAgent local cache', async () => {
+    const cachedCapability = {
+      id: 'tool-cached',
+      type: 'tool',
+      name: 'cached-tool',
+      description: 'Cached tool',
+      endpointType: 'http',
+      endpoint: { target: 'https://example.com/tool', method: 'post' },
+      inputSchema: { type: 'object' },
+    } as const;
+    (
+      agent as MockAgent & {
+        getLocalCapabilityCache(): unknown[];
+      }
+    ).getLocalCapabilityCache = () => [cachedCapability];
+    const { server, port } = await startTestServer(agent);
+
+    try {
+      const result = await requestJson(port, '/api/capabilities');
+      expect(result).toEqual([
+        {
+          name: 'mock-capability',
+          description: 'A mock capability',
+        },
+        cachedCapability,
+      ]);
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('returns prometheus metrics', async () => {
     const metrics = new MetricsRegistry();
     const counter = metrics.counter('agentforge_http_requests_total', 'Total HTTP requests');
@@ -79,7 +110,9 @@ describe('DebugServer', () => {
       const response = await fetch(`http://127.0.0.1:${port}/api/metrics`);
       const text = await response.text();
       expect(text).toContain('# HELP agentforge_http_requests_total Total HTTP requests');
-      expect(text).toContain('agentforge_http_requests_total{method="GET",route="/api/health",status="200"} 1');
+      expect(text).toContain(
+        'agentforge_http_requests_total{method="GET",route="/api/health",status="200"} 1'
+      );
     } finally {
       await debugServer.stop();
     }

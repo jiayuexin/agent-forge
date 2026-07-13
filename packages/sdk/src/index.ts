@@ -1,9 +1,14 @@
-export { AgentFramework } from './AgentFramework.js';
+export { AgentFramework, DEFAULT_MAX_CAPABILITY_DEPTH } from './AgentFramework.js';
+export * from './capability-executors/index.js';
 export { Pipeline, type PipelineRuntime } from './Pipeline.js';
 export { EventBus } from './EventBus.js';
 export { ModelRegistry } from './ModelRegistry.js';
 export { CapabilityRegistry } from './CapabilityRegistry.js';
-export { PlannerAgent, type PlannerAgentConfig } from './planner/PlannerAgent.js';
+export {
+  PlannerAgent,
+  type PlannerAgentConfig,
+  type PlannerCapabilityFilter,
+} from './planner/PlannerAgent.js';
 export { PlanExecutor, type PlanExecutionContext } from './planner/PlanExecutor.js';
 export { ClientAgentProxy, type RemoteAgentInvoker } from './ClientAgentProxy.js';
 export {

@@ -1,13 +1,13 @@
 # 文档状态总表
 
-> **文档版本**: docs-v0.5
-> **最后更新**: 2026-06-27
+> **文档版本**: docs-v0.6
+> **最后更新**: 2026-07-13
 
 | 文档                                                                             | 层级   | 类型     | 文档状态 | 实现状态 |
 | -------------------------------------------------------------------------------- | ------ | -------- | -------- | -------- |
 | [product/README.md](./product/README.md)                                         | 第一层 | 索引     | 已定稿   | —        |
-| [product/PRD.md](./product/PRD.md)                                               | 第一层 | 产品需求 | 已定稿   | 未开始   |
-| [product/08-需求与路线图.md](./product/08-需求与路线图.md)                       | 第一层 | 产品需求 | 已定稿   | 未开始   |
+| [product/PRD.md](./product/PRD.md)                                               | 第一层 | 产品需求 | 已定稿   | 部分完成 |
+| [product/08-需求与路线图.md](./product/08-需求与路线图.md)                       | 第一层 | 产品需求 | 已定稿   | 部分完成 |
 | [design/README.md](./design/README.md)                                           | 第二层 | 索引     | 已定稿   | —        |
 | [design/01-核心设计.md](./design/01-核心设计.md)                                 | 第二层 | 设计规格 | 已定稿   | 已完成   |
 | [design/02-单个Agent功能.md](./design/02-单个Agent功能.md)                       | 第二层 | 设计规格 | 已定稿   | 已完成   |
@@ -49,21 +49,30 @@
 
 ## 实施阶段状态
 
-| 阶段                                        | 描述                                                | 状态      |
-| ------------------------------------------- | --------------------------------------------------- | --------- |
-| Phase 0 — Monorepo 初始化                   | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架 | ✅ 已完成 |
-| Phase 1 — `packages/types`                  | 核心类型定义                                        | ✅ 已完成 |
-| Phase 2 — `packages/core`                   | BaseAgent、Provider、生成引擎                       | ✅ 已完成 |
-| Phase 3 — Templates                         | 基础模板与角色模板                                  | ✅ 已完成 |
-| Phase 4 — `packages/runtime-client`         | WebSocket 运行时客户端                              | ✅ 已完成 |
-| Phase 5 — `packages/sdk`                    | AgentFramework、Pipeline、编排                      | ✅ 已完成 |
-| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API                              | ✅ 已完成 |
-| Phase 7 — `packages/dashboard` 前端         | Capability Hub 可视化面板                           | ✅ 已完成 |
-| Phase 8 — `packages/cli`                    | CLI 命令                                            | ✅ 已完成 |
-| Phase 9 — 安全层                            | 本地命令授权、Token、签名、审计                     | ✅ 已完成 |
-| Phase 10 — 可观测性                         | 日志、链路追踪、指标、成本守护                      | ✅ 已完成 |
-| Phase 11 — 测试                             | 单元/集成/E2E 测试体系                              | ✅ 已完成 |
-| Phase 12 — CI/CD + Docker                   | GitHub Actions、Docker 镜像、发布                   | ✅ 已完成 |
+| 阶段                                        | 描述                                                | 状态        |
+| ------------------------------------------- | --------------------------------------------------- | ----------- |
+| Phase 0 — Monorepo 初始化                   | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架 | ✅ 已完成   |
+| Phase 1 — `packages/types`                  | 核心类型定义                                        | ✅ 已完成   |
+| Phase 2 — `packages/core`                   | BaseAgent、Provider、生成引擎                       | ✅ 已完成   |
+| Phase 3 — Templates                         | 基础模板与角色模板                                  | ✅ 已完成   |
+| Phase 4 — `packages/runtime-client`         | WebSocket 运行时客户端                              | ✅ 已完成   |
+| Phase 5 — `packages/sdk`                    | AgentFramework、Pipeline、编排                      | ✅ 已完成   |
+| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API                              | ✅ 已完成   |
+| Phase 7 — `packages/dashboard` 前端         | Capability Hub 可视化面板                           | ✅ 已完成   |
+| Phase 8 — `packages/cli`                    | CLI 命令                                            | ✅ 已完成   |
+| Phase 9 — 安全层                            | 本地命令授权、Token、签名、审计                     | ✅ 已完成   |
+| Phase 10 — 可观测性                         | 日志、指标、成本守护已实现；OpenTelemetry 待接入    | 🟡 部分完成 |
+| Phase 11 — 测试                             | 单元/集成已实现；Playwright E2E 稳定性待闭环        | 🟡 部分完成 |
+| Phase 12 — CI/CD + Docker                   | CI/Docker 骨架已实现；独立包发布仍待完成            | 🟡 部分完成 |
+
+## docs-v0.6 能力执行闭环
+
+- Tool：Provider 多轮 tool call、真实 handler/端点执行、结果回填、调用上限、事件与敏感参数脱敏已实现。
+- CapabilityExecutor：Agent、Remote-Agent、Tool、Skill、Plugin 五类分派已实现；Planner 仅暴露当前可执行能力。
+- Skill：使用默认模型与 Tool 白名单创建临时受限 StatelessAgent。
+- Plugin：进程内 `IPlugin` 已移除，统一采用签名 WASM、Worker-backed WASI、严格 JSON ABI 与能力白名单。
+- ClientAgent：Hub 下发能力可写入本地缓存；Tool/Skill/Plugin 在更新、删除及重启加载后进入动态执行源。
+- 本轮验证基线为 `pnpm build`、`pnpm type-check`、`pnpm test`、`pnpm lint`；Playwright E2E 不包含在 `pnpm test` 中，仍单独追踪。
 
 ## 口径统一记录（docs-v0.4）
 

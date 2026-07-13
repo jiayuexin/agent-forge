@@ -107,6 +107,9 @@ describe('NodeRegistry', () => {
         type: 'tool',
         name: 'mock-tool',
         description: 'Mock tool',
+        endpointType: 'local-function',
+        endpoint: { target: 'tools.mock' },
+        inputSchema: { type: 'object' },
       },
     });
 
@@ -116,8 +119,8 @@ describe('NodeRegistry', () => {
   });
 
   it('throws when node is not found', async () => {
-    await expect(
-      registry.execute('missing-node', { type: 'chat', input: {} })
-    ).rejects.toThrow('missing-node');
+    await expect(registry.execute('missing-node', { type: 'chat', input: {} })).rejects.toThrow(
+      'missing-node'
+    );
   });
 });

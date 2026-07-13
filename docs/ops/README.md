@@ -2,16 +2,16 @@
 
 描述 **v1 目标用法**：如何使用 CLI、部署服务、运行测试。
 
-> 本层文档均为 **草案**，描述预期行为。当前项目处于设计阶段，命令与 API 尚未实现。开发时以 [design/05-CLI与API.md](../design/05-CLI与API.md) 为 API 权威规格。
+> 本层文档描述 v1 目标用法与运维流程；Phase 0–12 核心能力已实现。API 权威规格见 [design/05-CLI与API.md](../design/05-CLI与API.md)，实现状态见 [STATUS.md](../STATUS.md)。
 
 ## 包含文档
 
-| 文档 | 说明 |
-|---|---|
-| [GUIDE.md](./GUIDE.md) | CLI 命令、SDK 示例、Capability Hub 用法、本地命令授权 |
-| [DEPLOY.md](./DEPLOY.md) | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入 |
-| [TEST.md](./TEST.md) | 测试策略、用例索引、运行方式 |
-| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | v1 开发任务拆分、实施顺序、包依赖与验收标准 |
+| 文档                                     | 说明                                                        |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| [GUIDE.md](./GUIDE.md)                   | CLI 命令、SDK 示例、Capability Hub 用法、本地命令授权       |
+| [DEPLOY.md](./DEPLOY.md)                 | ClientAgent 本地安装包、Capability Hub Docker/K8s、SDK 嵌入 |
+| [TEST.md](./TEST.md)                     | 测试策略、用例索引、运行方式                                |
+| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | v1 开发任务拆分、实施顺序、包依赖与验收标准                 |
 
 ## 推荐阅读顺序
 

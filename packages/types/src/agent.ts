@@ -6,7 +6,6 @@ import type {
   EventHandler,
 } from './core.js';
 import type { AgentConfig } from './config.js';
-import type { IPlugin } from './plugin.js';
 import type { AgentResult } from './result.js';
 import type { AgentTask } from './task.js';
 
@@ -26,7 +25,6 @@ export interface IAgent<TConfig extends AgentConfig = AgentConfig> {
   execute(task: AgentTask): Promise<AgentResult>;
   stream(task: AgentTask): AsyncIterable<AgentStreamChunk>;
   destroy(): Promise<void>;
-  use(plugin: IPlugin): this;
   on(event: AgentEvent, handler: EventHandler): this;
   off(event: AgentEvent, handler: EventHandler): this;
 }

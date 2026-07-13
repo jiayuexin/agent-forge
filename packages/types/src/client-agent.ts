@@ -4,6 +4,7 @@ import type { Capability } from './capability.js';
 import type { AgentResult } from './result.js';
 import type { AgentStreamChunk } from './core.js';
 import type { AgentTask } from './task.js';
+import type { ToolDefinition } from './tool.js';
 
 /**
  * ClientAgent runs locally on a user's machine and connects to a remote Capability Hub.
@@ -30,12 +31,27 @@ export interface ClientAgentSecurityConfig {
   requireLocalConfirmation?: string[];
 }
 
+export interface ScopedAgentExecutionOptions {
+  systemPrompt: string;
+  tools: readonly ToolDefinition[];
+}
+
+export interface ClientCapabilitySource {
+  listCapabilities(): readonly Capability[];
+  listTools(): readonly ToolDefinition[];
+  executeCapability(capabilityId: string, task: AgentTask): Promise<AgentResult>;
+}
+
 export interface IClientAgent extends IAgent<ClientAgentConfig> {
   startDaemon(): Promise<void>;
   stopDaemon(): Promise<void>;
   connectToHub(hubUrl: string, token: string): Promise<void>;
   disconnectFromHub(): Promise<void>;
   getLocalCapabilityCache(): Capability[];
+  setCapabilitySource(source: ClientCapabilitySource): void;
+  executeLocalCapability(capabilityId: string, task: AgentTask): Promise<AgentResult>;
+  executeScopedTask(task: AgentTask, options: ScopedAgentExecutionOptions): Promise<AgentResult>;
+  authorizeLocalCommand(command: string): Promise<void>;
   getLocalCommandAuthorization(): LocalCommandAuthLevel;
 }
 

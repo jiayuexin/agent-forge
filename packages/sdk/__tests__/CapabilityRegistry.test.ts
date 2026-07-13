@@ -33,7 +33,14 @@ describe('CapabilityRegistry', () => {
   it('filters by type', () => {
     const registry = new CapabilityRegistry();
     registry.register({ ...baseCapability, id: 'a', type: 'agent' });
-    registry.register({ ...baseCapability, id: 'b', type: 'tool' });
+    registry.register({
+      ...baseCapability,
+      id: 'b',
+      type: 'tool',
+      endpointType: 'local-function',
+      endpoint: { target: 'tools.b' },
+      inputSchema: { type: 'object' },
+    });
     expect(registry.list({ type: 'agent' })).toHaveLength(1);
     expect(registry.list({ type: ['agent', 'tool'] })).toHaveLength(2);
   });
@@ -58,7 +65,10 @@ describe('CapabilityRegistry', () => {
   it('overwrites when explicitly requested', () => {
     const registry = new CapabilityRegistry();
     registry.register({ ...baseCapability, version: '2.0.0' });
-    registry.register({ ...baseCapability, name: 'forced', version: '1.0.0' }, { onConflict: 'overwrite' });
+    registry.register(
+      { ...baseCapability, name: 'forced', version: '1.0.0' },
+      { onConflict: 'overwrite' }
+    );
     expect(registry.get('cap-1')?.name).toBe('forced');
   });
 
@@ -72,7 +82,9 @@ describe('CapabilityRegistry', () => {
   it('throws on conflict when requested', () => {
     const registry = new CapabilityRegistry();
     registry.register(baseCapability);
-    expect(() => registry.register({ ...baseCapability }, { onConflict: 'throw' })).toThrow(CapabilityConflictError);
+    expect(() => registry.register({ ...baseCapability }, { onConflict: 'throw' })).toThrow(
+      CapabilityConflictError
+    );
   });
 
   it('renders a prompt with capability details', () => {

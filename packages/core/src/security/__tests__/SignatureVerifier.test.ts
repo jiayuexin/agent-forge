@@ -65,6 +65,26 @@ describe('SignatureVerifier', () => {
     expect(loaded).toBeUndefined();
   });
 
+  it('rejects a keyId that traverses outside the trust store', async () => {
+    const outsideKeyId = `outside-${randomBytes(8).toString('hex')}`;
+    const outsideKeyPath = join(tempDir, '..', `${outsideKeyId}.pem`);
+    await writeFile(outsideKeyPath, publicKeyPem, 'utf-8');
+
+    try {
+      const loaded = await loadTrustStorePublicKey(tempDir, `../${outsideKeyId}`);
+      expect(loaded).toBeUndefined();
+    } finally {
+      await rm(outsideKeyPath, { force: true });
+    }
+  });
+
+  it.each(['nested/key', '-leading-dash', '.leading-dot', '_leading-underscore', 'space key', ''])(
+    'rejects invalid keyId %j',
+    async (keyId) => {
+      expect(await loadTrustStorePublicKey(tempDir, keyId)).toBeUndefined();
+    }
+  );
+
   it('verifyPluginSignature returns false when public key is missing', async () => {
     const result = await verifyPluginSignature({
       payload: 'test',

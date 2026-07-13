@@ -1,34 +1,32 @@
 # AgentForge 测试文档
 
-> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)；测试策略细节参见 [TECH-DESIGN.md §13](../design/TECH-DESIGN.md#13-测试策略)。
->
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 测试策略
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
+> **文档版本**: docs-v0.6
+> **最后更新**: 2026-07-13
 > **实现状态**: 已完成
 
 ## 测试总览
 
 AgentForge 使用 **Vitest** 作为单元/集成测试框架，**Playwright** 作为 E2E 测试框架，采用分层测试策略覆盖核心功能。
 
-| 统计项 | 数值 |
-|---|---|
-| 单元/集成测试框架 | Vitest ^2.0 |
-| E2E 测试框架 | Playwright |
-| 目标测试数 | 139（单元/集成）+ 关键路径 E2E |
-| 覆盖率目标 | 单元测试 ≥ 80% |
-| 覆盖包 | `@agentforge/core`、`@agentforge/sdk`、`@agentforge/runtime-client`、`@agentforge/cli`、`@agentforge/http-server` |
+| 统计项            | 数值                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 单元/集成测试框架 | Vitest ^2.0                                                                                                       |
+| E2E 测试框架      | Playwright                                                                                                        |
+| 当前测试数        | 391（单元/集成）+ Playwright E2E                                                                                  |
+| 覆盖率目标        | 单元测试 ≥ 80%                                                                                                    |
+| 覆盖包            | `@agentforge/core`、`@agentforge/sdk`、`@agentforge/runtime-client`、`@agentforge/cli`、`@agentforge/http-server` |
 
 ### 测试分层
 
-| 层级 | 覆盖范围 | 工具 | 目标 |
-|---|---|---|---|
-| 单元测试 | core/types/sdk 各模块 | Vitest | 覆盖率 ≥ 80% |
-| 集成测试 | Provider 连接、生成流程、HTTP API | Vitest | 3 种集成模式覆盖 |
-| E2E 测试 | CLI 完整流程、Dashboard 页面 | Playwright | 关键路径覆盖 |
-| 生成验证 | 每个模板生成的 Agent | 自动脚本 | 编译通过 + 可执行 |
+| 层级     | 覆盖范围                          | 工具       | 目标              |
+| -------- | --------------------------------- | ---------- | ----------------- |
+| 单元测试 | core/types/sdk 各模块             | Vitest     | 覆盖率 ≥ 80%      |
+| 集成测试 | Provider 连接、生成流程、HTTP API | Vitest     | 3 种集成模式覆盖  |
+| E2E 测试 | CLI 完整流程、Dashboard 页面      | Playwright | 关键路径覆盖      |
+| 生成验证 | 每个模板生成的 Agent              | 自动脚本   | 编译通过 + 可执行 |
 
 ---
 
@@ -55,20 +53,27 @@ pnpm vitest run packages/core/src/provider/__tests__/ProviderFactory.test.ts
 # MiddlewareChain 测试
 pnpm vitest run packages/core/src/runtime/__tests__/MiddlewareChain.test.ts
 
-# PluginManager 测试
-pnpm vitest run packages/core/src/plugin/__tests__/PluginManager.test.ts
+# Tool 多轮执行测试
+pnpm vitest run packages/core/src/runtime/__tests__/AgentExecutor.test.ts
+
+# WASI Plugin 与签名测试
+pnpm vitest run packages/core/src/plugin/__tests__/WasiPluginRunner.test.ts
+pnpm vitest run packages/core/src/plugin/__tests__/PluginArtifactVerifier.test.ts
+
+# 缓存能力重启执行测试
+pnpm vitest run packages/runtime-client/__tests__/CapabilityExecution.test.ts
 
 # Pipeline 单元测试
-pnpm vitest run packages/sdk/src/__tests__/Pipeline.test.ts
+pnpm vitest run packages/sdk/__tests__/Pipeline.test.ts
 
 # Pipeline 回退/跳转测试
-pnpm vitest run packages/sdk/src/__tests__/PipelineBacktrack.test.ts
+pnpm vitest run packages/sdk/__tests__/PipelineBacktrack.test.ts
 
 # EventBus 测试
-pnpm vitest run packages/sdk/src/__tests__/EventBus.test.ts
+pnpm vitest run packages/sdk/__tests__/EventBus.test.ts
 
 # AgentFramework 测试
-pnpm vitest run packages/sdk/src/__tests__/AgentFramework.test.ts
+pnpm vitest run packages/sdk/__tests__/AgentFramework.test.ts
 
 # SDK 集成测试
 pnpm vitest run packages/sdk/src/planner/__tests__/integration.test.ts
@@ -149,14 +154,19 @@ packages/
 │   ├── agent/__tests__/AgentLifeCycle.test.ts      # 状态机转换
 │   ├── provider/__tests__/ProviderFactory.test.ts  # Provider 创建 + 自定义 Provider
 │   ├── runtime/__tests__/MiddlewareChain.test.ts   # 中间件顺序 + 错误处理
-│   ├── plugin/__tests__/PluginManager.test.ts      # 插件安装 + 卸载
+│   ├── runtime/__tests__/AgentExecutor.test.ts     # Tool 多轮执行
+│   ├── runtime/__tests__/ToolRunner.test.ts        # Tool 执行边界
+│   ├── plugin/__tests__/WasiPluginRunner.test.ts   # WASI 沙箱与白名单
 │   └── generator/__tests__/AgentGenerator.test.ts  # 生成流程
-├── sdk/src/
-│   ├── __tests__/Pipeline.test.ts                  # 串行 / 并行 / 分支
-│   ├── __tests__/PipelineBacktrack.test.ts         # 回退 / 跳转 / 快照
-│   ├── __tests__/EventBus.test.ts                  # 发布订阅
-│   ├── __tests__/AgentFramework.test.ts            # 注册 / 运行 / 模型注册表
-│   └── planner/__tests__/integration.test.ts       # 3-Agent Pipeline 协作
+├── sdk/__tests__/
+│   ├── Pipeline.test.ts                            # 串行 / 并行 / 分支
+│   ├── PipelineBacktrack.test.ts                   # 回退 / 跳转 / 快照
+│   ├── AgentFramework.test.ts                      # 五类能力分派
+│   └── capability-executors/                       # 各 CapabilityExecutor
+├── runtime-client/__tests__/
+│   ├── AgentRuntimeClient.test.ts                  # WebSocket 与能力下发
+│   ├── CapabilityCache.test.ts                     # 磁盘缓存与验签
+│   └── CapabilityExecution.test.ts                 # 重启后 Tool/Skill/Plugin 执行
 ├── cli/src/
 │   └── commands/__tests__/create.test.ts           # 单个生成
 │   └── commands/__tests__/batch.test.ts            # 批量生成
@@ -181,28 +191,18 @@ tests/
 
 ## 测试文件索引
 
-| 文件路径 | 包 | 层级 | 测试数 | 覆盖内容 |
-|---|---|---|---|---|
-| `packages/core/src/agent/__tests__/BaseAgent.test.ts` | core | Unit | 29 | BaseAgent 生命周期、事件、插件、错误处理 |
-| `packages/core/src/agent/__tests__/AgentLifeCycle.test.ts` | core | Unit | 16 | AgentLifeCycle 7 状态转换规则 |
-| `packages/core/src/provider/__tests__/ProviderFactory.test.ts` | core | Unit | 8 | Provider 创建、自定义 Provider 注册 |
-| `packages/core/src/runtime/__tests__/MiddlewareChain.test.ts` | core | Unit | 8 | 中间件顺序、错误处理 |
-| `packages/core/src/plugin/__tests__/PluginManager.test.ts` | core | Unit | 8 | 插件安装、卸载、上下文 |
-| `packages/core/src/generator/__tests__/AgentGenerator.test.ts` | core | Unit | 5 | 生成流程组件 |
-| `packages/sdk/src/__tests__/Pipeline.test.ts` | sdk | Unit | 12 | EventBus + Pipeline 串行/并行/分支 |
-| `packages/sdk/src/__tests__/PipelineBacktrack.test.ts` | sdk | Unit | 10 | 回退、跳转、快照、上限 |
-| `packages/sdk/src/__tests__/EventBus.test.ts` | sdk | Unit | 12 | 发布订阅机制 |
-| `packages/sdk/src/__tests__/AgentFramework.test.ts` | sdk | Unit | 9 | 注册、运行、ModelRegistry |
-| `packages/sdk/src/planner/__tests__/integration.test.ts` | sdk | Integration | 2 | 3-Agent Pipeline 协作、事件发射 |
-| `packages/cli/src/commands/__tests__/create.test.ts` | cli | Unit | 3 | create 命令参数解析、输出 |
-| `packages/cli/src/commands/__tests__/batch.test.ts` | cli | Unit | 3 | batch 命令配置解析、批量生成 |
-| `packages/http-server/src/routes/__tests__/agents.test.ts` | http-server | Unit | 3 | HTTP 执行/流式路由 |
-| `packages/runtime-client/src/__tests__/AgentRuntimeClient.test.ts` | runtime-client | Unit | 5 | WebSocket 连接、心跳、重连 |
-| `tests/integration/client-agent-mode.test.ts` | — | Integration | 2 | ClientAgent 运行集成 |
-| `tests/integration/sdk-mode.test.ts` | — | Integration | 2 | SDK 编排集成 |
-| `tests/integration/hub-mode.test.ts` | — | Integration | 2 | Capability Hub 集成 |
-| `tests/e2e/cli-flow.test.ts` | — | E2E | — | CLI create/run/dashboard 完整流程 |
-| `tests/e2e/capability-hub.test.ts` | — | E2E | — | Capability Hub 页面交互 |
+| 文件路径                                                        | 包             | 层级        | 测试数 | 覆盖内容                          |
+| --------------------------------------------------------------- | -------------- | ----------- | ------ | --------------------------------- |
+| `packages/core/src/agent/__tests__/BaseAgent.test.ts`           | core           | Unit        | 16     | 生命周期、异步事件、动态 Tool     |
+| `packages/core/src/runtime/__tests__/AgentExecutor.test.ts`     | core           | Unit        | 22     | Tool 多轮、上限、结果回填         |
+| `packages/core/src/runtime/__tests__/ToolRunner.test.ts`        | core           | Unit        | 15     | handler/四端点/脱敏/JSON 结果     |
+| `packages/core/src/plugin/__tests__/WasiPluginRunner.test.ts`   | core           | Integration | 13     | WASI、Worker、白名单、资源约束    |
+| `packages/sdk/__tests__/AgentFramework.test.ts`                 | sdk            | Unit        | 22     | 五类能力执行、循环与深度          |
+| `packages/sdk/__tests__/capability-executors/`                  | sdk            | Unit        | 22     | 五类 CapabilityExecutor           |
+| `packages/runtime-client/__tests__/AgentRuntimeClient.test.ts`  | runtime-client | Integration | 20     | 下发、更新、删除、重启            |
+| `packages/runtime-client/__tests__/CapabilityCache.test.ts`     | runtime-client | Unit        | 14     | manifest、WASM 验签、路径边界     |
+| `packages/runtime-client/__tests__/CapabilityExecution.test.ts` | runtime-client | Integration | 2      | 磁盘重载后 Tool/Skill/Plugin 执行 |
+| `packages/dashboard/e2e/business-flow.spec.ts`                  | dashboard      | E2E         | —      | Capability Hub 页面关键路径       |
 
 ---
 
@@ -220,113 +220,109 @@ UNINITIALIZED → INITIALIZING → READY → DAEMON_RUNNING ⇄ RUNNING
                            DESTROYED
 ```
 
-| 测试组 | 测试内容 |
-|---|---|
+| 测试组   | 测试内容                                                                                                                                                                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 合法转换 | `UNINITIALIZED → INITIALIZING`、`INITIALIZING → READY`、`INITIALIZING → ERROR`、`READY → RUNNING`、`READY → DAEMON_RUNNING`、`DAEMON_RUNNING → RUNNING`、`RUNNING → DAEMON_RUNNING`、`RUNNING → READY`、`RUNNING → ERROR`、`ERROR → READY`、任意状态 → `DESTROYED` |
-| 非法转换 | 从 `UNINITIALIZED` 直接到 `READY`/`RUNNING` 抛 `AgentError` |
-| 边界情况 | `DESTROYED` 后不可再转换、`canTransition()` 返回值、`reset()` 重置为 `UNINITIALIZED` |
+| 非法转换 | 从 `UNINITIALIZED` 直接到 `READY`/`RUNNING` 抛 `AgentError`                                                                                                                                                                                                        |
+| 边界情况 | `DESTROYED` 后不可再转换、`canTransition()` 返回值、`reset()` 重置为 `UNINITIALIZED`                                                                                                                                                                               |
 
-### BaseAgent 核心（29 tests）
+### BaseAgent 与 Tool 执行
 
-| 测试组 | 测试数 | 测试内容 |
-|---|---|---|
-| 构造 | 4 | id/name/role/version 默认值、自定义 version、初始状态 UNINITIALIZED、空 capabilities |
-| 生命周期 | 4 | `init → READY`、`execute → RUNNING → READY`、`destroy → DESTROYED`、完整生命周期串联 |
-| 错误处理 | 3 | `doInit` 失败 → ERROR、`doExecute` 失败 → ERROR、未 init 直接 execute 抛异常 |
-| 事件发射 | 4 | `agent:init`、`agent:execute:start/end`、`agent:error`、`agent:destroy` |
-| 事件注册 | 4 | `on()` 链式调用、`off()` 移除、`off()` 链式、同事件多 handler |
-| 插件系统 | 4 | `use()` 安装插件、PluginContext 属性（registerTool/registerMiddleware/config/logger）、`uninstall` 在 destroy 时调用、Middleware before/after hooks |
-| Stream | 1 | `stream()` 在未实现 `doStream` 时回退到 `execute` |
-| 销毁边界 | 2 | 从 UNINITIALIZED 可直接 destroy、destroy 后不可 execute |
-| 工具调用 | 3 | Provider 返回 tool call 时调用 ToolDefinition.handler、handler 异常转换为 AgentResult.error |
+| 测试组    | 测试数                                                             | 测试内容 |
+| --------- | ------------------------------------------------------------------ | -------- |
+| 生命周期  | `init → READY`、`execute → RUNNING → READY`、`destroy → DESTROYED` |
+| 异步事件  | handler 按注册顺序等待；失败 fail-fast，无 unhandled rejection     |
+| Tool 多轮 | Provider tool call → ToolRunner → tool result 回填 → 再次请求模型  |
+| Tool 安全 | 参数脱敏、严格 JSON、未知 Tool/缺 adapter/执行失败显式错误         |
+| 动态能力  | ClientAgent 合并配置 Tool 与缓存能力源                             |
 
 ### ProviderFactory（8 tests）
 
-| 测试组 | 测试数 | 测试内容 |
-|---|---|---|
-| 内置 Provider | 3 | 创建 OpenAI / Anthropic / Ollama Provider |
-| 自定义 Provider | 2 | 注册自定义 Provider、通过 modelConfig.provider 自动选择 |
-| 配置校验 | 2 | 缺少 apiKey 时 validate() 返回 false、自定义 baseUrl 生效 |
-| 错误处理 | 1 | 未注册 Provider 抛出 ProviderNotFoundError |
+| 测试组          | 测试数 | 测试内容                                                  |
+| --------------- | ------ | --------------------------------------------------------- |
+| 内置 Provider   | 3      | 创建 OpenAI / Anthropic / Ollama Provider                 |
+| 自定义 Provider | 2      | 注册自定义 Provider、通过 modelConfig.provider 自动选择   |
+| 配置校验        | 2      | 缺少 apiKey 时 validate() 返回 false、自定义 baseUrl 生效 |
+| 错误处理        | 1      | 未注册 Provider 抛出 ProviderNotFoundError                |
 
 ### MiddlewareChain（8 tests）
 
-| 测试组 | 测试数 | 测试内容 |
-|---|---|---|
-| 顺序执行 | 3 | before 链按注册顺序执行、after 链按注册顺序执行 |
-| 错误处理 | 3 | before 抛错进入 onError、onError 返回结果替代原结果、无 onError 时抛错 |
-| 启用/禁用 | 2 | MiddlewareConfig.enabled=false 时跳过 |
+| 测试组    | 测试数 | 测试内容                                                               |
+| --------- | ------ | ---------------------------------------------------------------------- |
+| 顺序执行  | 3      | before 链按注册顺序执行、after 链按注册顺序执行                        |
+| 错误处理  | 3      | before 抛错进入 onError、onError 返回结果替代原结果、无 onError 时抛错 |
+| 启用/禁用 | 2      | MiddlewareConfig.enabled=false 时跳过                                  |
 
-### PluginManager（8 tests）
+### WASI Plugin
 
-| 测试组 | 测试数 | 测试内容 |
-|---|---|---|
-| 安装/卸载 | 3 | use() 调用 install、重复安装抛错、destroy 时调用 uninstall |
-| 工具注册 | 2 | registerTool 后 Agent 可调用该工具 |
-| 中间件注册 | 2 | registerMiddleware 后 MiddlewareChain 包含该中间件 |
-| 上下文 | 1 | PluginContext 包含 config / logger |
+| 测试组        | 测试数                                                | 测试内容 |
+| ------------- | ----------------------------------------------------- | -------- |
+| 制品          | 必填签名、`keyId` 信任库、缓存篡改拒绝                |
+| 沙箱          | Worker-backed WASI、无网络/路径权限、超时与内存页上限 |
+| ABI           | 严格 JSON 输入输出、固定入口导出                      |
+| Host Function | `allowedCapabilities` 白名单、循环与深度限制          |
 
 ### EventBus（12 tests）
 
-| 测试内容 |
-|---|
-| `on()` + `emit()` 基本用法 |
-| 同事件多 handler 全部触发 |
-| `once()` 只触发一次 |
-| `off()` 移除特定 handler |
-| emit 未知事件不抛错 |
-| handler 异常不中断其他 handler |
-| `removeAllListeners(event)` 移除指定事件全部 handler |
-| `removeAllListeners()` 移除全部事件全部 handler |
+| 测试内容                                                              |
+| --------------------------------------------------------------------- |
+| `on()` + `emit()` 基本用法                                            |
+| 同事件多 handler 全部触发                                             |
+| `once()` 只触发一次                                                   |
+| `off()` 移除特定 handler                                              |
+| emit 未知事件不抛错                                                   |
+| handler 异常不中断其他 handler                                        |
+| `removeAllListeners(event)` 移除指定事件全部 handler                  |
+| `removeAllListeners()` 移除全部事件全部 handler                       |
 | `on()`/`once()`/`off()`/`removeAllListeners()` 返回 this 支持链式调用 |
 
 ### Pipeline（12 tests）
 
-| 特性 | 测试内容 |
-|---|---|
-| 顺序执行 | 3 步串行，输出逐级传递 |
-| 条件分支 | `branch()` 根据上一步 output.structured 路由到不同 Agent |
-| 并行执行 | `parallel()` 两步并行 + merge 步 |
-| 回退 | Agent 返回 `__control: { action: 'back' }` 触发回退，记录 backtrackHistory |
-| 回退上限 | 超过 `maxBacktracks` 抛异常 |
-| 停止 | interceptor 返回 `{ action: 'stop' }` 终止 Pipeline |
-| 跳转 | interceptor 返回 `{ action: 'jump', targetStep }` 跳回指定步骤 |
-| 分叉 | interceptor 返回 `{ action: 'fork' }` + `.fork()` 定义并行分支 |
-| 缺失 Agent | 注册表中找不到 Agent 抛异常 |
-| Transform | 步骤级 `transform` 函数改写输入 |
-| 快照 | 每步记录 StepSnapshot（stepName、stepIndex、timestamp、output） |
+| 特性       | 测试内容                                                                   |
+| ---------- | -------------------------------------------------------------------------- |
+| 顺序执行   | 3 步串行，输出逐级传递                                                     |
+| 条件分支   | `branch()` 根据上一步 output.structured 路由到不同 Agent                   |
+| 并行执行   | `parallel()` 两步并行 + merge 步                                           |
+| 回退       | Agent 返回 `__control: { action: 'back' }` 触发回退，记录 backtrackHistory |
+| 回退上限   | 超过 `maxBacktracks` 抛异常                                                |
+| 停止       | interceptor 返回 `{ action: 'stop' }` 终止 Pipeline                        |
+| 跳转       | interceptor 返回 `{ action: 'jump', targetStep }` 跳回指定步骤             |
+| 分叉       | interceptor 返回 `{ action: 'fork' }` + `.fork()` 定义并行分支             |
+| 缺失 Agent | 注册表中找不到 Agent 抛异常                                                |
+| Transform  | 步骤级 `transform` 函数改写输入                                            |
+| 快照       | 每步记录 StepSnapshot（stepName、stepIndex、timestamp、output）            |
 
 ### PipelineBacktrack（10 tests）
 
-| 测试组 | 测试数 | 测试内容 |
-|---|---|---|
-| 回退重做 | 3 | back 信号返回到指定步骤、携带 feedback message、重试次数递增 |
-| 跳转 | 3 | jump 到前/后步骤、跳转原因记录 |
-| 快照恢复 | 2 | ISnapshotable Agent 回退时恢复状态 |
-| 上限 | 2 | 超过 maxBacktracks / maxRetries 抛异常 |
+| 测试组   | 测试数 | 测试内容                                                     |
+| -------- | ------ | ------------------------------------------------------------ |
+| 回退重做 | 3      | back 信号返回到指定步骤、携带 feedback message、重试次数递增 |
+| 跳转     | 3      | jump 到前/后步骤、跳转原因记录                               |
+| 快照恢复 | 2      | ISnapshotable Agent 回退时恢复状态                           |
+| 上限     | 2      | 超过 maxBacktracks / maxRetries 抛异常                       |
 
 ### AgentFramework（9 tests）
 
-| 测试内容 |
-|---|
-| `register()` + `init()` 注册并初始化 Agent |
-| `run()` 按名称执行 Agent |
-| `pipeline()` 创建 Pipeline 实例 |
+| 测试内容                                         |
+| ------------------------------------------------ |
+| `register()` + `init()` 注册并初始化 Agent       |
+| `run()` 按名称执行 Agent                         |
+| `pipeline()` 创建 Pipeline 实例                  |
 | `orchestrate()` 调用 PlannerAgent 生成并执行计划 |
-| `on()`/`off()` 委托 EventBus |
-| `once()` 委托 EventBus |
-| 获取未注册 Agent 抛异常 |
-| `destroy()` 清空 Agent 和事件 |
-| ModelRegistry 多端点路由 |
+| `on()`/`off()` 委托 EventBus                     |
+| `once()` 委托 EventBus                           |
+| 获取未注册 Agent 抛异常                          |
+| `destroy()` 清空 Agent 和事件                    |
+| ModelRegistry 多端点路由                         |
 
 ### AgentRuntimeClient（5 tests）
 
-| 测试组 | 测试数 | 测试内容 |
-|---|---|---|
-| 连接 | 2 | start() 连接 Hub、发送注册消息 |
-| 心跳 | 1 | 按 heartbeatInterval 发送 ping |
-| 重连 | 1 | 断开后按 reconnect 策略重连 |
-| 任务处理 | 1 | 收到 execute ControlMessage 后调用 ClientAgent 并返回 AgentMessage |
+| 测试组   | 测试数 | 测试内容                                                           |
+| -------- | ------ | ------------------------------------------------------------------ |
+| 连接     | 2      | start() 连接 Hub、发送注册消息                                     |
+| 心跳     | 1      | 按 heartbeatInterval 发送 ping                                     |
+| 重连     | 1      | 断开后按 reconnect 策略重连                                        |
+| 任务处理 | 1      | 收到 execute ControlMessage 后调用 ClientAgent 并返回 AgentMessage |
 
 ---
 
@@ -334,30 +330,30 @@ UNINITIALIZED → INITIALIZING → READY → DAEMON_RUNNING ⇄ RUNNING
 
 ### SDK Integration（2 tests）
 
-| 测试 | 说明 |
-|---|---|
+| 测试                  | 说明                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------- |
 | 3-Agent Pipeline 协作 | 注册 service/sales/data 三个 MockAgent，Pipeline 串行执行 3 步，验证 steps.length = 3 |
-| Pipeline 事件发射 | 执行 Pipeline 时监听 `pipeline:step` 事件，验证事件机制可用 |
+| Pipeline 事件发射     | 执行 Pipeline 时监听 `pipeline:step` 事件，验证事件机制可用                           |
 
 ### ClientAgent Mode Integration（2 tests）
 
-| 测试 | 说明 |
-|---|---|
+| 测试         | 说明                                               |
+| ------------ | -------------------------------------------------- |
 | 守护进程启动 | `agentforge run` 启动后 ClientAgent 注册到模拟 Hub |
-| 远程任务执行 | Hub 下发 execute 任务，ClientAgent 返回结果 |
+| 远程任务执行 | Hub 下发 execute 任务，ClientAgent 返回结果        |
 
 ### SDK Mode Integration（2 tests）
 
-| 测试 | 说明 |
-|---|---|
+| 测试                 | 说明                                                               |
+| -------------------- | ------------------------------------------------------------------ |
 | 编排调用 ClientAgent | 通过 Capability Hub 路由，StatelessAgent 调用 ClientAgent 远程能力 |
-| 离线能力缓存 | 断开 Hub 后，ClientAgent 仍可调用已缓存能力 |
+| 离线能力缓存         | 断开 Hub 后，ClientAgent 仍可调用已缓存能力                        |
 
 ### Hub Mode Integration（2 tests）
 
-| 测试 | 说明 |
-|---|---|
-| 节点注册与心跳 | ClientAgent 通过 WebSocket 注册并维持心跳 |
+| 测试           | 说明                                                           |
+| -------------- | -------------------------------------------------------------- |
+| 节点注册与心跳 | ClientAgent 通过 WebSocket 注册并维持心跳                      |
 | 能力下发与确认 | Hub 下发 ToolCapability，ClientAgent 安装后返回 capability-ack |
 
 ---
@@ -366,20 +362,20 @@ UNINITIALIZED → INITIALIZING → READY → DAEMON_RUNNING ⇄ RUNNING
 
 ### CLI Flow E2E（Playwright）
 
-| 测试 | 说明 |
-|---|---|
-| create 生成 ClientAgent | 执行 `agentforge create "电商客服助手"`，验证 `./client-agents/<name>/` 目录及关键文件存在 |
-| batch 批量生成 | 执行 `agentforge batch client-agents.yaml`，验证多个 ClientAgent 生成成功 |
-| run 启动守护进程 | 执行 `agentforge run ./client-agents/<name> --connect ws://localhost:8080`，验证进程正常注册到 Hub |
-| dashboard 启动 Hub | 执行 `agentforge dashboard`，验证 Hub HTTP 端点可访问 |
+| 测试                    | 说明                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| create 生成 ClientAgent | 执行 `agentforge create "电商客服助手"`，验证 `./client-agents/<name>/` 目录及关键文件存在         |
+| batch 批量生成          | 执行 `agentforge batch client-agents.yaml`，验证多个 ClientAgent 生成成功                          |
+| run 启动守护进程        | 执行 `agentforge run ./client-agents/<name> --connect ws://localhost:8080`，验证进程正常注册到 Hub |
+| dashboard 启动 Hub      | 执行 `agentforge dashboard`，验证 Hub HTTP 端点可访问                                              |
 
 ### Capability Hub E2E（Playwright）
 
-| 测试 | 说明 |
-|---|---|
-| 节点列表页 | 登录面板后查看 NodeList 页面，验证已连接 ClientAgent 节点展示正常 |
-| 调试台对话 | 在 Playground 页面输入消息，验证流式输出、Markdown 渲染 |
-| 能力下发 | 在 CapabilityDistribute 页面选择能力和节点，点击下发，验证 ClientAgent 成功安装 |
+| 测试       | 说明                                                                            |
+| ---------- | ------------------------------------------------------------------------------- |
+| 节点列表页 | 登录面板后查看 NodeList 页面，验证已连接 ClientAgent 节点展示正常               |
+| 调试台对话 | 在 Playground 页面输入消息，验证流式输出、Markdown 渲染                         |
+| 能力下发   | 在 CapabilityDistribute 页面选择能力和节点，点击下发，验证 ClientAgent 成功安装 |
 
 ---
 
@@ -465,13 +461,13 @@ tests/
 
 ### 命名规则
 
-| 规则 | 示例 |
-|---|---|
-| 单元测试文件: `*.test.ts` | `BaseAgent.test.ts`、`AgentGenerator.test.ts` |
-| 集成测试文件: `*.test.ts` | `integration.test.ts`、`client-agent-mode.test.ts` |
-| E2E 测试文件: `*.test.ts` | `cli-flow.test.ts`、`capability-hub.test.ts` |
-| describe 块: 类名或功能名 | `describe('AgentLifeCycle', ...)` |
-| it 块: 行为描述（英文） | `it('transitions UNINITIALIZED → INITIALIZING', ...)` |
+| 规则                      | 示例                                                  |
+| ------------------------- | ----------------------------------------------------- |
+| 单元测试文件: `*.test.ts` | `BaseAgent.test.ts`、`AgentGenerator.test.ts`         |
+| 集成测试文件: `*.test.ts` | `integration.test.ts`、`client-agent-mode.test.ts`    |
+| E2E 测试文件: `*.test.ts` | `cli-flow.test.ts`、`capability-hub.test.ts`          |
+| describe 块: 类名或功能名 | `describe('AgentLifeCycle', ...)`                     |
+| it 块: 行为描述（英文）   | `it('transitions UNINITIALIZED → INITIALIZING', ...)` |
 
 ### MockAgent 模式
 
@@ -486,7 +482,7 @@ class MockAgent extends BaseAgent<AgentConfig> {
       success: true,
       output: { content: `${name}: ${task.input.message ?? 'no-input'}` },
       meta: { duration: 0, tokensUsed: { input: 0, output: 0, total: 0 }, model: 'mock' },
-    }),
+    })
   ) {
     super({
       identity: { name, role: 'mock', version: '1.0.0' },
@@ -504,15 +500,15 @@ class MockAgent extends BaseAgent<AgentConfig> {
 
 ### 常用 Vitest API
 
-| API | 用途 |
-|---|---|
-| `vi.fn()` | 创建 spy 函数 |
-| `vi.fn().toHaveBeenCalledOnce()` | 断言调用一次 |
-| `vi.fn().toHaveBeenCalledWith(args)` | 断言调用参数 |
-| `beforeEach` / `beforeAll` | 测试前初始化 |
-| `afterAll` | 测试后清理（destroy framework 等） |
-| `expect().rejects.toThrow()` | 异步异常断言 |
-| `expect().toBeInstanceOf()` | 类型断言 |
+| API                                  | 用途                               |
+| ------------------------------------ | ---------------------------------- |
+| `vi.fn()`                            | 创建 spy 函数                      |
+| `vi.fn().toHaveBeenCalledOnce()`     | 断言调用一次                       |
+| `vi.fn().toHaveBeenCalledWith(args)` | 断言调用参数                       |
+| `beforeEach` / `beforeAll`           | 测试前初始化                       |
+| `afterAll`                           | 测试后清理（destroy framework 等） |
+| `expect().rejects.toThrow()`         | 异步异常断言                       |
+| `expect().toBeInstanceOf()`          | 类型断言                           |
 
 ---
 
@@ -573,13 +569,13 @@ jobs:
 install → lint → type-check → test → build
 ```
 
-| 步骤 | 命令 | 说明 |
-|---|---|---|
-| 1 | `pnpm install --frozen-lockfile` | 严格按 lockfile 安装依赖 |
-| 2 | `pnpm run lint` | ESLint 全仓代码检查 |
-| 3 | `pnpm run type-check` | 全包 TypeScript 类型检查（`tsc --noEmit`） |
-| 4 | `pnpm run test` | 运行 Vitest 全部单元/集成测试 |
-| 5 | `pnpm run build` | 全包构建（tsup 后端 + vite 前端） |
+| 步骤 | 命令                             | 说明                                       |
+| ---- | -------------------------------- | ------------------------------------------ |
+| 1    | `pnpm install --frozen-lockfile` | 严格按 lockfile 安装依赖                   |
+| 2    | `pnpm run lint`                  | ESLint 全仓代码检查                        |
+| 3    | `pnpm run type-check`            | 全包 TypeScript 类型检查（`tsc --noEmit`） |
+| 4    | `pnpm run test`                  | 运行 Vitest 全部单元/集成测试              |
+| 5    | `pnpm run build`                 | 全包构建（tsup 后端 + vite 前端）          |
 
 > **注意:** 单元/集成测试在 build 之前运行；E2E 测试在 `main` 分支推送时触发。
 

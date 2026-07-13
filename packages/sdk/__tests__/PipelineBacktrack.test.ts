@@ -24,9 +24,6 @@ function createMockAgent(
       yield { type: 'done', index: 1 };
     },
     async destroy() {},
-    use() {
-      return this;
-    },
     on() {
       return this;
     },
@@ -48,7 +45,10 @@ function createRuntime(agents: Record<string, IAgent>) {
       return agent;
     },
     resolveModel: vi.fn((model?: string, defaultModel?: string) => {
-      return { provider: 'mock', modelName: String(model ?? defaultModel ?? 'mock') } as ModelConfig;
+      return {
+        provider: 'mock',
+        modelName: String(model ?? defaultModel ?? 'mock'),
+      } as ModelConfig;
     }),
     emit: vi.fn(),
   };
@@ -154,13 +154,11 @@ describe('Pipeline backtrack and control signals', () => {
       })),
     };
 
-    const pipeline = new Pipeline()
-      .attachRuntime(createRuntime(agents))
-      .add('first', {
-        agent: 'a',
-        task: 'run',
-        intercept: () => ({ action: 'pause' }),
-      });
+    const pipeline = new Pipeline().attachRuntime(createRuntime(agents)).add('first', {
+      agent: 'a',
+      task: 'run',
+      intercept: () => ({ action: 'pause' }),
+    });
 
     await expect(pipeline.run()).rejects.toThrow(PipelineError);
   });
@@ -249,13 +247,11 @@ describe('Pipeline backtrack and control signals', () => {
       })),
     };
 
-    const pipeline = new Pipeline()
-      .attachRuntime(createRuntime(agents))
-      .add('first', {
-        agent: 'a',
-        task: 'run',
-        intercept: () => ({ action: 'fork', targetStep: 'first' }),
-      });
+    const pipeline = new Pipeline().attachRuntime(createRuntime(agents)).add('first', {
+      agent: 'a',
+      task: 'run',
+      intercept: () => ({ action: 'fork', targetStep: 'first' }),
+    });
 
     await expect(pipeline.run()).rejects.toThrow(PipelineError);
   });

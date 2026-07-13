@@ -4,7 +4,9 @@ import type {
   AgentNode,
   AgentNodeStatus,
   AgentRuntimeConfig,
+  AgentResult,
   AgentStreamChunk,
+  AgentTask,
   Capability,
   CapabilityAckPayload,
   CapabilityDistributeHandler,
@@ -18,9 +20,17 @@ import type {
   TaskHandler,
 } from '@agentforge/types';
 import { AgentStatus as Status } from '@agentforge/types';
-import { CoreError, SimpleLogger, askLocalUserConfirmation, isSensitiveTask } from '@agentforge/core';
+import {
+  CoreError,
+  SimpleLogger,
+  askLocalUserConfirmation,
+  isSensitiveTask,
+  type ToolAdapterMap,
+} from '@agentforge/core';
+import { CachedCapabilitySource, type CachedPluginRunner } from './CachedCapabilitySource.js';
 import { CapabilityCache } from './CapabilityCache.js';
 import { HeartbeatManager } from './HeartbeatManager.js';
+import { createRuntimeToolAdapters, type CommandExecutor } from './RuntimeToolAdapters.js';
 import { WebSocketTransport } from './WebSocketTransport.js';
 import {
   isCapabilityDistributePayload,
@@ -35,6 +45,14 @@ export interface AgentRuntimeClient {
   on(event: 'error', listener: (error: Error) => void): this;
 }
 
+export interface AgentRuntimeClientOptions {
+  commandExecutor?: CommandExecutor;
+  fetch?: typeof fetch;
+  additionalToolAdapters?: Pick<ToolAdapterMap, 'local-function' | 'remote-agent'>;
+  pluginRunner?: CachedPluginRunner;
+  maxCapabilityDepth?: number;
+}
+
 export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeClient {
   readonly node: AgentNode;
 
@@ -42,6 +60,7 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
   private readonly config: AgentRuntimeConfig;
   private readonly logger: Logger;
   private readonly cache: CapabilityCache;
+  private readonly capabilitySource: CachedCapabilitySource;
   private readonly transport: WebSocketTransport;
   private readonly heartbeat: HeartbeatManager;
 
@@ -50,7 +69,11 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
   private _status: RuntimeClientStatus = 'disconnected';
   private stopped = false;
 
-  constructor(agent: IClientAgent, config: AgentRuntimeConfig) {
+  constructor(
+    agent: IClientAgent,
+    config: AgentRuntimeConfig,
+    options: AgentRuntimeClientOptions = {}
+  ) {
     super();
 
     this.agent = agent;
@@ -76,8 +99,22 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
 
     this.cache = new CapabilityCache({
       cacheDir: config.capabilityCacheDir ?? '.agentforge/capabilities',
+      trustStoreDir: config.capabilityTrustStoreDir,
       logger: this.logger.child({ component: 'CapabilityCache' }),
     });
+    this.capabilitySource = new CachedCapabilitySource({
+      cache: this.cache,
+      agent,
+      logger: this.logger.child({ component: 'CachedCapabilitySource' }),
+      adapters: createRuntimeToolAdapters(agent, {
+        commandExecutor: options.commandExecutor,
+        fetch: options.fetch,
+        additionalAdapters: options.additionalToolAdapters,
+      }),
+      pluginRunner: options.pluginRunner,
+      maxDepth: options.maxCapabilityDepth,
+    });
+    this.agent.setCapabilitySource(this.capabilitySource);
 
     this.transport = new WebSocketTransport({
       nodeId: this.node.id,
@@ -151,6 +188,10 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
     this._status = 'disconnected';
     this.node.status = 'offline';
     await this.agent.stopDaemon();
+  }
+
+  executeCapability(capabilityId: string, task: AgentTask): Promise<AgentResult> {
+    return this.capabilitySource.executeCapability(capabilityId, task);
   }
 
   send(message: AgentMessage): void {
@@ -407,7 +448,10 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
   }
 
   private sendError(messageId: string, code: string, message: string): void;
-  private sendError(messageId: string, error: { code: string; message: string; details?: unknown }): void;
+  private sendError(
+    messageId: string,
+    error: { code: string; message: string; details?: unknown }
+  ): void;
   private sendError(
     messageId: string,
     codeOrError: string | { code: string; message: string; details?: unknown },

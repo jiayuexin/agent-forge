@@ -9,19 +9,11 @@ describe('OllamaProvider', () => {
     vi.clearAllMocks();
   });
 
-  it('maps tool calls in response', async () => {
+  it('keeps ordinary chat working when tool definitions are present but unused', async () => {
     const mockChat = vi.fn().mockResolvedValue({
       model: 'llama3',
       message: {
         content: 'hello',
-        tool_calls: [
-          {
-            function: {
-              name: 'get-weather',
-              arguments: '{"city":"Beijing"}',
-            },
-          },
-        ],
       },
       prompt_eval_count: 10,
       eval_count: 5,
@@ -44,7 +36,10 @@ describe('OllamaProvider', () => {
     });
 
     const response = await provider.chat({
-      messages: [{ role: 'user', content: 'hi' }],
+      messages: [
+        { role: 'system', content: 'system' },
+        { role: 'user', content: 'hi' },
+      ],
       tools: [
         {
           name: 'get-weather',
@@ -55,8 +50,67 @@ describe('OllamaProvider', () => {
     });
 
     expect(response.content).toBe('hello');
-    expect(response.toolCalls).toHaveLength(1);
-    expect(response.toolCalls![0].name).toBe('get-weather');
-    expect(response.toolCalls![0].args).toEqual({ city: 'Beijing' });
+    expect(response.toolCalls).toBeUndefined();
+    expect(mockChat).toHaveBeenCalledWith({
+      model: 'llama3',
+      messages: [
+        { role: 'system', content: 'system' },
+        { role: 'user', content: 'hi' },
+      ],
+      options: {
+        temperature: undefined,
+        stop: undefined,
+      },
+    });
+  });
+
+  it('fails explicitly when tool fields cannot be represented by Ollama 0.5 types', async () => {
+    const mockChat = vi.fn();
+    vi.mocked(Ollama).mockImplementation(
+      () =>
+        ({
+          chat: mockChat,
+          list: vi.fn(),
+        }) as unknown as Ollama
+    );
+    const provider = new OllamaProvider({
+      provider: 'ollama',
+      modelName: 'llama3',
+    });
+
+    await expect(
+      provider.chat({
+        messages: [
+          {
+            role: 'assistant',
+            content: '',
+            toolCalls: [
+              {
+                callId: 'call-1',
+                name: 'get-weather',
+                args: { city: 'Beijing' },
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            content: '{"temperature":20}',
+            toolCallId: 'call-1',
+            toolName: 'get-weather',
+          },
+        ],
+        tools: [
+          {
+            name: 'get-weather',
+            description: 'Get weather',
+            parameters: { type: 'object' },
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'UNSUPPORTED_OLLAMA_TOOLS',
+      message: 'Installed Ollama SDK 0.5 does not support tool definitions or tool messages',
+    });
+    expect(mockChat).not.toHaveBeenCalled();
   });
 });

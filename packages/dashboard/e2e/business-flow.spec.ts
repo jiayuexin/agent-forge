@@ -24,7 +24,10 @@ test.describe.serial('Dashboard business flow', () => {
     await page.getByLabel('模型').click();
     await page.getByTitle('GPT-4o', { exact: true }).click();
     await page.getByLabel('模板').click();
-    await page.locator('.ant-select-item-option').filter({ hasText: 'Developer Assistant' }).click();
+    await page
+      .locator('.ant-select-item-option')
+      .filter({ hasText: 'Developer Assistant' })
+      .click();
 
     await expect(page.getByText('Prompt 预览')).toBeVisible();
     await expect(page.locator('pre').filter({ hasText: agentName })).toBeVisible();
@@ -83,7 +86,9 @@ test.describe.serial('Dashboard business flow', () => {
     await createCapability(page, capabilityId, 'E2E Distribute Tool');
 
     await page.goto(`/capabilities/${capabilityId}/distribute`);
-    await page.getByRole('heading', { name: /E2E Distribute Tool \/ 下发/ }).waitFor({ state: 'visible' });
+    await page
+      .getByRole('heading', { name: /E2E Distribute Tool \/ 下发/ })
+      .waitFor({ state: 'visible' });
 
     await page.locator('.ant-select').first().click();
     await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
@@ -106,6 +111,9 @@ test.describe.serial('Dashboard business flow', () => {
         name: 'Fail Tool',
         description: 'E2E failure path capability',
         riskLevel: 'low',
+        endpointType: 'local-function',
+        endpoint: { target: 'tools.fail' },
+        inputSchema: { type: 'object' },
       },
     });
 

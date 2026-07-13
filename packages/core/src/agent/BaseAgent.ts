@@ -9,16 +9,32 @@ import type {
   AgentResult,
   EventHandler,
   IAgent,
-  IPlugin,
   IProvider,
+  Logger,
+  ToolDefinition,
 } from '@agentforge/types';
 import { AgentStatus as Status } from '@agentforge/types';
 import { AgentLifeCycle } from './AgentLifeCycle.js';
 import { MiddlewareChain } from '../runtime/MiddlewareChain.js';
-import { PluginManager } from '../plugin/PluginManager.js';
+import { AgentExecutor } from '../runtime/AgentExecutor.js';
+import type { ToolAdapterMap } from '../runtime/ToolRunner.js';
 import { ProviderFactory } from '../provider/ProviderFactory.js';
-import { SimpleLogger } from '../logger/SimpleLogger.js';
 import { CoreError } from '../errors.js';
+import { SimpleLogger } from '../logger/SimpleLogger.js';
+
+export type ToolProvider = () => readonly ToolDefinition[];
+
+export interface BaseAgentOptions {
+  readonly toolProvider?: ToolProvider;
+  readonly logger?: Logger;
+  readonly maxToolCalls?: number;
+  readonly toolAdapters?: ToolAdapterMap;
+}
+
+export interface AgentExecutorOverrides {
+  readonly tools?: readonly ToolDefinition[];
+  readonly systemPrompt?: string;
+}
 
 export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
   implements IAgent<TConfig>
@@ -32,17 +48,20 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
   protected config?: TConfig;
   protected lifecycle = new AgentLifeCycle();
   protected middlewareChain = new MiddlewareChain();
-  protected pluginManager?: PluginManager;
   protected provider?: IProvider;
+  protected readonly logger: Logger;
+  private readonly runtimeOptions: BaseAgentOptions;
   private eventHandlers = new Map<AgentEvent, Set<EventHandler>>();
 
-  constructor(config?: TConfig) {
+  constructor(config?: TConfig, options: BaseAgentOptions = {}) {
     this.config = config;
+    this.runtimeOptions = options;
     const identity = config?.identity;
     this.id = identity?.id ?? randomUUID();
     this.name = identity?.name ?? 'agent';
     this.role = identity?.role ?? 'generic';
     this.version = identity?.version ?? '0.0.0';
+    this.logger = options.logger ?? new SimpleLogger({ agentId: this.id });
     if (config?.capabilities) {
       this.capabilities.push(...config.capabilities);
     }
@@ -61,10 +80,9 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
     }
 
     this.lifecycle.transition(Status.INITIALIZING);
-    this.emit('agent:init', undefined);
+    await this.emit('agent:init', undefined);
 
     this.provider = ProviderFactory.create(this.config.model);
-    this.pluginManager = new PluginManager(this, this.config, new SimpleLogger({ agentId: this.id }));
 
     await this.doInit?.();
 
@@ -74,24 +92,24 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
     }
 
     this.lifecycle.transition(Status.READY);
-    this.emit('agent:ready', undefined);
+    await this.emit('agent:ready', undefined);
   }
 
   async execute(task: AgentTask): Promise<AgentResult> {
     this.lifecycle.assertStatus(Status.READY);
     this.lifecycle.transition(Status.RUNNING);
-    this.emit('agent:execute:start', task);
 
     try {
+      await this.emit('agent:execute:start', task);
       const processedTask = await this.middlewareChain.runBefore(task);
       const result = await this.doExecute(processedTask);
       const processedResult = await this.middlewareChain.runAfter(result, processedTask);
       this.lifecycle.transition(Status.READY);
-      this.emit('agent:execute:end', processedResult);
+      await this.emit('agent:execute:end', processedResult);
       return processedResult;
     } catch (error) {
       this.lifecycle.transition(Status.ERROR);
-      this.emit('agent:error', error);
+      await this.emit('agent:error', error);
       try {
         const recovered = await this.middlewareChain.runOnError(error as Error, task);
         this.lifecycle.transition(Status.READY);
@@ -119,12 +137,7 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
 
   async destroy(): Promise<void> {
     this.lifecycle.transition(Status.DESTROYED);
-    this.emit('agent:destroy', undefined);
-  }
-
-  use(plugin: IPlugin): this {
-    this.pluginManager?.register(plugin);
-    return this;
+    await this.emit('agent:destroy', undefined);
   }
 
   on(event: AgentEvent, handler: EventHandler): this {
@@ -140,16 +153,42 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
     return this;
   }
 
-  protected emit(event: AgentEvent, payload: unknown): void {
+  protected async emit(event: AgentEvent, payload: unknown): Promise<void> {
     const handlers = this.eventHandlers.get(event);
     if (!handlers) return;
     for (const handler of handlers) {
-      try {
-        handler(payload);
-      } catch {
-        // Event handler errors should not break the agent.
-      }
+      await handler(payload);
     }
+  }
+
+  protected getAvailableTools(): readonly ToolDefinition[] {
+    return [...(this.config?.tools ?? []), ...(this.runtimeOptions.toolProvider?.() ?? [])];
+  }
+
+  protected createExecutor(overrides: AgentExecutorOverrides = {}): AgentExecutor {
+    if (!this.provider) {
+      throw new CoreError('NOT_INITIALIZED', 'Provider not initialized');
+    }
+    if (!this.config) {
+      throw new CoreError('MISSING_CONFIG', 'Agent config is required');
+    }
+
+    return new AgentExecutor({
+      provider: this.provider,
+      tools: overrides.tools ?? this.getAvailableTools(),
+      systemPrompt: overrides.systemPrompt ?? this.config.systemPrompt,
+      agent: this,
+      logger: this.logger,
+      maxToolCalls: this.runtimeOptions.maxToolCalls,
+      toolAdapters: this.runtimeOptions.toolAdapters,
+      onToolEvent: async (event) => {
+        if (event.type === 'call') {
+          await this.emit('agent:tool:call', event.call);
+          return;
+        }
+        await this.emit('agent:tool:result', event.record);
+      },
+    });
   }
 
   protected abstract doExecute(task: AgentTask): Promise<AgentResult>;

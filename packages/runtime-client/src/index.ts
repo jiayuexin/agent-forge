@@ -1,7 +1,19 @@
-export { AgentRuntimeClient } from './AgentRuntimeClient.js';
+export { AgentRuntimeClient, type AgentRuntimeClientOptions } from './AgentRuntimeClient.js';
 export { WebSocketTransport } from './WebSocketTransport.js';
 export { HeartbeatManager } from './HeartbeatManager.js';
 export { CapabilityCache } from './CapabilityCache.js';
+export {
+  CachedCapabilitySource,
+  type CachedCapabilitySourceOptions,
+  type CachedCapabilityStore,
+  type CachedPluginRunner,
+} from './CachedCapabilitySource.js';
+export {
+  createRuntimeToolAdapters,
+  type CommandExecutionOptions,
+  type CommandExecutor,
+  type RuntimeToolAdapterOptions,
+} from './RuntimeToolAdapters.js';
 export {
   isRemoteTask,
   isCapabilityDistributePayload,

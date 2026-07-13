@@ -2,22 +2,21 @@ import type {
   AgentTask,
   AgentResult,
   Capability,
+  ClientCapabilitySource,
   ClientAgentConfig,
   IClientAgent,
   LocalCommandAuthLevel,
+  ScopedAgentExecutionOptions,
+  ToolDefinition,
 } from '@agentforge/types';
 import { AgentStatus } from '@agentforge/types';
 import { BaseAgent } from './BaseAgent.js';
-import { AgentExecutor } from '../runtime/AgentExecutor.js';
 import { CoreError } from '../errors.js';
-import {
-  askLocalUserConfirmation,
-  LocalCommandAuth,
-  AuditLog,
-} from '../security/index.js';
+import { askLocalUserConfirmation, LocalCommandAuth, AuditLog } from '../security/index.js';
 
 export class ClientAgent extends BaseAgent<ClientAgentConfig> implements IClientAgent {
   private readonly auditLog = new AuditLog();
+  private capabilitySource?: ClientCapabilitySource;
 
   async startDaemon(): Promise<void> {
     this.lifecycle.transition(AgentStatus.DAEMON_RUNNING);
@@ -37,7 +36,31 @@ export class ClientAgent extends BaseAgent<ClientAgentConfig> implements IClient
   }
 
   getLocalCapabilityCache(): Capability[] {
-    return [];
+    return [...(this.capabilitySource?.listCapabilities() ?? [])];
+  }
+
+  setCapabilitySource(source: ClientCapabilitySource): void {
+    this.capabilitySource = source;
+  }
+
+  async executeLocalCapability(capabilityId: string, task: AgentTask): Promise<AgentResult> {
+    if (!this.capabilitySource) {
+      throw new CoreError(
+        'CAPABILITY_SOURCE_NOT_CONFIGURED',
+        'No local capability source is configured'
+      );
+    }
+    return this.capabilitySource.executeCapability(capabilityId, task);
+  }
+
+  async executeScopedTask(
+    task: AgentTask,
+    options: ScopedAgentExecutionOptions
+  ): Promise<AgentResult> {
+    return this.createExecutor({
+      systemPrompt: options.systemPrompt,
+      tools: options.tools,
+    }).execute(task);
   }
 
   getLocalCommandAuthorization(): LocalCommandAuthLevel {
@@ -85,11 +108,10 @@ export class ClientAgent extends BaseAgent<ClientAgentConfig> implements IClient
     if (!this.provider) {
       throw new CoreError('NOT_INITIALIZED', 'Provider not initialized');
     }
-    const executor = new AgentExecutor(
-      this.provider,
-      this.config?.tools ?? [],
-      this.config?.systemPrompt ?? ''
-    );
-    return executor.execute(task);
+    return this.createExecutor().execute(task);
+  }
+
+  protected override getAvailableTools(): readonly ToolDefinition[] {
+    return [...super.getAvailableTools(), ...(this.capabilitySource?.listTools() ?? [])];
   }
 }

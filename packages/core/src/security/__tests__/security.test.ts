@@ -140,4 +140,56 @@ describe('AuditLog', () => {
     expect(JSON.parse(lines[0]).action).toBe('a');
     expect(JSON.parse(lines[1]).action).toBe('b');
   });
+
+  it('queries events within time range, newest first', async () => {
+    const log = new AuditLog(join(tempDir, 'audit.log'));
+    const base = Date.now() - 60_000;
+    await log.record({ action: 'local-command', outcome: 'success', timestamp: base });
+    await log.record({
+      action: 'capability-distribute',
+      outcome: 'success',
+      timestamp: base + 1000,
+    });
+    await log.record({ action: 'config-change', outcome: 'success', timestamp: base + 2000 });
+
+    const result = await log.query({ from: base + 500, to: base + 2000 });
+    expect(result.total).toBe(2);
+    expect(result.items.map((e) => e.action)).toEqual(['config-change', 'capability-distribute']);
+  });
+
+  it('filters by action', async () => {
+    const log = new AuditLog(join(tempDir, 'audit.log'));
+    const now = Date.now();
+    await log.record({ action: 'local-command', outcome: 'success', timestamp: now - 1000 });
+    await log.record({ action: 'config-change', outcome: 'success', timestamp: now });
+
+    const result = await log.query({ action: 'local-command' });
+    expect(result.total).toBe(1);
+    expect(result.items[0].action).toBe('local-command');
+  });
+
+  it('applies limit and offset', async () => {
+    const log = new AuditLog(join(tempDir, 'audit.log'));
+    const base = Date.now() - 30_000;
+    await log.record({ action: 'a', outcome: 'success', timestamp: base });
+    await log.record({ action: 'b', outcome: 'success', timestamp: base + 1000 });
+    await log.record({ action: 'c', outcome: 'success', timestamp: base + 2000 });
+
+    const result = await log.query({ limit: 1, offset: 1 });
+    expect(result.total).toBe(3);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].action).toBe('b');
+  });
+
+  it('excludes events older than 90 days from default query window', async () => {
+    const log = new AuditLog(join(tempDir, 'audit.log'));
+    const now = Date.now();
+    const ninetyOneDaysAgo = now - 91 * 24 * 60 * 60 * 1000;
+    await log.record({ action: 'old', outcome: 'success', timestamp: ninetyOneDaysAgo });
+    await log.record({ action: 'recent', outcome: 'success', timestamp: now });
+
+    const result = await log.query();
+    expect(result.total).toBe(1);
+    expect(result.items[0].action).toBe('recent');
+  });
 });

@@ -1,6 +1,7 @@
 import { createServer, type Server } from 'node:http';
+import { join } from 'node:path';
 import { toNodeListener } from 'h3';
-import { SimpleLogger } from '@agentforge/core';
+import { AuditLog, SimpleLogger } from '@agentforge/core';
 import { MetricsRegistry } from '@agentforge/http-server';
 import type { HubRuntimeConfig, Logger } from '@agentforge/types';
 import { createHubApp, type HubAppOptions } from './app.js';
@@ -63,6 +64,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
   const capabilityStore = new CapabilityStore({ dataDir });
   const templateStore = new ClientAgentTemplateStore({ templatesDir: resolveTemplatesDir() });
   const generatedAgentStore = new GeneratedClientAgentStore({ dataDir });
+  const auditLog = new AuditLog(join(dataDir, 'audit.log'));
 
   await capabilityStore.load();
   await tokenStore.load();
@@ -81,6 +83,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     tokenStore,
     templateStore,
     generatedAgentStore,
+    auditLog,
     runtimeConfig,
     metrics,
     logger,

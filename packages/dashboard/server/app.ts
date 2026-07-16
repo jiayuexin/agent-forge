@@ -1,5 +1,5 @@
 import { createApp, createRouter, eventHandler, type H3Event } from 'h3';
-import { SimpleLogger } from '@agentforge/core';
+import { SimpleLogger, type AuditLog } from '@agentforge/core';
 import { MetricsRegistry, handleError, logRequest } from '@agentforge/http-server';
 import type { HubRuntimeConfig, Logger } from '@agentforge/types';
 import type { NodeRegistry } from './services/NodeRegistry.js';
@@ -16,6 +16,7 @@ import { createCapabilitiesRoute } from './routes/capabilities.js';
 import { createAdminTokensRoute } from './routes/admin-tokens.js';
 import { createClientAgentTemplatesRoute } from './routes/client-agent-templates.js';
 import { createClientAgentsRoute } from './routes/client-agents.js';
+import { createAuditRoute } from './routes/audit.js';
 import { createStaticHandler } from './static.js';
 
 export interface HubAppOptions {
@@ -24,6 +25,7 @@ export interface HubAppOptions {
   tokenStore: TokenStore;
   templateStore: ClientAgentTemplateStore;
   generatedAgentStore: GeneratedClientAgentStore;
+  auditLog: AuditLog;
   runtimeConfig: HubRuntimeConfig;
   metrics?: MetricsRegistry;
   logger?: Logger;
@@ -57,15 +59,25 @@ export function createHubApp(options: HubAppOptions) {
   app.use('/api/config', authMiddleware);
   app.use('/api/config', eventHandler(createConfigRoute(options.runtimeConfig)));
   app.use('/api/nodes', authMiddleware);
-  app.use('/api/nodes', eventHandler(createNodesRoute(options.nodeRegistry)));
+  app.use('/api/nodes', eventHandler(createNodesRoute(options.nodeRegistry, options.auditLog)));
   app.use('/api/capabilities', authMiddleware);
-  app.use('/api/capabilities', eventHandler(createCapabilitiesRoute(options.capabilityStore, options.nodeRegistry)));
+  app.use(
+    '/api/capabilities',
+    eventHandler(
+      createCapabilitiesRoute(options.capabilityStore, options.nodeRegistry, options.auditLog)
+    )
+  );
   app.use('/api/admin/tokens', authMiddleware);
   app.use('/api/admin/tokens', eventHandler(createAdminTokensRoute(options.tokenStore)));
   app.use('/api/client-agent-templates', authMiddleware);
-  app.use('/api/client-agent-templates', eventHandler(createClientAgentTemplatesRoute(options.templateStore)));
+  app.use(
+    '/api/client-agent-templates',
+    eventHandler(createClientAgentTemplatesRoute(options.templateStore))
+  );
   app.use('/api/client-agents', authMiddleware);
   app.use('/api/client-agents', eventHandler(createClientAgentsRoute(options.generatedAgentStore)));
+  app.use('/api/audit', authMiddleware);
+  app.use('/api/audit', eventHandler(createAuditRoute(options.auditLog)));
 
   const staticDir = options.staticDir ?? './dist/static';
   app.use(createStaticHandler({ staticDir }));

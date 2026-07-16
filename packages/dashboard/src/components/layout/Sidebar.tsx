@@ -6,6 +6,7 @@ import {
   AppstoreOutlined,
   CodeOutlined,
   DashboardOutlined,
+  AuditOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +20,7 @@ const menuItems = [
   { key: '/capabilities', icon: <AppstoreOutlined />, label: 'capabilities' },
   { key: '/playground', icon: <CodeOutlined />, label: 'playground' },
   { key: '/monitor', icon: <DashboardOutlined />, label: 'monitor' },
+  { key: '/audit', icon: <AuditOutlined />, label: 'audit' },
 ];
 
 export function Sidebar() {

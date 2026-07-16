@@ -170,6 +170,16 @@ agentforge dashboard [options]
 | 能力管理         | `/capabilities`         | 能力市场、下发与版本                 |
 | 调试台           | `/playground`           | 三栏调试：对话 + 调用链路 + 工具面板 |
 | 监控             | `/monitor`              | 节点状态、实时指标                   |
+| 审计             | `/audit`                | 审计日志查询（默认最近 90 天）       |
+
+审计 API（需管理员 Token；权威定义见 [design/05 §5.3](../design/05-CLI与API.md)）：
+
+| 端点              | 说明                                                          |
+| ----------------- | ------------------------------------------------------------- |
+| `GET /api/audit`  | 查询审计记录（`from` / `to` / `action` / `limit` / `offset`） |
+| `POST /api/audit` | 写入审计事件（如上报 `local-command`）                        |
+
+Hub 在能力下发与节点配置变更时自动写入 `capability-distribute` / `config-change`。
 
 ---
 

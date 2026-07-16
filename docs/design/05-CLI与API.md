@@ -192,6 +192,17 @@ GET /api/client-agent-templates/:id # 获取模板详情
 
 ```
 
+### 审计日志
+
+```
+
+GET /api/audit # 查询审计记录（query: from/to/action/limit/offset；默认最近 90 天）
+POST /api/audit # 写入审计事件（字段同 AuditEvent：action/actor/resource/outcome/details）
+
+```
+
+Hub 在能力下发（`capability-distribute`）与节点配置变更（`config-change`）时自动写入；本地命令（`local-command`）可通过 `POST /api/audit` 上报。Dashboard 页面 `/audit` 提供列表与筛选。详见 [ops/GUIDE.md](../ops/GUIDE.md)。
+
 ### 5.3.1 健康检查端点说明
 
 | 场景 | 端点 | 用途 | 典型响应 |

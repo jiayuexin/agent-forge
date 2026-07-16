@@ -13,6 +13,7 @@ import { CapabilityDetail } from './pages/CapabilityDetail';
 import { CapabilityDistribute } from './pages/CapabilityDistribute';
 import { Playground } from './pages/Playground';
 import { Monitor } from './pages/Monitor';
+import { Audit } from './pages/Audit';
 
 export function App() {
   return (
@@ -31,6 +32,7 @@ export function App() {
         <Route path="capabilities/:id/distribute" element={<CapabilityDistribute />} />
         <Route path="playground" element={<Playground />} />
         <Route path="monitor" element={<Monitor />} />
+        <Route path="audit" element={<Audit />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

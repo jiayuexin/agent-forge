@@ -1,5 +1,6 @@
 import { createRouter, eventHandler, getRouterParam } from 'h3';
 import { z } from 'zod';
+import type { AuditLog } from '@agentforge/core';
 import type { Capability, DistributeCapabilityRequest } from '@agentforge/types';
 import { createHttpError, readValidatedBody } from '@agentforge/http-server';
 import type { CapabilityStore } from '../services/CapabilityStore.js';
@@ -76,7 +77,11 @@ const distributeSchema = z.object({
   targetVersion: z.string().optional(),
 });
 
-export function createCapabilitiesRoute(store: CapabilityStore, registry: NodeRegistry) {
+export function createCapabilitiesRoute(
+  store: CapabilityStore,
+  registry: NodeRegistry,
+  auditLog?: AuditLog
+) {
   const router = createRouter();
 
   router.get(
@@ -147,7 +152,20 @@ export function createCapabilitiesRoute(store: CapabilityStore, registry: NodeRe
         capability,
         targetVersion: request.targetVersion,
       };
-      return registry.distribute(request.nodeIds, payload);
+      const result = await registry.distribute(request.nodeIds, payload);
+      if (auditLog) {
+        await auditLog.record({
+          action: 'capability-distribute',
+          resource: id,
+          outcome: 'success',
+          details: {
+            nodeIds: request.nodeIds,
+            distributeAction: request.action,
+            targetVersion: request.targetVersion,
+          },
+        });
+      }
+      return result;
     })
   );
 

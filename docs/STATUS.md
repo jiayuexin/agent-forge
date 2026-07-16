@@ -79,8 +79,9 @@
 - **黄金路径**：`examples/golden-path` 可本地演示 Tool 安装与执行（无需 Hub / API Key），并进入 Vitest workspace。
 - **Phase 11**：Dashboard Playwright E2E（环境启停、fixture、helpers）已稳定；CI 对 `main`/`dev` 的 PR/push 跑 lint/typecheck/test/build + e2e。
 - **Phase 12**：CI 已覆盖 `dev`；各可发布包 `0.1.0` + `publish.yml` dry-run 就绪。真实 npm 发布仍阻塞：`@agentforge/core` / `@agentforge/cli` 等包名在 npmjs 已被第三方占用（dry-run 对冲突包以 `npm pack --dry-run` 验收）。
-- **下一步 Top3**：离线能力验收（US8，见 `examples/golden-path/run-offline.mjs`）→ 真发解阻（改 scope/包名或协调占用）→ 可观测性 OpenTelemetry。
+- **下一步 Top3**：真发解阻（改 scope/包名或协调占用）→ 可观测性 OpenTelemetry →（按需）ClientAgent 本地审计自动上报 Hub。
 - **US8 演示入口**：`pnpm demo:offline-capability` / `node examples/golden-path/run-offline.mjs`；回归含于 `examples/golden-path/golden-path.test.ts`。
+- **R8 审计闭环**：Hub `GET/POST /api/audit` + Dashboard `/audit`；下发与配置变更自动写入，本地命令可上报；默认查询窗口 90 天。
 
 ## 口径统一记录（docs-v0.4）
 

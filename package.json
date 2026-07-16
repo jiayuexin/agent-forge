@@ -13,7 +13,9 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm --filter @agentforge/dashboard test:e2e",
     "demo:golden-path": "vitest run examples/golden-path/golden-path.test.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "publish:dry-run": "pnpm -r --filter './packages/*' exec -- npm pack --dry-run && pnpm -r --filter './packages/*' --filter '!@agentforge/core' --filter '!@agentforge/cli' publish --dry-run --no-git-checks --access public --registry https://registry.npmjs.org",
+    "publish:pack": "pnpm -r --filter './packages/*' exec -- npm pack --dry-run"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",

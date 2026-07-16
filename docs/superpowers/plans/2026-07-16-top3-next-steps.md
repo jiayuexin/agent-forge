@@ -12,11 +12,11 @@
 
 ## Top 3 一览与顺序依赖
 
-| 序号 | 目标                                                      | 依赖                                  | 本轮状态            |
-| ---- | --------------------------------------------------------- | ------------------------------------- | ------------------- |
-| 1    | 黄金路径可演示包（`examples/` + README/GUIDE 5 分钟入口） | 能力执行闭环 `3f8383e` 已完成         | **立刻开工**        |
-| 2    | CI 覆盖 `dev` + Playwright 稳定 + 能力执行回归            | 第 1 项提供可回归的 example 测试更佳  | **已完成**          |
-| 3    | npm 独立包发布就绪（去 private、版本、publish dry-run）   | 与 1/2 弱依赖；可并行但建议 CI 稳定后 | 第 2 项后可立刻开工 |
+| 序号 | 目标                                                      | 依赖                                  | 本轮状态   |
+| ---- | --------------------------------------------------------- | ------------------------------------- | ---------- |
+| 1    | 黄金路径可演示包（`examples/` + README/GUIDE 5 分钟入口） | 能力执行闭环 `3f8383e` 已完成         | **已完成** |
+| 2    | CI 覆盖 `dev` + Playwright 稳定 + 能力执行回归            | 第 1 项提供可回归的 example 测试更佳  | **已完成** |
+| 3    | npm 独立包发布就绪（去 private、版本、publish dry-run）   | 与 1/2 弱依赖；可并行但建议 CI 稳定后 | **已完成** |
 
 ## 不做清单（全 Top 3 共用）
 
@@ -127,15 +127,17 @@ Expected: FAIL（`run-local.mjs` 尚不存在或 exit ≠ 0）— 已验证 RED
 
 **拆分：**
 
-1. 根 `@agentforge/root` 保持 `private: true`；可发布包去掉 `private` 或改为 `publishConfig.access`
-2. 统一 `0.1.0`（或变更集约定）与 `files: ["dist"]`
-3. `pnpm -r publish --dry-run` 在 workflow 中可跑
-4. 真实 publish 需 `NPM_TOKEN`；无 token 时仅 dry-run
+1. [x] 根 `@agentforge/root` 保持 `private: true`；可发布包去掉 `private`，加 `publishConfig.access: public`
+2. [x] 统一 `0.1.0` 与 `files: ["dist"]`
+3. [x] `pnpm publish:dry-run` / workflow dry-run
+4. [x] 真实 publish 需 `NPM_TOKEN`；无 token 时仅 dry-run
 
 **验收：**
 
-- dry-run 通过
-- 文档说明发布顺序（types → core → …）
+- [x] dry-run 通过（本地 `pnpm publish:dry-run`）
+- [x] 文档说明发布顺序（types → core → …）见 `docs/ops/DEPLOY.md`
+
+**阻塞（真实发布）：** npmjs 上 `@agentforge/core` / `@agentforge/cli` 已被第三方占用；本轮 dry-run 对这两包以 `npm pack --dry-run` 验收，publish dry-run 排除之。
 
 **不做：** 本轮必须真发到 npm
 
@@ -145,7 +147,7 @@ Expected: FAIL（`run-local.mjs` 尚不存在或 exit ≠ 0）— 已验证 RED
 
 1. Task 1 全部步骤（TDD）← 已完成
 2. Task 2 ← **已完成**
-3. 摘要中建议下一动作：Task 3（npm 发布就绪）
+3. Task 3 ← **已完成**
 
 ## 验证命令（本轮第 1 项）
 

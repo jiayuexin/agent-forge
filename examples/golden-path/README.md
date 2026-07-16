@@ -38,6 +38,32 @@ GOLDEN_PATH_OK
 3. 重启加载缓存后，用 `createRuntimeToolAdapters` + `CachedCapabilitySource.executeCapability` 执行
 4. 断言结果后打印 `GOLDEN_PATH_OK`（失败立即 exit 1，无重试）
 
+## US8 离线能力验收（断 Hub）
+
+证明：Hub 不可达且 runtime **未连接**时，已缓存 Tool 仍可通过 `AgentRuntimeClient.executeCapability`（内部 `CachedCapabilitySource`）执行。
+
+```bash
+node examples/golden-path/run-offline.mjs
+# 或随 golden-path Vitest 一并回归
+pnpm vitest run examples/golden-path/golden-path.test.ts
+```
+
+成功时 stdout 含：
+
+```text
+HUB_UNREACHABLE 127.0.0.1:1
+RUNTIME_NOT_CONNECTED status=disconnected
+tool result: {"result":{"stdout":"hello-agentforge\n","stderr":""}}
+OFFLINE_CAPABILITY_OK
+```
+
+脚本做了什么：
+
+1. TCP 探测确认 Hub 端口不可达（无降级、无重试）
+2. 将 `tool-echo` 写入本地缓存（模拟此前已从 Hub 下发）
+3. `AgentRuntimeClient.start()` 因 Hub 不可达失败；`status !== connected`
+4. 在未连接状态下执行缓存 Tool，打印 `OFFLINE_CAPABILITY_OK`
+
 ## Skill / Plugin
 
 | 能力   | 本示例                           | 如何验证                                                                                                    |

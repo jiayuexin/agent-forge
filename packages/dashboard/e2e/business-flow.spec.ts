@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_TOKEN, createCapability, login, waitForOnlineNode } from './helpers.js';
+import {
+  ADMIN_TOKEN,
+  buttonByLabel,
+  createCapability,
+  login,
+  waitForOnlineNode,
+} from './helpers.js';
 
 test.describe.serial('Dashboard business flow', () => {
   test('shows login modal without token', async ({ page }) => {
@@ -9,8 +15,8 @@ test.describe.serial('Dashboard business flow', () => {
 
   test('logs in and shows home dashboard', async ({ page }) => {
     await login(page);
-    await expect(page.getByRole('heading', { name: '首页' })).toBeVisible();
-    await expect(page.getByText('快捷操作')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'AgentForge' })).toBeVisible();
+    await expect(page.getByText('QUICK_ACTIONS')).toBeVisible();
   });
 
   test('creates a ClientAgent through the web form', async ({ page }) => {
@@ -90,10 +96,12 @@ test.describe.serial('Dashboard business flow', () => {
       .getByRole('heading', { name: /E2E Distribute Tool \/ 下发/ })
       .waitFor({ state: 'visible' });
 
-    await page.locator('.ant-select').first().click();
+    await page.getByLabel('目标节点').click();
     await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
+    // Close multi-select dropdown so it does not intercept the submit button.
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: '下发' }).click();
+    await page.locator('.ant-select-dropdown').waitFor({ state: 'hidden' });
+    await buttonByLabel(page, '下发').click();
     await expect(page.getByText('下发完成')).toBeVisible();
     await expect(page.getByText('installed')).toBeVisible();
   });
@@ -143,7 +151,7 @@ test.describe.serial('Dashboard business flow', () => {
     await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
 
     await page.getByPlaceholder('输入消息...').fill('请用 markdown 回复');
-    await page.getByRole('button', { name: '发送' }).click();
+    await buttonByLabel(page, '发送').click();
 
     await expect(page.getByRole('heading', { name: 'E2E Reply' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('console.log("hello")')).toBeVisible();
@@ -155,16 +163,16 @@ test.describe.serial('Dashboard business flow', () => {
     await login(page);
     await page.goto('/playground');
 
-    await page.getByRole('button', { name: '新会话' }).click();
+    await buttonByLabel(page, '新会话').click();
     await expect(page.getByText('会话 2')).toBeVisible();
-    await page.getByRole('button', { name: '清空' }).click();
+    await buttonByLabel(page, '清空').click();
   });
 
   test('browses capability market', async ({ page }) => {
     await login(page);
     await page.goto('/capabilities/market');
     await expect(page.getByRole('heading', { name: '能力 / 市场' })).toBeVisible();
-    await page.getByRole('button', { name: '下发' }).first().click();
+    await buttonByLabel(page, '下发').first().click();
     await expect(page.getByRole('heading', { name: /\/ 下发$/ })).toBeVisible();
   });
 
@@ -177,7 +185,7 @@ test.describe.serial('Dashboard business flow', () => {
 
   test('logs out and shows login modal again', async ({ page }) => {
     await login(page);
-    await page.getByRole('button', { name: '登录' }).click();
+    await buttonByLabel(page, '登录').click();
     await expect(page.getByText('请输入管理员 Token')).toBeVisible();
   });
 });

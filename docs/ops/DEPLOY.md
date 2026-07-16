@@ -3,8 +3,8 @@
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 部署手册
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-13
+> **文档版本**: docs-v0.7
+> **最后更新**: 2026-07-16
 > **实现状态**: 已完成
 
 ## 目录
@@ -20,6 +20,7 @@
 - [健康检查](#健康检查)
 - [可观测性](#可观测性)
 - [备份与恢复](#备份与恢复)
+- [npm 包发布](#npm-包发布)
 - [升级与回滚](#升级与回滚)
 - [灾难恢复](#灾难恢复)
 
@@ -753,6 +754,59 @@ kubectl -n agentforge exec deploy/agentforge-hub -- \
 ```
 
 ---
+
+## npm 包发布
+
+根包 `@agentforge/root` 保持 `private: true`，不发布。以下七个 workspace 包统一版本 **0.1.0**，以 `publishConfig.access: public` 发布到 npm scoped 作用域：
+
+| 顺序 | 包名                                             | 说明                                      |
+| ---- | ------------------------------------------------ | ----------------------------------------- |
+| 1    | `@agentforge/types`                              | 零运行时依赖的类型定义                    |
+| 2    | `@agentforge/core`                               | 核心运行时                                |
+| 3    | `@agentforge/sdk` / `@agentforge/runtime-client` | SDK 与客户端运行时（可并行，均依赖 core） |
+| 4    | `@agentforge/http-server`                        | HTTP/WebSocket 服务                       |
+| 5    | `@agentforge/dashboard`                          | Hub 面板 + 后端                           |
+| 6    | `@agentforge/cli`                                | CLI（依赖上述包）                         |
+
+`pnpm -r publish` 会按依赖拓扑自动排序；本表仅作人工核对参考。
+
+### 版本策略
+
+- 七个可发布包保持 **同一 workspace 版本号**（当前 `0.1.0`）。
+- 发版时一并 bump，避免跨包 `workspace:*` 解析不一致。
+- 包产物仅包含 `files: ["dist"]`；发布前必须先 `pnpm build`。
+
+### 本地 dry-run
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm publish:dry-run
+# 全量 pack：pnpm publish:pack
+# 五包 publish dry-run（排除 npmjs 已占用的 core/cli）
+```
+
+### GitHub Actions
+
+使用 `.github/workflows/publish.yml`（`workflow_dispatch`）：
+
+1. 默认 `dry_run=true`：只跑 dry-run，不需要 `NPM_TOKEN`。
+2. `dry_run=false`：真实发布，需仓库 Secret `NPM_TOKEN`。
+
+本轮验收以 dry-run 通过为准，不强制真实发布到 npm。
+
+### 已知阻塞：包名冲突
+
+npmjs 上已存在第三方包（与本仓库无关）：
+
+- `@agentforge/core`（当前约 `0.16.74`，LangGraph agent framework）
+- `@agentforge/cli`（同上作者线）
+
+因此：
+
+1. 本仓库仍以 workspace 统一版本 `0.1.0` 做发布就绪配置。
+2. `pnpm publish:dry-run`：对全部七包执行 `npm pack --dry-run`；并对 **未占用** 的五包执行 `pnpm publish --dry-run`（排除 core/cli）。
+3. **真实发布** `@agentforge/core` / `@agentforge/cli` 前必须先解决命名：更换 scope/包名，或取得 npm 包所有权。其余五包在具备 `NPM_TOKEN` 与 scope 权限后可发布。
 
 ## 升级与回滚
 

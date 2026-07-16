@@ -1,15 +1,24 @@
-import type { Page } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
 
 export const ADMIN_TOKEN = process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token';
 
+/** Match button labels even when CSS letter-spacing inserts spaces into the a11y name. */
+export function buttonByLabel(page: Page, label: string): Locator {
+  const pattern = new RegExp(label.split('').map(escapeRegExp).join('\\s*'));
+  return page.getByRole('button', { name: pattern });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export async function login(page: Page, token = ADMIN_TOKEN): Promise<void> {
   await page.goto('/');
-  const modal = page.getByText('请输入管理员 Token');
-  if (await modal.isVisible()) {
-    await page.getByLabel('请输入管理员 Token').fill(token);
-    await page.locator('.ant-modal-footer .ant-btn-primary').click();
-  }
-  await page.getByRole('heading', { name: '首页' }).waitFor({ state: 'visible' });
+  await page.getByText('请输入管理员 Token').waitFor({ state: 'visible' });
+  await page.getByLabel('请输入管理员 Token').fill(token);
+  await page.locator('.ant-modal-footer .ant-btn-primary').click();
+  // Home hero heading after AuthGuard accepts the token (UI is tech-themed, not "首页").
+  await page.getByRole('heading', { name: 'AgentForge' }).waitFor({ state: 'visible' });
   await page.waitForFunction(
     (expectedToken) => localStorage.getItem('agentforge-auth')?.includes(expectedToken),
     token
@@ -20,18 +29,35 @@ export async function createCapability(page: Page, id: string, name: string): Pr
   await page.goto('/capabilities');
   await page.getByRole('heading', { name: '能力' }).waitFor({ state: 'visible' });
   await page.locator('div.flex.items-center.justify-between.mb-6 button.ant-btn-primary').click();
-  await page.getByLabel('ID').fill(id);
-  await page.getByLabel('名称').fill(name);
-  await page.getByLabel('描述').fill('E2E test capability description');
-  await page.locator('.ant-modal .ant-btn-primary').click();
-  await page.getByText(id).waitFor({ state: 'visible' });
+  await page.getByLabel('ID', { exact: true }).fill(id);
+  await page.getByLabel('名称', { exact: true }).fill(name);
+  await page.getByLabel('端点类型').click();
+  await page.locator('.ant-select-item-option').filter({ hasText: '本地命令' }).click();
+  await page.getByLabel('端点目标').fill('echo e2e-ok');
+  await page.getByLabel('输入 Schema').fill('{"type":"object"}');
+  await page.getByLabel('描述', { exact: true }).fill('E2E test capability description');
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/capabilities') &&
+        response.request().method() === 'POST' &&
+        response.ok()
+    ),
+    page.locator('.ant-modal-footer .ant-btn-primary').click(),
+  ]);
+  await page.getByText('能力已创建').waitFor({ state: 'visible' });
 }
 
 export async function waitForOnlineNode(page: Page, nodeName: string): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < 60_000) {
     await page.goto('/nodes');
-    if (await page.getByText(nodeName).isVisible().catch(() => false)) {
+    if (
+      await page
+        .getByText(nodeName)
+        .isVisible()
+        .catch(() => false)
+    ) {
       return;
     }
     await page.waitForTimeout(1000);

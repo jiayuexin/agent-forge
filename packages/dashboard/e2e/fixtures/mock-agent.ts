@@ -56,6 +56,7 @@ export function createE2EMockAgent(overrides?: Partial<IClientAgent>): IClientAg
     disconnectFromHub: async () => undefined,
     getLocalCapabilityCache: () => [],
     getLocalCommandAuthorization: () => 'disabled',
+    setCapabilitySource: () => undefined,
     ...overrides,
   };
 

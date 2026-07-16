@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   lint-typecheck-test-build:
@@ -48,7 +48,6 @@ jobs:
       - run: docker build -t agentforge:test .
 
   e2e:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: lint-typecheck-test-build
     runs-on: ubuntu-latest
     steps:
@@ -67,4 +66,5 @@ jobs:
       - run: pnpm run test:e2e
         env:
           AGENTFORGE_ADMIN_TOKEN: admin-token
+          AGENTFORGE_E2E_PORT: '8091'
           CI: true

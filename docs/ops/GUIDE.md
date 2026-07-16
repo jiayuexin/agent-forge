@@ -4,7 +4,7 @@
 > **文档类型**: 使用指南
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-13
+> **最后更新**: 2026-07-16
 > **实现状态**: 已完成
 
 ## 目录
@@ -38,6 +38,14 @@ node examples/golden-path/run-local.mjs
 ```
 
 成功时输出含 `GOLDEN_PATH_OK`。完整说明与 create → Hub → 下发见 [examples/golden-path/README.md](../../examples/golden-path/README.md)。
+
+离线能力（US8）：Hub 不可达时仍执行已缓存 Tool：
+
+```bash
+node examples/golden-path/run-offline.mjs
+```
+
+成功时输出含 `HUB_UNREACHABLE`、`RUNTIME_NOT_CONNECTED`、`OFFLINE_CAPABILITY_OK`。
 
 ### 环境要求
 

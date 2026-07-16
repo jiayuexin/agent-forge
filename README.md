@@ -16,6 +16,8 @@ node examples/golden-path/run-local.mjs
 
 说明与 create → Hub → 下发扩展路径见 [examples/golden-path/README.md](examples/golden-path/README.md)。
 
+离线能力（US8）：`node examples/golden-path/run-offline.mjs`（Hub 不可达时仍执行已缓存 Tool，成功输出含 `OFFLINE_CAPABILITY_OK`）。
+
 ## 文档三层结构
 
 | 层级              | 目录                           | 回答的问题                           |

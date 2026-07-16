@@ -31,6 +31,7 @@ import { CachedCapabilitySource, type CachedPluginRunner } from './CachedCapabil
 import { CapabilityCache } from './CapabilityCache.js';
 import { HeartbeatManager } from './HeartbeatManager.js';
 import { createRuntimeToolAdapters, type CommandExecutor } from './RuntimeToolAdapters.js';
+import { createHubAuditReporter } from './HubAuditReporter.js';
 import { WebSocketTransport } from './WebSocketTransport.js';
 import {
   isCapabilityDistributePayload,
@@ -110,6 +111,14 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
         commandExecutor: options.commandExecutor,
         fetch: options.fetch,
         additionalAdapters: options.additionalToolAdapters,
+        auditReporter: config.authToken
+          ? createHubAuditReporter({
+              hubUrl: config.hubUrl,
+              authToken: config.authToken,
+              actor: agent.id,
+              fetch: options.fetch,
+            })
+          : undefined,
       }),
       pluginRunner: options.pluginRunner,
       maxDepth: options.maxCapabilityDepth,

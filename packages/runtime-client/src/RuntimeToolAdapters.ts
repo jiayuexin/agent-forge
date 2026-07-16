@@ -2,6 +2,7 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { CoreError, type ToolAdapter, type ToolAdapterMap } from '@agentforge/core';
 import type { IClientAgent, ToolDefinition } from '@agentforge/types';
+import type { AuditReporter } from './HubAuditReporter.js';
 
 export interface CommandExecutionOptions {
   cwd?: string;
@@ -15,6 +16,7 @@ export type CommandExecutor = (
 export interface RuntimeToolAdapterOptions {
   commandExecutor?: CommandExecutor;
   fetch?: typeof fetch;
+  auditReporter?: AuditReporter;
   additionalAdapters?: Pick<ToolAdapterMap, 'local-function' | 'remote-agent'>;
 }
 
@@ -26,6 +28,7 @@ export function createRuntimeToolAdapters(
 ): ToolAdapterMap {
   const commandExecutor = options.commandExecutor ?? executeCommand;
   const fetchImpl = options.fetch ?? fetch;
+  const auditReporter = options.auditReporter;
   return {
     'local-command': async (tool, args) => {
       const target = requireEndpointTarget(tool, 'local-command');
@@ -42,12 +45,61 @@ export function createRuntimeToolAdapters(
           `Local command tool "${tool.name}" requires cwd to be a string`
         );
       }
-      await agent.authorizeLocalCommand(target);
-      return commandExecutor(target, { cwd });
+
+      try {
+        await agent.authorizeLocalCommand(target);
+      } catch (error) {
+        await reportLocalCommandAudit(auditReporter, {
+          resource: target,
+          outcome: 'denied',
+          details: { tool: tool.name, error: errorMessage(error) },
+        });
+        throw error;
+      }
+
+      try {
+        const result = await commandExecutor(target, { cwd });
+        await reportLocalCommandAudit(auditReporter, {
+          resource: target,
+          outcome: 'success',
+          details: { tool: tool.name, ...(cwd !== undefined ? { cwd } : {}) },
+        });
+        return result;
+      } catch (error) {
+        await reportLocalCommandAudit(auditReporter, {
+          resource: target,
+          outcome: 'failure',
+          details: { tool: tool.name, error: errorMessage(error) },
+        });
+        throw error;
+      }
     },
     http: createHttpAdapter(fetchImpl),
     ...options.additionalAdapters,
   };
+}
+
+async function reportLocalCommandAudit(
+  auditReporter: AuditReporter | undefined,
+  event: {
+    resource: string;
+    outcome: 'success' | 'failure' | 'denied';
+    details?: Record<string, unknown>;
+  }
+): Promise<void> {
+  if (!auditReporter) {
+    return;
+  }
+  await auditReporter({
+    action: 'local-command',
+    resource: event.resource,
+    outcome: event.outcome,
+    details: event.details,
+  });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function createHttpAdapter(fetchImpl: typeof fetch): ToolAdapter {

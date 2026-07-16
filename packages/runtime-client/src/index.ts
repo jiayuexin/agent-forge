@@ -15,6 +15,12 @@ export {
   type RuntimeToolAdapterOptions,
 } from './RuntimeToolAdapters.js';
 export {
+  createHubAuditReporter,
+  resolveHubHttpOrigin,
+  type AuditReporter,
+  type HubAuditReporterOptions,
+} from './HubAuditReporter.js';
+export {
   isRemoteTask,
   isCapabilityDistributePayload,
   isPartialAgentRuntimeConfig,

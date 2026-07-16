@@ -201,7 +201,7 @@ POST /api/audit # 写入审计事件（字段同 AuditEvent：action/actor/resou
 
 ```
 
-Hub 在能力下发（`capability-distribute`）与节点配置变更（`config-change`）时自动写入；本地命令（`local-command`）可通过 `POST /api/audit` 上报。Dashboard 页面 `/audit` 提供列表与筛选。详见 [ops/GUIDE.md](../ops/GUIDE.md)。
+Hub 在能力下发（`capability-distribute`）与节点配置变更（`config-change`）时自动写入；ClientAgent 经 `runtime-client` 连接 Hub 后，本地命令（`local-command`）执行成功/失败/拒绝时自动 `POST /api/audit` 上报。Dashboard 页面 `/audit` 提供列表与筛选。详见 [ops/GUIDE.md](../ops/GUIDE.md)。
 
 ### 5.3.1 健康检查端点说明
 

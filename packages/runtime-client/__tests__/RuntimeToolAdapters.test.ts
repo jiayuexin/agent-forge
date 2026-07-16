@@ -36,6 +36,79 @@ describe('createRuntimeToolAdapters', () => {
     });
   });
 
+  it('reports success audit to Hub after local-command execution', async () => {
+    const agent = createAgent();
+    const auditReporter = vi.fn(async () => undefined);
+    const commandExecutor = vi.fn(async () => ({ stdout: 'ok\n', stderr: '' }));
+    const adapters = createRuntimeToolAdapters(agent, { commandExecutor, auditReporter });
+    const tool = localCommandTool('echo hello');
+
+    await expect(adapters['local-command']!(tool, {}, context)).resolves.toEqual({
+      stdout: 'ok\n',
+      stderr: '',
+    });
+    expect(auditReporter).toHaveBeenCalledWith({
+      action: 'local-command',
+      resource: 'echo hello',
+      outcome: 'success',
+      details: { tool: 'echo-cmd' },
+    });
+  });
+
+  it('reports failure audit to Hub then rethrows when local-command execution fails', async () => {
+    const agent = createAgent();
+    const auditReporter = vi.fn(async () => undefined);
+    const commandExecutor = vi.fn(async () => {
+      throw new Error('exit 1');
+    });
+    const adapters = createRuntimeToolAdapters(agent, { commandExecutor, auditReporter });
+    const tool = localCommandTool('false');
+
+    await expect(adapters['local-command']!(tool, {}, context)).rejects.toThrow('exit 1');
+    expect(auditReporter).toHaveBeenCalledWith({
+      action: 'local-command',
+      resource: 'false',
+      outcome: 'failure',
+      details: { tool: 'echo-cmd', error: 'exit 1' },
+    });
+  });
+
+  it('reports denied audit to Hub then rethrows when authorization fails', async () => {
+    const agent = createAgent();
+    vi.mocked(agent.authorizeLocalCommand).mockRejectedValue(
+      Object.assign(new Error('Command denied'), { code: 'COMMAND_DENIED' })
+    );
+    const auditReporter = vi.fn(async () => undefined);
+    const commandExecutor = vi.fn(async () => ({ stdout: '', stderr: '' }));
+    const adapters = createRuntimeToolAdapters(agent, { commandExecutor, auditReporter });
+    const tool = localCommandTool('rm -rf /');
+
+    await expect(adapters['local-command']!(tool, {}, context)).rejects.toMatchObject({
+      code: 'COMMAND_DENIED',
+    });
+    expect(commandExecutor).not.toHaveBeenCalled();
+    expect(auditReporter).toHaveBeenCalledWith({
+      action: 'local-command',
+      resource: 'rm -rf /',
+      outcome: 'denied',
+      details: { tool: 'echo-cmd', error: 'Command denied' },
+    });
+  });
+
+  it('surfaces Hub audit report failures without swallowing them', async () => {
+    const agent = createAgent();
+    const auditReporter = vi.fn(async () => {
+      throw Object.assign(new Error('Hub unreachable'), { code: 'AUDIT_REPORT_FAILED' });
+    });
+    const commandExecutor = vi.fn(async () => ({ stdout: 'ok\n', stderr: '' }));
+    const adapters = createRuntimeToolAdapters(agent, { commandExecutor, auditReporter });
+    const tool = localCommandTool('echo hello');
+
+    await expect(adapters['local-command']!(tool, {}, context)).rejects.toMatchObject({
+      code: 'AUDIT_REPORT_FAILED',
+    });
+  });
+
   it('executes an HTTP GET with task arguments encoded as query parameters', async () => {
     const fetchImpl = vi.fn(
       async () =>
@@ -94,6 +167,16 @@ describe('createRuntimeToolAdapters', () => {
     expect(adapters.http).toBeTypeOf('function');
   });
 });
+
+function localCommandTool(target: string): ToolDefinition {
+  return {
+    name: 'echo-cmd',
+    description: 'Run a fixed local command',
+    parameters: { type: 'object' },
+    endpointType: 'local-command',
+    endpoint: { target, method: 'exec' },
+  };
+}
 
 function httpTool(method: 'get' | 'post'): ToolDefinition {
   return {

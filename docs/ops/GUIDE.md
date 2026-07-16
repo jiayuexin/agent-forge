@@ -179,7 +179,7 @@ agentforge dashboard [options]
 | `GET /api/audit`  | 查询审计记录（`from` / `to` / `action` / `limit` / `offset`） |
 | `POST /api/audit` | 写入审计事件（如上报 `local-command`）                        |
 
-Hub 在能力下发与节点配置变更时自动写入 `capability-distribute` / `config-change`。
+Hub 在能力下发与节点配置变更时自动写入 `capability-distribute` / `config-change`。ClientAgent 通过 `runtime-client` 连接 Hub（含节点 Token）后，执行 `local-command` 会在成功/失败/拒绝时自动 `POST /api/audit` 上报。
 
 ---
 

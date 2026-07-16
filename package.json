@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm --filter @agentforge/dashboard test:e2e",
+    "demo:golden-path": "vitest run examples/golden-path/golden-path.test.ts",
     "prepare": "husky"
   },
   "devDependencies": {

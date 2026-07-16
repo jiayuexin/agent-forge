@@ -27,11 +27,23 @@
 
 ## 快速开始
 
+### 5 分钟黄金路径（推荐先跑）
+
+本地安装 Tool 并真实执行（无需 Hub / API Key）：
+
+```bash
+pnpm install && pnpm build
+node examples/golden-path/run-local.mjs
+# 或：pnpm demo:golden-path
+```
+
+成功时输出含 `GOLDEN_PATH_OK`。完整说明与 create → Hub → 下发见 [examples/golden-path/README.md](../../examples/golden-path/README.md)。
+
 ### 环境要求
 
 - Node.js ≥ 18.0.0
 - pnpm ≥ 8.0.0（开发时需要）
-- 至少一个 LLM Provider 的 API Key
+- 至少一个 LLM Provider 的 API Key（`agentforge create` / Skill / Hub 远程执行需要）
 
 ### 30 秒创建你的第一个 ClientAgent
 

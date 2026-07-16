@@ -27,7 +27,7 @@
     "preview": "vite preview",
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.browser.json",
     "test": "vitest run && vitest run --config vitest.browser.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "pnpm run build:web && playwright test"
   },
   "dependencies": {
     "@agentforge/core": "workspace:*",

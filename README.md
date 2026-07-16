@@ -4,13 +4,25 @@ AgentForge 是一个**客户端 Agent 应用平台**：从岗位描述生成可�
 
 **当前阶段**：核心平台已实现（Phase 0–12），Monorepo 可 build/test。完整文档见 [docs/README.md](docs/README.md)，实现进度见 [docs/STATUS.md](docs/STATUS.md)。
 
+## 5 分钟黄金路径
+
+本地安装并执行 Tool（无需 Hub / API Key）：
+
+```bash
+pnpm install && pnpm build
+node examples/golden-path/run-local.mjs
+# 成功输出含 GOLDEN_PATH_OK
+```
+
+说明与 create → Hub → 下发扩展路径见 [examples/golden-path/README.md](examples/golden-path/README.md)。
+
 ## 文档三层结构
 
-| 层级 | 目录 | 回答的问题 |
-|---|---|---|
-| 第一层 · 产品需求 | [docs/product/](docs/product/) | 做什么、为什么、优先级与路线图 |
-| 第二层 · 设计规格 | [docs/design/](docs/design/) | 怎么设计、接口是什么、模块如何协作 |
-| 第三层 · 操作手册 | [docs/ops/](docs/ops/) | 未来怎么用、怎么部署、怎么测（草案） |
+| 层级              | 目录                           | 回答的问题                           |
+| ----------------- | ------------------------------ | ------------------------------------ |
+| 第一层 · 产品需求 | [docs/product/](docs/product/) | 做什么、为什么、优先级与路线图       |
+| 第二层 · 设计规格 | [docs/design/](docs/design/)   | 怎么设计、接口是什么、模块如何协作   |
+| 第三层 · 操作手册 | [docs/ops/](docs/ops/)         | 未来怎么用、怎么部署、怎么测（草案） |
 
 ## 快速入口
 

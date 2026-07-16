@@ -1,7 +1,7 @@
 # 文档状态总表
 
 > **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-13
+> **最后更新**: 2026-07-16
 
 | 文档                                                                             | 层级   | 类型     | 文档状态 | 实现状态 |
 | -------------------------------------------------------------------------------- | ------ | -------- | -------- | -------- |
@@ -49,21 +49,21 @@
 
 ## 实施阶段状态
 
-| 阶段                                        | 描述                                                | 状态        |
-| ------------------------------------------- | --------------------------------------------------- | ----------- |
-| Phase 0 — Monorepo 初始化                   | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架 | ✅ 已完成   |
-| Phase 1 — `packages/types`                  | 核心类型定义                                        | ✅ 已完成   |
-| Phase 2 — `packages/core`                   | BaseAgent、Provider、生成引擎                       | ✅ 已完成   |
-| Phase 3 — Templates                         | 基础模板与角色模板                                  | ✅ 已完成   |
-| Phase 4 — `packages/runtime-client`         | WebSocket 运行时客户端                              | ✅ 已完成   |
-| Phase 5 — `packages/sdk`                    | AgentFramework、Pipeline、编排                      | ✅ 已完成   |
-| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API                              | ✅ 已完成   |
-| Phase 7 — `packages/dashboard` 前端         | Capability Hub 可视化面板                           | ✅ 已完成   |
-| Phase 8 — `packages/cli`                    | CLI 命令                                            | ✅ 已完成   |
-| Phase 9 — 安全层                            | 本地命令授权、Token、签名、审计                     | ✅ 已完成   |
-| Phase 10 — 可观测性                         | 日志、指标、成本守护已实现；OpenTelemetry 待接入    | 🟡 部分完成 |
-| Phase 11 — 测试                             | 单元/集成已实现；Playwright E2E 稳定性待闭环        | 🟡 部分完成 |
-| Phase 12 — CI/CD + Docker                   | CI/Docker 骨架已实现；独立包发布仍待完成            | 🟡 部分完成 |
+| 阶段                                        | 描述                                                                         | 状态        |
+| ------------------------------------------- | ---------------------------------------------------------------------------- | ----------- |
+| Phase 0 — Monorepo 初始化                   | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架                          | ✅ 已完成   |
+| Phase 1 — `packages/types`                  | 核心类型定义                                                                 | ✅ 已完成   |
+| Phase 2 — `packages/core`                   | BaseAgent、Provider、生成引擎                                                | ✅ 已完成   |
+| Phase 3 — Templates                         | 基础模板与角色模板                                                           | ✅ 已完成   |
+| Phase 4 — `packages/runtime-client`         | WebSocket 运行时客户端                                                       | ✅ 已完成   |
+| Phase 5 — `packages/sdk`                    | AgentFramework、Pipeline、编排                                               | ✅ 已完成   |
+| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API                                                       | ✅ 已完成   |
+| Phase 7 — `packages/dashboard` 前端         | Capability Hub 可视化面板                                                    | ✅ 已完成   |
+| Phase 8 — `packages/cli`                    | CLI 命令                                                                     | ✅ 已完成   |
+| Phase 9 — 安全层                            | 本地命令授权、Token、签名、审计                                              | ✅ 已完成   |
+| Phase 10 — 可观测性                         | 日志、指标、成本守护已实现；OpenTelemetry 待接入                             | 🟡 部分完成 |
+| Phase 11 — 测试                             | 单元/集成已实现；Playwright E2E 已稳定入门禁；黄金路径回归已纳入 `pnpm test` | 🟡 部分完成 |
+| Phase 12 — CI/CD + Docker                   | CI/Docker 已覆盖 `dev`；npm 独立包 dry-run 就绪，真发受包名冲突阻塞          | 🟡 部分完成 |
 
 ## docs-v0.6 能力执行闭环
 
@@ -72,7 +72,14 @@
 - Skill：使用默认模型与 Tool 白名单创建临时受限 StatelessAgent。
 - Plugin：进程内 `IPlugin` 已移除，统一采用签名 WASM、Worker-backed WASI、严格 JSON ABI 与能力白名单。
 - ClientAgent：Hub 下发能力可写入本地缓存；Tool/Skill/Plugin 在更新、删除及重启加载后进入动态执行源。
-- 本轮验证基线为 `pnpm build`、`pnpm type-check`、`pnpm test`、`pnpm lint`；Playwright E2E 不包含在 `pnpm test` 中，仍单独追踪。
+- 本轮验证基线为 `pnpm build`、`pnpm type-check`、`pnpm test`、`pnpm lint`；Playwright E2E 由 CI `e2e` job 单独跑且已稳定入门禁。
+
+## 2026-07-16 交付同步（PR #3 → `dev`）
+
+- **黄金路径**：`examples/golden-path` 可本地演示 Tool 安装与执行（无需 Hub / API Key），并进入 Vitest workspace。
+- **Phase 11**：Dashboard Playwright E2E（环境启停、fixture、helpers）已稳定；CI 对 `main`/`dev` 的 PR/push 跑 lint/typecheck/test/build + e2e。
+- **Phase 12**：CI 已覆盖 `dev`；各可发布包 `0.1.0` + `publish.yml` dry-run 就绪。真实 npm 发布仍阻塞：`@agentforge/core` / `@agentforge/cli` 等包名在 npmjs 已被第三方占用（dry-run 对冲突包以 `npm pack --dry-run` 验收）。
+- **下一步 Top3**：离线能力验收（US8）→ 真发解阻（改 scope/包名或协调占用）→ 可观测性 OpenTelemetry。
 
 ## 口径统一记录（docs-v0.4）
 

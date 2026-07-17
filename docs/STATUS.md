@@ -1,7 +1,7 @@
 # 文档状态总表
 
 > **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-16
+> **最后更新**: 2026-07-17
 
 | 文档                                                                             | 层级   | 类型     | 文档状态 | 实现状态 |
 | -------------------------------------------------------------------------------- | ------ | -------- | -------- | -------- |
@@ -73,6 +73,11 @@
 - Plugin：进程内 `IPlugin` 已移除，统一采用签名 WASM、Worker-backed WASI、严格 JSON ABI 与能力白名单。
 - ClientAgent：Hub 下发能力可写入本地缓存；Tool/Skill/Plugin 在更新、删除及重启加载后进入动态执行源。
 - 本轮验证基线为 `pnpm build`、`pnpm type-check`、`pnpm test`、`pnpm lint`；Playwright E2E 由 CI `e2e` job 单独跑且已稳定入门禁。
+
+## 2026-07-17 覆盖率口径对齐
+
+- Vitest 覆盖率统计核心与 Hub 服务端代码；`packages/dashboard/src/**`、`packages/cli/src/commands/**`、`examples/**` 不计入分母。
+- `coverage.thresholds`（statements / branches / functions / lines）全部强制 **≥ 80%**；Dashboard UI 仍由 Playwright E2E 验收。
 
 ## 2026-07-16 交付同步（PR #3 → `dev`）
 

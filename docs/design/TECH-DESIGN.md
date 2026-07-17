@@ -772,12 +772,14 @@ Provider 适配层可在网络层面实现可选的 429 退避与熔断策略，
 
 ### 13.1 测试分层
 
-| 层级     | 覆盖范围                          | 工具       | 目标              |
-| -------- | --------------------------------- | ---------- | ----------------- |
-| 单元测试 | core/types/sdk 各模块             | Vitest     | 覆盖率 ≥ 80%      |
-| 集成测试 | Provider 连接、生成流程、HTTP API | Vitest     | 3 种集成模式覆盖  |
-| E2E 测试 | CLI 完整流程、Dashboard 页面      | Playwright | 关键路径覆盖      |
-| 生成验证 | 每个模板生成的 Agent              | 自动脚本   | 编译通过 + 可执行 |
+| 层级     | 覆盖范围                                          | 工具       | 目标              |
+| -------- | ------------------------------------------------- | ---------- | ----------------- |
+| 单元测试 | core/sdk/runtime/http-server/Hub 服务端等核心模块 | Vitest     | 覆盖率 ≥ 80%      |
+| 集成测试 | Provider 连接、生成流程、HTTP API                 | Vitest     | 3 种集成模式覆盖  |
+| E2E 测试 | CLI 完整流程、Dashboard 页面                      | Playwright | 关键路径覆盖      |
+| 生成验证 | 每个模板生成的 Agent                              | 自动脚本   | 编译通过 + 可执行 |
+
+Vitest 覆盖率口径为「核心与 Hub 服务端自测」：`coverage.thresholds` 四项均为 80%；`packages/dashboard/src/**`（React UI）、`packages/cli/src/commands/**`（CLI 入口）、`examples/**` 不计入分母，分别由 Playwright E2E 与 CLI 冒烟验收。
 
 ### 13.2 测试目录结构
 

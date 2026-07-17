@@ -4,29 +4,29 @@
 > **文档类型**: 测试策略
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-13
+> **最后更新**: 2026-07-17
 > **实现状态**: 已完成
 
 ## 测试总览
 
 AgentForge 使用 **Vitest** 作为单元/集成测试框架，**Playwright** 作为 E2E 测试框架，采用分层测试策略覆盖核心功能。
 
-| 统计项            | 数值                                                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 单元/集成测试框架 | Vitest ^2.0                                                                                                       |
-| E2E 测试框架      | Playwright                                                                                                        |
-| 当前测试数        | 391（单元/集成）+ Playwright E2E                                                                                  |
-| 覆盖率目标        | 单元测试 ≥ 80%                                                                                                    |
-| 覆盖包            | `@agentforge/core`、`@agentforge/sdk`、`@agentforge/runtime-client`、`@agentforge/cli`、`@agentforge/http-server` |
+| 统计项            | 数值                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 单元/集成测试框架 | Vitest ^2.0                                                                                                                           |
+| E2E 测试框架      | Playwright                                                                                                                            |
+| 当前测试数        | 391（单元/集成）+ Playwright E2E                                                                                                      |
+| 覆盖率目标        | 核心与 Hub 服务端自测 ≥ 80%（statements / branches / functions / lines）                                                              |
+| 覆盖包            | `@agentforge/core`、`@agentforge/sdk`、`@agentforge/runtime-client`、`@agentforge/http-server`、`dashboard/server`、`cli` 非 commands |
 
 ### 测试分层
 
-| 层级     | 覆盖范围                          | 工具       | 目标              |
-| -------- | --------------------------------- | ---------- | ----------------- |
-| 单元测试 | core/types/sdk 各模块             | Vitest     | 覆盖率 ≥ 80%      |
-| 集成测试 | Provider 连接、生成流程、HTTP API | Vitest     | 3 种集成模式覆盖  |
-| E2E 测试 | CLI 完整流程、Dashboard 页面      | Playwright | 关键路径覆盖      |
-| 生成验证 | 每个模板生成的 Agent              | 自动脚本   | 编译通过 + 可执行 |
+| 层级     | 覆盖范围                                          | 工具       | 目标              |
+| -------- | ------------------------------------------------- | ---------- | ----------------- |
+| 单元测试 | core/sdk/runtime/http-server/Hub 服务端等核心模块 | Vitest     | 覆盖率 ≥ 80%      |
+| 集成测试 | Provider 连接、生成流程、HTTP API                 | Vitest     | 3 种集成模式覆盖  |
+| E2E 测试 | CLI 完整流程、Dashboard 页面                      | Playwright | 关键路径覆盖      |
+| 生成验证 | 每个模板生成的 Agent                              | 自动脚本   | 编译通过 + 可执行 |
 
 ---
 
@@ -129,7 +129,11 @@ pnpm test:watch
 pnpm vitest run --coverage
 ```
 
-覆盖率使用 `@vitest/coverage-v8`，输出到 `coverage/` 目录。单元测试覆盖率阈值 ≥ 80%，在 `vitest.config.ts` 中通过 `coverage.thresholds` 强制。
+覆盖率使用 `@vitest/coverage-v8`，输出到 `coverage/` 目录。Vitest 覆盖率统计**核心与 Hub 服务端代码**，`statements` / `branches` / `functions` / `lines` 阈值均为 **80%**，在 `vitest.config.ts` 中通过 `coverage.thresholds` 强制。以下路径不计入分母（由其他门禁验收）：
+
+- `packages/dashboard/src/**` — Dashboard React UI，由 Playwright E2E 验收
+- `packages/cli/src/commands/**` — CLI 命令入口 IO，由 `packages/cli/__tests__/cli.test.ts` 冒烟验收
+- `examples/**` — 演示脚本，非产品库
 
 ### 筛选用例
 

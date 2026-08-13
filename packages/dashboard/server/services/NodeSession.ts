@@ -264,6 +264,14 @@ export class NodeSession {
       case 'capability-ack':
       case 'config-ack':
       case 'error': {
+        const streamQueue = this.streams.get(message.messageId ?? '');
+        if (message.type === 'error' && streamQueue) {
+          const error = message.payload as { code: string; message: string };
+          streamQueue.done = true;
+          streamQueue.error = new Error(`${error.code}: ${error.message}`);
+          this.resolveStreamWaiters(streamQueue);
+          return;
+        }
         const pending = this.pending.get(message.messageId ?? '');
         if (!pending) {
           this.logger.info('Ignoring late agent message after timeout', {

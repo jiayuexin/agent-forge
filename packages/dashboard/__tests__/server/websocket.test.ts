@@ -68,4 +68,50 @@ describe('Hub WebSocket integration', () => {
 
     await runtime.stop();
   });
+
+  it('streams a ClientAgent chat task over HTTP', async () => {
+    hubServer = await startTestHub({ dataDir: `.agentforge/hub-stream-${Date.now()}` });
+    const { ClientAgent, MockProvider, ProviderFactory } = await import('@agentforge/core');
+    if (!ProviderFactory.list().includes('mock')) {
+      ProviderFactory.register('mock', MockProvider);
+    }
+    const tokenResponse = hubServer.hub.tokenStore.create({ nodeName: 'stream-node' });
+    const agent = new ClientAgent({
+      identity: {
+        id: tokenResponse.nodeId,
+        name: 'stream-node',
+        role: 'assistant',
+        version: '1.0.0',
+      },
+      model: { provider: 'mock', modelName: 'mock-model' },
+      systemPrompt: 'stream test',
+    });
+    const runtime = new AgentRuntimeClient(agent, {
+      hubUrl: `http://127.0.0.1:${hubServer.port}`,
+      websocketUrl: `ws://127.0.0.1:${hubServer.port}`,
+      authToken: tokenResponse.token,
+      heartbeatInterval: 1000,
+      allowRemoteExecution: true,
+    });
+    await runtime.start();
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${hubServer.port}/api/v1/nodes/${tokenResponse.nodeId}/stream`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${hubServer.adminToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ type: 'chat', input: { message: 'hello-stream' } }),
+        }
+      );
+      expect(response.ok).toBe(true);
+      const text = await response.text();
+      expect(text).toContain('hello-stream');
+      expect(text).toContain('"type":"text"');
+    } finally {
+      await runtime.stop();
+    }
+  });
 });

@@ -65,6 +65,14 @@ describe('static handler', () => {
     expect(text).toBe('<html></html>');
   });
 
+  it('does not SPA-fallback DevTools or missing asset paths', async () => {
+    const json = await fetch(`${url}/json/version`);
+    expect(json.status).toBe(404);
+
+    const asset = await fetch(`${url}/missing.js`);
+    expect(asset.status).toBe(404);
+  });
+
   it('skips /api/* and /ws paths', async () => {
     const apiResponse = await fetch(`${url}/api/foo`);
     expect(apiResponse.status).toBe(404);

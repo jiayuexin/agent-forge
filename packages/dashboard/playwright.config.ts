@@ -37,9 +37,11 @@ export default defineConfig({
   webServer: {
     // build:web runs in package.json test:e2e / CI `pnpm build` before Playwright.
     command: 'pnpm exec tsx e2e/start-e2e-env.ts',
-    url: `${e2eBaseUrl}/api/health`,
+    port: Number(e2ePort),
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
     env: {
       ...process.env,
       AGENTFORGE_ADMIN_TOKEN: process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token',

@@ -154,7 +154,7 @@ test.describe.serial('Dashboard business flow', () => {
     await buttonByLabel(page, '发送').click();
 
     await expect(page.getByText(/mock:/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('请用 markdown 回复')).toBeVisible();
+    await expect(page.getByText('请用 markdown 回复', { exact: true })).toBeVisible();
     await expect(page.getByText('LLM 调用')).toBeVisible();
   });
 
@@ -210,6 +210,7 @@ test.describe.serial('Dashboard business flow', () => {
     const tokens = (await listed.json()) as Array<{ id: string }>;
     expect(tokens.some((item) => item.id === tokenBody.tokenId)).toBe(true);
 
+    await login(page);
     const capabilityId = `e2e-delete-${Date.now()}`;
     await createCapability(page, capabilityId, 'E2E Delete Tool');
     const deleted = await request.delete(`/api/v1/capabilities/${capabilityId}`, {

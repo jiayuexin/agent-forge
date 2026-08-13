@@ -22,13 +22,7 @@ WORKDIR /app
 RUN addgroup --system agentforge && adduser --system --ingroup agentforge agentforge
 RUN mkdir -p /data && chown agentforge:agentforge /data
 
-COPY --from=builder /app/packages/cli/dist ./packages/cli/dist
-COPY --from=builder /app/packages/core/dist ./packages/core/dist
-COPY --from=builder /app/packages/sdk/dist ./packages/sdk/dist
-COPY --from=builder /app/packages/runtime-client/dist ./packages/runtime-client/dist
-COPY --from=builder /app/packages/types/dist ./packages/types/dist
-COPY --from=builder /app/packages/http-server/dist ./packages/http-server/dist
-COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
+COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-lock.yaml ./

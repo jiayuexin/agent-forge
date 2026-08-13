@@ -152,6 +152,30 @@ describe('DebugServer', () => {
     }
   });
 
+  it('writes an SSE error event when the agent stream throws', async () => {
+    agent = new MockAgent({
+      streamHandler: async function* () {
+        yield { type: 'text', content: 'partial', index: 0 };
+        throw new Error('stream exploded');
+      },
+    });
+    const { server, port } = await startTestServer(agent);
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-debug' },
+        body: JSON.stringify({ type: 'chat', input: { message: 'hello' } }),
+      });
+      expect(response.status).toBe(200);
+      const text = await response.text();
+      expect(text).toContain('partial');
+      expect(text).toContain('stream exploded');
+      expect(text).toContain('"type":"error"');
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('rejects invalid execute body', async () => {
     const { server, port } = await startTestServer(agent);
     try {

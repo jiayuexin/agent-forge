@@ -186,6 +186,34 @@ describe('Hub protocol integration', () => {
     ).toBe(false);
     await runtime.stop();
   });
+
+  it('fails a node stream quickly when the agent returns an error', async () => {
+    hubServer = await startTestHub();
+    const { runtime, nodeId } = await connectRuntime(hubServer);
+    runtime.onTask(async () => {
+      throw new Error('stream-handler-failed');
+    });
+    try {
+      const started = Date.now();
+      const response = await fetch(
+        `http://127.0.0.1:${hubServer.port}/api/v1/nodes/${nodeId}/stream`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${hubServer.adminToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ type: 'chat', input: { message: 'x' } }),
+        }
+      );
+      const text = await response.text();
+      expect(Date.now() - started).toBeLessThan(5_000);
+      expect(response.status).toBe(200);
+      expect(text).toContain('stream-handler-failed');
+    } finally {
+      await runtime.stop();
+    }
+  });
 });
 
 async function waitUntil(predicate: () => boolean, timeoutMs = 4000): Promise<void> {

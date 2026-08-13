@@ -1,64 +1,81 @@
-import { AgentRuntimeClient } from '@agentforge/runtime-client';
-import { createE2EClientAgent, E2E_NODE_NAME } from './fixtures/e2e-agent.js';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const adminToken = process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token';
-/** Must match packages/dashboard/playwright.config.ts default. */
-const e2ePort = process.env.AGENTFORGE_E2E_PORT ?? '8091';
-const hubUrl = `http://127.0.0.1:${e2ePort}`;
+const dashboardDir = join(fileURLToPath(import.meta.url), '..', '..');
+const E2E_NODE_NAME = 'E2E ClientAgent';
 
-async function waitForHealth(timeoutMs = 120_000): Promise<void> {
+export default async function globalSetup(): Promise<void> {
+  const adminToken = process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token';
+  const e2ePort = process.env.AGENTFORGE_E2E_PORT ?? '8091';
+  const hubUrl = `http://127.0.0.1:${e2ePort}`;
+  const dataDir = process.env.AGENTFORGE_DATA_DIR ?? join(dashboardDir, '.agentforge', 'e2e-hub');
+
+  let hubReady = false;
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < 120_000) {
     try {
-      const response = await fetch(`${hubUrl}/api/v1/health`);
-      if (response.ok) return;
+      const response = await fetch(`${hubUrl}/api/v1/health`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (response.ok) {
+        hubReady = true;
+        break;
+      }
     } catch {
       // Hub not ready yet
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`Hub health check timed out at ${hubUrl}`);
-}
-
-export default async function globalSetup(): Promise<void> {
-  console.log(`E2E globalSetup: waiting for hub at ${hubUrl}`);
-  await waitForHealth();
-  console.log('E2E globalSetup: hub healthy, creating node token');
-
-  const tokenResponse = await fetch(`${hubUrl}/api/v1/admin/tokens`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${adminToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ nodeName: E2E_NODE_NAME, role: 'node' }),
-  });
-
-  if (!tokenResponse.ok) {
-    throw new Error(`Failed to create node token: ${tokenResponse.status}`);
+  if (!hubReady) {
+    throw new Error(`E2E globalSetup timed out waiting for hub at ${hubUrl}`);
   }
 
-  const tokenData = (await tokenResponse.json()) as { token: string; nodeId: string };
-  const agent = createE2EClientAgent({ id: tokenData.nodeId, name: E2E_NODE_NAME });
-  const runtimeClient = new AgentRuntimeClient(agent, {
-    hubUrl,
-    websocketUrl: hubUrl.replace(/^http/, 'ws'),
-    authToken: tokenData.token,
-    nodeName: agent.name,
-    heartbeatInterval: 5000,
-    allowRemoteExecution: true,
-    reconnect: { enabled: true, maxAttempts: 30, delayMs: 200, backoffMultiplier: 1 },
-  });
+  const runtimeProcess: ChildProcess = spawn(
+    process.execPath,
+    [join(dashboardDir, 'node_modules', 'tsx', 'dist', 'cli.mjs'), 'e2e/start-e2e-runtime.ts'],
+    {
+      cwd: dashboardDir,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        AGENTFORGE_ADMIN_TOKEN: adminToken,
+        AGENTFORGE_E2E_PORT: e2ePort,
+        AGENTFORGE_DATA_DIR: dataDir,
+      },
+    }
+  );
 
-  runtimeClient.on('error', (error) => {
-    console.error('E2E runtime error', error);
-  });
+  if (!runtimeProcess.pid) {
+    throw new Error('Failed to spawn E2E ClientAgent runtime');
+  }
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(join(dataDir, 'e2e-runtime.pid'), String(runtimeProcess.pid));
 
-  console.log('E2E globalSetup: starting ClientAgent runtime');
-  await runtimeClient.start();
+  const nodeWaitStarted = Date.now();
+  while (Date.now() - nodeWaitStarted < 60_000) {
+    try {
+      const response = await fetch(`${hubUrl}/api/v1/nodes`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        signal: AbortSignal.timeout(2000),
+      });
+      if (response.ok) {
+        const nodes = (await response.json()) as Array<{ name: string }>;
+        if (nodes.some((node) => node.name === E2E_NODE_NAME)) {
+          console.log('E2E ClientAgent runtime connected');
+          return;
+        }
+      }
+    } catch {
+      // Runtime still connecting
+    }
+    if (runtimeProcess.exitCode !== null) {
+      throw new Error(`E2E runtime exited early with code ${runtimeProcess.exitCode}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
 
-  (globalThis as unknown as { __E2E_RUNTIME__: AgentRuntimeClient }).__E2E_RUNTIME__ =
-    runtimeClient;
-
-  console.log('E2E ClientAgent runtime started');
+  runtimeProcess.kill('SIGTERM');
+  throw new Error('E2E ClientAgent did not appear in /api/v1/nodes');
 }

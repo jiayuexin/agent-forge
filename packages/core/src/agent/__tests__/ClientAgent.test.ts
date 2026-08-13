@@ -201,6 +201,20 @@ describe('ClientAgent', () => {
     expect(agent.status).toBe(AgentStatus.DAEMON_RUNNING);
   });
 
+  it('streams while the daemon is running and returns to daemon-running', async () => {
+    const agent = new ClientAgent(clientConfig);
+    await agent.init();
+    await agent.startDaemon();
+    const chunks: string[] = [];
+    for await (const chunk of agent.stream({ type: 'test', input: { message: 'hello' } })) {
+      if (chunk.type === 'text') {
+        chunks.push(chunk.content ?? '');
+      }
+    }
+    expect(chunks.join('')).toContain('mock: {"message":"hello"}');
+    expect(agent.status).toBe(AgentStatus.DAEMON_RUNNING);
+  });
+
   it('executes a handler supplied by the dynamic tool provider', async () => {
     const handler = vi.fn().mockResolvedValue('dynamic-result');
     const dynamicTool: ToolDefinition = {

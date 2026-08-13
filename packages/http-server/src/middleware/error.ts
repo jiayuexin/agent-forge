@@ -7,7 +7,12 @@ export interface HttpError {
   statusCode?: number;
 }
 
-export function createHttpError(code: string, message: string, statusCode = 500, details?: unknown): HttpError {
+export function createHttpError(
+  code: string,
+  message: string,
+  statusCode = 500,
+  details?: unknown
+): HttpError {
   return { code, message, statusCode, details };
 }
 
@@ -28,7 +33,11 @@ export function handleError(error: unknown, event: H3Event): { error: HttpError 
     httpError = error;
   } else if (isHttpError((error as Error & { cause?: unknown })?.cause)) {
     httpError = (error as Error & { cause: HttpError }).cause;
-  } else if (error instanceof Error && 'statusCode' in error && typeof error.statusCode === 'number') {
+  } else if (
+    error instanceof Error &&
+    'statusCode' in error &&
+    typeof error.statusCode === 'number'
+  ) {
     const wrapped = error as Error & { statusCode: number; data?: { error?: HttpError } };
     httpError = wrapped.data?.error ?? {
       code: 'REQUEST_ERROR',
@@ -41,9 +50,18 @@ export function handleError(error: unknown, event: H3Event): { error: HttpError 
     httpError = { code: 'INTERNAL_ERROR', message: String(error), statusCode: 500 };
   }
 
-  event.node.res.statusCode = httpError.statusCode ?? 500;
-  event.node.res.setHeader('Content-Type', 'application/json');
-  event.node.res.end(JSON.stringify({ error: httpError }));
-  (event as H3Event & { _handled?: boolean })._handled = true;
+  if (event.node.res.headersSent || event.node.res.writableEnded) {
+    return { error: httpError };
+  }
+  try {
+    event.node.res.statusCode = httpError.statusCode ?? 500;
+    event.node.res.setHeader('Content-Type', 'application/json');
+    event.node.res.end(JSON.stringify({ error: httpError }));
+    (event as H3Event & { _handled?: boolean })._handled = true;
+  } catch (writeError) {
+    if ((writeError as NodeJS.ErrnoException).code !== 'ERR_HTTP_HEADERS_SENT') {
+      throw writeError;
+    }
+  }
   return { error: httpError };
 }

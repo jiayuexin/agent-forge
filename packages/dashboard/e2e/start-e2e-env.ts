@@ -9,6 +9,8 @@ const e2ePort = process.env.AGENTFORGE_E2E_PORT ?? '8091';
 process.env.AGENTFORGE_HOST = process.env.AGENTFORGE_HOST ?? '127.0.0.1';
 process.env.AGENTFORGE_PORT = process.env.AGENTFORGE_PORT ?? e2ePort;
 
+console.error(`E2E Hub starting on ${process.env.AGENTFORGE_HOST}:${process.env.AGENTFORGE_PORT}`);
+
 const hubProcess: ChildProcess = spawn(
   process.execPath,
   [join(dashboardDir, 'node_modules', 'tsx', 'dist', 'cli.mjs'), 'server/start.ts'],

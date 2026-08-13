@@ -1,10 +1,11 @@
 import { createRouter, eventHandler, getRouterParam } from 'h3';
 import { z } from 'zod';
-import type { AuditLog } from '@agentforge/core';
 import type { Capability, DistributeCapabilityRequest } from '@agentforge/types';
 import { createHttpError, readValidatedBody } from '@agentforge/http-server';
 import type { CapabilityStore } from '../services/CapabilityStore.js';
 import type { NodeRegistry } from '../services/NodeRegistry.js';
+import { actorFromAuth, requireAdmin, requireRoles } from '../middleware/auth.js';
+import type { RepositoryAuditLog } from '../storage/RepositoryAuditLog.js';
 
 const jsonSchema = z.record(z.unknown());
 const exampleValue = z.union([
@@ -80,18 +81,22 @@ const distributeSchema = z.object({
 export function createCapabilitiesRoute(
   store: CapabilityStore,
   registry: NodeRegistry,
-  auditLog?: AuditLog
+  auditLog?: RepositoryAuditLog
 ) {
   const router = createRouter();
 
   router.get(
     '/',
-    eventHandler(() => store.list())
+    eventHandler((event) => {
+      requireRoles(event, ['admin', 'readonly']);
+      return store.list();
+    })
   );
 
   router.post(
     '/',
     eventHandler(async (event) => {
+      requireAdmin(event);
       const body = await readValidatedBody(event, capabilitySchema);
       await store.create(body);
       return { success: true };
@@ -101,6 +106,7 @@ export function createCapabilitiesRoute(
   router.get(
     '/:id',
     eventHandler((event) => {
+      requireRoles(event, ['admin', 'readonly']);
       const id = getRouterParam(event, 'id')!;
       const capability = store.get(id);
       if (!capability) {
@@ -113,6 +119,7 @@ export function createCapabilitiesRoute(
   router.put(
     '/:id',
     eventHandler(async (event) => {
+      requireAdmin(event);
       const id = getRouterParam(event, 'id')!;
       const body = await readValidatedBody(event, capabilitySchema);
       await store.update(id, body);
@@ -123,6 +130,7 @@ export function createCapabilitiesRoute(
   router.delete(
     '/:id',
     eventHandler(async (event) => {
+      requireAdmin(event);
       const id = getRouterParam(event, 'id')!;
       await store.delete(id);
       return { success: true };
@@ -132,6 +140,7 @@ export function createCapabilitiesRoute(
   router.get(
     '/:id/versions',
     eventHandler((event) => {
+      requireRoles(event, ['admin', 'readonly']);
       const id = getRouterParam(event, 'id')!;
       return store.versions(id);
     })
@@ -140,6 +149,7 @@ export function createCapabilitiesRoute(
   router.post(
     '/:id/distribute',
     eventHandler(async (event) => {
+      const auth = requireAdmin(event);
       const id = getRouterParam(event, 'id')!;
       const body = await readValidatedBody(event, distributeSchema);
       const capability = store.get(id);
@@ -153,15 +163,18 @@ export function createCapabilitiesRoute(
         targetVersion: request.targetVersion,
       };
       const result = await registry.distribute(request.nodeIds, payload);
+      const failed = Object.values(result).some((item) => item.status === 'failed');
       if (auditLog) {
         await auditLog.record({
           action: 'capability-distribute',
+          actor: actorFromAuth(auth),
           resource: id,
-          outcome: 'success',
+          outcome: failed ? 'failure' : 'success',
           details: {
             nodeIds: request.nodeIds,
             distributeAction: request.action,
             targetVersion: request.targetVersion,
+            result,
           },
         });
       }

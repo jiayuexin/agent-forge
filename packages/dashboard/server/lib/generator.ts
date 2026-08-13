@@ -4,12 +4,15 @@ import {
   PromptBuilder,
   SkillMatcher,
   TemplateEngine,
+  registerDefaultSkillCatalog,
 } from '@agentforge/core';
 
 export function createGenerator(): AgentGenerator {
+  const skillMatcher = new SkillMatcher();
+  registerDefaultSkillCatalog(skillMatcher);
   return new AgentGenerator(
     new PromptBuilder(),
-    new SkillMatcher(),
+    skillMatcher,
     new TemplateEngine(),
     new CodeEmitter()
   );

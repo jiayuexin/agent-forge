@@ -33,7 +33,7 @@ describe('static handler', () => {
     writeFileSync(join(staticDir, 'index.html'), '<html></html>');
     writeFileSync(join(staticDir, 'app.js'), 'console.log("hello");');
 
-    routeServer = await startRouteServer(createStaticHandler({ staticDir }));
+    routeServer = await startRouteServer(createStaticHandler({ staticDir }), '/', null);
     url = routeServer.url;
   });
 

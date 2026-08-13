@@ -96,7 +96,14 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
   }
 
   async execute(task: AgentTask): Promise<AgentResult> {
-    this.lifecycle.assertStatus(Status.READY);
+    if (this.status !== Status.READY && this.status !== Status.DAEMON_RUNNING) {
+      throw new CoreError(
+        'UNEXPECTED_STATUS',
+        `Expected status ${Status.READY} or ${Status.DAEMON_RUNNING} but got ${this.status}`
+      );
+    }
+    const resumeStatus =
+      this.status === Status.DAEMON_RUNNING ? Status.DAEMON_RUNNING : Status.READY;
     this.lifecycle.transition(Status.RUNNING);
 
     try {
@@ -104,7 +111,7 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
       const processedTask = await this.middlewareChain.runBefore(task);
       const result = await this.doExecute(processedTask);
       const processedResult = await this.middlewareChain.runAfter(result, processedTask);
-      this.lifecycle.transition(Status.READY);
+      this.lifecycle.transition(resumeStatus);
       await this.emit('agent:execute:end', processedResult);
       return processedResult;
     } catch (error) {
@@ -112,7 +119,7 @@ export abstract class BaseAgent<TConfig extends AgentConfig = AgentConfig>
       await this.emit('agent:error', error);
       try {
         const recovered = await this.middlewareChain.runOnError(error as Error, task);
-        this.lifecycle.transition(Status.READY);
+        this.lifecycle.transition(resumeStatus);
         return recovered;
       } catch {
         throw error;

@@ -1,10 +1,10 @@
 import { writeFileSync } from 'node:fs';
 import { AgentRuntimeClient } from '@agentforge/runtime-client';
-import { createE2EMockAgent } from './mock-agent.js';
+import { createE2EClientAgent, E2E_NODE_NAME } from './e2e-agent.js';
 
 const hubUrl = process.env.AGENTFORGE_HUB_URL ?? 'http://localhost:8080';
 const authToken = process.env.E2E_NODE_TOKEN;
-const nodeId = process.env.E2E_NODE_ID ?? 'e2e-mock-agent';
+const nodeId = process.env.E2E_NODE_ID ?? 'e2e-client-agent';
 const pidFile = process.env.E2E_MOCK_RUNTIME_PID_FILE;
 
 if (!authToken) {
@@ -12,7 +12,7 @@ if (!authToken) {
   process.exit(1);
 }
 
-const agent = createE2EMockAgent({ id: nodeId, name: 'E2E Mock Node' });
+const agent = createE2EClientAgent({ id: nodeId, name: E2E_NODE_NAME });
 const client = new AgentRuntimeClient(agent, {
   hubUrl,
   websocketUrl: hubUrl.replace(/^http/, 'ws'),
@@ -20,13 +20,14 @@ const client = new AgentRuntimeClient(agent, {
   nodeName: agent.name,
   heartbeatInterval: 5000,
   allowRemoteExecution: true,
+  reconnect: { enabled: true, maxAttempts: 30, delayMs: 200, backoffMultiplier: 1 },
 });
 
 await client.start();
-console.log(`Mock runtime connected as ${nodeId}`);
+console.log(`E2E ClientAgent connected as ${nodeId}`);
 
 client.on('error', (error) => {
-  console.error('Mock runtime error', error);
+  console.error('E2E runtime error', error);
 });
 
 if (pidFile) {

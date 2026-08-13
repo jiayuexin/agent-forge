@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createHubAuditReporter } from '../src/HubAuditReporter.js';
 
 describe('createHubAuditReporter', () => {
-  it('POSTs AuditEvent to Hub /api/audit with Bearer token', async () => {
+  it('POSTs AuditEvent to Hub /api/v1/audit with Bearer token', async () => {
     const fetchImpl = vi.fn(
       async () => new Response(JSON.stringify({ success: true }), { status: 200 })
     );
@@ -20,7 +20,7 @@ describe('createHubAuditReporter', () => {
       details: { tool: 'echo-cmd' },
     });
 
-    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:8080/api/audit', {
+    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:8080/api/v1/audit', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

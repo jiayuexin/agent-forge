@@ -8,8 +8,8 @@ importers:
   .:
     devDependencies:
       '@types/node':
-        specifier: ^20.12.0
-        version: 20.12.0
+        specifier: ^22.15.0
+        version: 22.15.0
       '@vitest/coverage-v8':
         specifier: ^2.1.0
         version: 2.1.0(vitest@2.1.0)
@@ -42,7 +42,7 @@ importers:
         version: 8.0.0(eslint@9.0.0)(typescript@5.4.2)
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/cli:
     dependencies:
@@ -79,7 +79,7 @@ importers:
         version: 5.4.2
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/core:
     dependencies:
@@ -100,7 +100,13 @@ importers:
         version: 0.5.0
       openai:
         specifier: ^4.70.0
-        version: 4.70.0
+        version: 4.70.0(zod@3.23.0)
+      typescript:
+        specifier: ^5.4.0
+        version: 5.4.2
+      zod:
+        specifier: ^3.23.0
+        version: 3.23.0
     devDependencies:
       '@types/ejs':
         specifier: ^3.1.0
@@ -108,12 +114,9 @@ importers:
       tsup:
         specifier: ^8.0.0
         version: 8.0.0(postcss@8.5.15)(typescript@5.4.2)
-      typescript:
-        specifier: ^5.4.0
-        version: 5.4.2
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/dashboard:
     dependencies:
@@ -123,12 +126,6 @@ importers:
       '@agentforge/http-server':
         specifier: workspace:*
         version: link:../http-server
-      '@agentforge/runtime-client':
-        specifier: workspace:*
-        version: link:../runtime-client
-      '@agentforge/sdk':
-        specifier: workspace:*
-        version: link:../sdk
       '@agentforge/types':
         specifier: workspace:*
         version: link:../types
@@ -138,6 +135,9 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.6.0
         version: 4.6.0(monaco-editor@0.50.0)(react-dom@18.3.1)(react@18.3.1)
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
       antd:
         specifier: ^5.21.0
         version: 5.21.0(react-dom@18.3.1)(react@18.3.1)
@@ -199,6 +199,9 @@ importers:
         specifier: ^4.5.0
         version: 4.5.0(@types/react@18.3.0)(react@18.3.1)
     devDependencies:
+      '@agentforge/runtime-client':
+        specifier: workspace:*
+        version: link:../runtime-client
       '@playwright/test':
         specifier: ^1.47.0
         version: 1.47.0
@@ -209,8 +212,8 @@ importers:
         specifier: ^16.0.0
         version: 16.0.0(@testing-library/dom@10.4.1)(@types/react-dom@18.3.0)(@types/react@18.3.0)(react-dom@18.3.1)(react@18.3.1)
       '@types/node':
-        specifier: ^20.12.0
-        version: 20.12.0
+        specifier: ^22.15.0
+        version: 22.15.0
       '@types/react':
         specifier: ^18.3.0
         version: 18.3.0
@@ -243,10 +246,10 @@ importers:
         version: 5.4.2
       vite:
         specifier: ^5.4.0
-        version: 5.4.21(@types/node@20.12.0)
+        version: 5.4.21(@types/node@22.15.0)
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/http-server:
     dependencies:
@@ -280,7 +283,7 @@ importers:
         version: 5.4.2
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/runtime-client:
     dependencies:
@@ -305,7 +308,7 @@ importers:
         version: 5.4.2
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/sdk:
     dependencies:
@@ -324,7 +327,7 @@ importers:
         version: 5.4.2
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
   packages/types:
     devDependencies:
@@ -336,7 +339,7 @@ importers:
         version: 5.4.2
       vitest:
         specifier: ^2.1.0
-        version: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+        version: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
 
 packages:
   /@adobe/css-tools@4.5.0:
@@ -2660,6 +2663,14 @@ packages:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
+  /@opentelemetry/api@1.9.0:
+    resolution:
+      {
+        integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==,
+      }
+    engines: { node: '>=8.0.0' }
+    dev: false
+
   /@pkgjs/parseargs@0.11.0:
     resolution:
       {
@@ -3287,7 +3298,7 @@ packages:
         integrity: sha512-QGpRVpzSaUs30JBSGPjOg4Uveu384erbHBoT1zeONvyCfwQxIkUshLAOqN/k9EjGviPRmWTTe6aH2qySWKTVSw==,
       }
     dependencies:
-      '@types/node': 20.12.0
+      '@types/node': 22.20.1
       form-data: 4.0.6
     dev: false
 
@@ -3300,13 +3311,23 @@ packages:
       undici-types: 5.26.5
     dev: false
 
-  /@types/node@20.12.0:
+  /@types/node@22.15.0:
     resolution:
       {
-        integrity: sha512-jVC7fWX1Did5TNn8mmGsE81mdyv+7a+nHNlUiNVys8G392CfNfhqAVRd+cuY0+OBU2vN6GzpiRX/MgJ9b3rtpQ==,
+        integrity: sha512-99S8dWD2DkeE6PBaEDw+In3aar7hdoBvjyJMR6vaKBTzpvR0P00ClzJMOoVrj9D2+Sy/YCwACYHnBTpMhg1UCA==,
       }
     dependencies:
-      undici-types: 5.26.5
+      undici-types: 6.21.0
+    dev: true
+
+  /@types/node@22.20.1:
+    resolution:
+      {
+        integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==,
+      }
+    dependencies:
+      undici-types: 6.21.0
+    dev: false
 
   /@types/prop-types@15.7.15:
     resolution:
@@ -3352,7 +3373,7 @@ packages:
         integrity: sha512-mTClfhq5cuGyW4jthaFuig6Q8OVfB3IRyZfN/9SCyJtiM5H0SubwM89cHoT9UngO6HyUFic88HvT1zSNLNyxWA==,
       }
     dependencies:
-      '@types/node': 20.12.0
+      '@types/node': 22.15.0
     dev: true
 
   /@typescript-eslint/eslint-plugin@8.0.0(@typescript-eslint/parser@8.0.0)(eslint@9.0.0)(typescript@5.4.2):
@@ -3526,7 +3547,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.2
-      vite: 5.4.21(@types/node@20.12.0)
+      vite: 5.4.21(@types/node@22.15.0)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -3555,7 +3576,7 @@ packages:
       std-env: 3.10.0
       test-exclude: 7.0.2
       tinyrainbow: 1.2.0
-      vitest: 2.1.0(@types/node@20.12.0)(jsdom@25.0.0)
+      vitest: 2.1.0(@types/node@22.15.0)(jsdom@25.0.0)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -3590,7 +3611,7 @@ packages:
       '@vitest/spy': 2.1.0
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 5.4.21(@types/node@20.12.0)
+      vite: 5.4.21(@types/node@22.15.0)
     dev: true
 
   /@vitest/pretty-format@2.1.0:
@@ -7185,7 +7206,7 @@ packages:
       mimic-function: 5.0.1
     dev: true
 
-  /openai@4.70.0:
+  /openai@4.70.0(zod@3.23.0):
     resolution:
       {
         integrity: sha512-Hz8lRAH2oXBG9ct0mssSag/iJz9vrH+k6hSl3enwwtnJz5x9sCaBmWNcYYTsPmkz3GmgUUD102GRrWWBbufqFQ==,
@@ -7204,6 +7225,7 @@ packages:
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
       node-fetch: 2.7.0
+      zod: 3.23.0
     transitivePeerDependencies:
       - encoding
     dev: false
@@ -9816,7 +9838,6 @@ packages:
       }
     engines: { node: '>=14.17' }
     hasBin: true
-    dev: true
 
   /ufo@1.6.4:
     resolution:
@@ -9836,6 +9857,13 @@ packages:
     resolution:
       {
         integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==,
+      }
+    dev: false
+
+  /undici-types@6.21.0:
+    resolution:
+      {
+        integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==,
       }
 
   /unenv@1.10.0:
@@ -9991,7 +10019,7 @@ packages:
       vfile-message: 4.0.3
     dev: false
 
-  /vite-node@2.1.0(@types/node@20.12.0):
+  /vite-node@2.1.0(@types/node@22.15.0):
     resolution:
       {
         integrity: sha512-+ybYqBVUjYyIscoLzMWodus2enQDZOpGhcU6HdOVD6n8WZdk12w1GFL3mbnxLs7hPtRtqs1Wo5YF6/Tsr6fmhg==,
@@ -10002,7 +10030,7 @@ packages:
       cac: 6.7.14
       debug: 4.4.3
       pathe: 1.1.2
-      vite: 5.4.21(@types/node@20.12.0)
+      vite: 5.4.21(@types/node@22.15.0)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -10015,7 +10043,7 @@ packages:
       - terser
     dev: true
 
-  /vite@5.4.21(@types/node@20.12.0):
+  /vite@5.4.21(@types/node@22.15.0):
     resolution:
       {
         integrity: sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw==,
@@ -10049,7 +10077,7 @@ packages:
       terser:
         optional: true
     dependencies:
-      '@types/node': 20.12.0
+      '@types/node': 22.15.0
       esbuild: 0.21.5
       postcss: 8.5.15
       rollup: 4.62.2
@@ -10057,7 +10085,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vitest@2.1.0(@types/node@20.12.0)(jsdom@25.0.0):
+  /vitest@2.1.0(@types/node@22.15.0)(jsdom@25.0.0):
     resolution:
       {
         integrity: sha512-XuuEeyNkqbfr0FtAvd9vFbInSSNY1ykCQTYQ0sj9wPy4hx+1gR7gqVNdW0AX2wrrM1wWlN5fnJDjF9xG6mYRSQ==,
@@ -10085,7 +10113,7 @@ packages:
       jsdom:
         optional: true
     dependencies:
-      '@types/node': 20.12.0
+      '@types/node': 22.15.0
       '@vitest/expect': 2.1.0
       '@vitest/mocker': 2.1.0(@vitest/spy@2.1.0)(vite@5.4.21)
       '@vitest/pretty-format': 2.1.9
@@ -10103,8 +10131,8 @@ packages:
       tinyexec: 0.3.2
       tinypool: 1.1.1
       tinyrainbow: 1.2.0
-      vite: 5.4.21(@types/node@20.12.0)
-      vite-node: 2.1.0(@types/node@20.12.0)
+      vite: 5.4.21(@types/node@22.15.0)
+      vite-node: 2.1.0(@types/node@22.15.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - less

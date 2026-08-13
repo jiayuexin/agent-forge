@@ -97,7 +97,7 @@ describe('audit route', () => {
     expect(body.total).toBe(1);
     expect(body.items[0]).toMatchObject({
       action: 'local-command',
-      actor: 'node-1',
+      actor: 'admin',
       resource: 'ls',
       outcome: 'success',
     });
@@ -153,7 +153,7 @@ describe('Hub audit integration', () => {
     expect(result.items[0]).toMatchObject({
       action: 'capability-distribute',
       resource: 'cap-audit',
-      outcome: 'success',
+      outcome: 'failure',
     });
   });
 });

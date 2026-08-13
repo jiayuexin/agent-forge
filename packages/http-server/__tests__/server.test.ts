@@ -21,7 +21,7 @@ describe('DebugServer', () => {
     const { server, port } = await startTestServer(agent);
     try {
       const result = await requestJson(port, '/api/health');
-      expect(result).toEqual({ status: 'ok' });
+      expect(result).toMatchObject({ status: 'ok' });
     } finally {
       await server.stop();
     }
@@ -140,7 +140,7 @@ describe('DebugServer', () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-debug' },
         body: JSON.stringify({ type: 'chat', input: { message: 'hello' } }),
       });
       const text = await response.text();
@@ -157,7 +157,7 @@ describe('DebugServer', () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-debug' },
         body: JSON.stringify({}),
       });
       expect(response.status).toBe(400);

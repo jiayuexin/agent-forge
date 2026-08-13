@@ -1,10 +1,10 @@
 import type { AgentRuntimeClient } from '@agentforge/runtime-client';
 
 export default async function globalTeardown(): Promise<void> {
-  const mockRuntime = (globalThis as unknown as { __MOCK_RUNTIME__?: AgentRuntimeClient })
-    .__MOCK_RUNTIME__;
-  if (mockRuntime) {
-    await mockRuntime.stop();
-    console.log('Mock runtime stopped');
+  const runtime = (globalThis as unknown as { __E2E_RUNTIME__?: AgentRuntimeClient })
+    .__E2E_RUNTIME__;
+  if (runtime) {
+    await runtime.stop();
+    console.log('E2E ClientAgent runtime stopped');
   }
 }

@@ -716,17 +716,18 @@ Capability Hub Server     Agent Node 1          Agent Node 2
 
 ### 10.1 存储策略
 
-| 数据               | 存储方式                         | 说明                          |
-| ------------------ | -------------------------------- | ----------------------------- |
-| ClientAgent 元数据 | `.agentforge/config.json` 文件   | 每个生成的 ClientAgent 目录下 |
-| 本地安全配置       | `.agentforge/security.json` 文件 | 每个 ClientAgent 目录下       |
-| 能力缓存           | `.agentforge/capabilities/` 目录 | 每个 ClientAgent 目录下       |
-| 执行记录           | 内存                             | Capability Hub 运行时         |
-| 调试会话           | 内存                             | 调试台会话期间                |
-| 调用链路           | 内存（可导出）                   | 每次调试的追踪数据            |
-| 节点注册表         | 内存（Hub 进程内）               | 重启后 ClientAgent 重新注册   |
+| 数据               | 存储方式                         | 说明                              |
+| ------------------ | -------------------------------- | --------------------------------- |
+| ClientAgent 元数据 | `.agentforge/config.json` 文件   | 每个生成的 ClientAgent 目录下     |
+| 本地安全配置       | `.agentforge/security.json` 文件 | 每个 ClientAgent 目录下           |
+| 能力缓存           | `.agentforge/capabilities/` 目录 | 每个 ClientAgent 目录下           |
+| 执行记录           | 内存                             | Capability Hub 运行时             |
+| 调试会话           | 内存                             | 调试台会话期间                    |
+| 调用链路           | 内存（可导出）                   | 每次调试的追踪数据                |
+| 节点注册表         | 内存（Hub 进程内）               | 重启后 ClientAgent 重新注册       |
+| Hub 业务状态       | SQLite（`node:sqlite`）          | Token、能力、审计、任务、生成记录 |
 
-> 不引入数据库，所有数据存储以文件和内存为主。后续可考虑 SQLite / Redis。
+> Capability Hub 使用 SQLite（Node.js 内置 `node:sqlite`）持久化业务状态。节点在线会话仍在进程内存中，重启后 ClientAgent 重新注册。暂不引入 Redis / 多实例共享存储。
 
 ---
 
@@ -1381,11 +1382,11 @@ AgentError（统一错误结构）
 
 **可选存储后端：**
 
-| 后端                     | 适用场景       | 依赖             |
-| ------------------------ | -------------- | ---------------- |
-| 文件（JSON）             | 最简，单机开发 | 无               |
-| SQLite（better-sqlite3） | 推荐，单机生产 | `better-sqlite3` |
-| Redis                    | 分布式部署     | `ioredis`        |
+| 后端                    | 适用场景       | 依赖         |
+| ----------------------- | -------------- | ------------ |
+| 文件（JSON）            | 最简，单机开发 | 无           |
+| SQLite（`node:sqlite`） | 推荐，单机生产 | Node.js ≥ 22 |
+| Redis                   | 分布式部署     | `ioredis`    |
 
 **统一接口：**
 

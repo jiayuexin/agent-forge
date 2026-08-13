@@ -39,7 +39,7 @@ export async function createCapability(page: Page, id: string, name: string): Pr
   await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().includes('/api/capabilities') &&
+        response.url().includes('/api/v1/capabilities') &&
         response.request().method() === 'POST' &&
         response.ok()
     ),

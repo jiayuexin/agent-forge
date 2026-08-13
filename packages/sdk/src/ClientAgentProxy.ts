@@ -3,12 +3,10 @@ import type {
   AgentStreamChunk,
   AgentTask,
   IClientAgentProxy,
+  RemoteAgentInvoker,
 } from '@agentforge/types';
 
-export interface RemoteAgentInvoker {
-  execute(nodeId: string, task: AgentTask): Promise<AgentResult>;
-  stream?(nodeId: string, task: AgentTask): AsyncIterable<AgentStreamChunk>;
-}
+export type { RemoteAgentInvoker } from '@agentforge/types';
 
 export class ClientAgentProxy implements IClientAgentProxy {
   readonly nodeId: string;

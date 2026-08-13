@@ -3,9 +3,13 @@
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 部署手册
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.7
-> **最后更新**: 2026-07-16
-> **实现状态**: 已完成
+> **文档版本**: docs-v0.8
+> **最后更新**: 2026-08-13
+> **实现状态**: 已实现（单实例自托管）
+
+**v1 发布形态**：单团队、单 Hub 实例、SQLite 持久化。推荐路径是本地 CLI 或 `docker compose up`。多副本 Kubernetes / HPA / Redis / NATS **不是** v1 范围，下文 K8s 章节仅作远期参考，不要按生产指南执行。
+
+首版 SLO（单实例）：Hub 可用性 99.5%；远程任务成功率 ≥99%；非 LLM 控制面 p95 <200ms；审计写入成功率 100%。应对权限拒绝、任务堆积、数据库错误和节点反复重连配置告警（Prometheus 指标：`hub_auth_failures_total`、`hub_tasks_unknown_total`、`hub_db_errors_total`、`hub_node_reconnects_total`）。
 
 ## 目录
 
@@ -41,7 +45,7 @@
 
 ### 必需
 
-- Node.js ≥ 18.0.0
+- Node.js ≥ 22.0.0（Hub 使用内置 `node:sqlite`）
 - 至少一个 LLM Provider 的 API Key
 
 ### 可选
@@ -106,79 +110,33 @@ npx pkg ./dist/main.js --targets node18-linux-x64,node18-macos-x64,node18-win-x6
 
 ## 模式二：Capability Hub Docker 部署
 
-### Dockerfile 示例
+仓库根目录已提供 `Dockerfile` 与 `docker-compose.yml`。镜像以非 root 用户运行，持久化目录为 `/data`（`VOLUME`），健康检查为 `GET /api/v1/health`。
 
-```dockerfile
-# Dockerfile
-FROM node:20-slim AS builder
-WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages ./packages
-RUN npm install -g pnpm
-RUN pnpm install --frozen-lockfile
-RUN pnpm run build
-
-FROM node:20-slim
-WORKDIR /app
-COPY --from=builder /app/packages/dashboard/dist ./dashboard/dist
-COPY --from=builder /app/packages/dashboard/server ./server
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/dashboard/package.json ./
-EXPOSE 8080
-CMD ["node", "./server/index.js"]
+```bash
+export AGENTFORGE_ADMIN_TOKEN=replace-me
+docker compose up --build -d
+curl -fsS http://127.0.0.1:8080/api/v1/health
 ```
 
-### 构建镜像
+单独构建：
 
 ```bash
 docker build -t agentforge-hub:0.1.0 .
-```
-
-### 运行 Hub
-
-```bash
-docker run -d \
-  --name agentforge-hub \
-  -p 8080:8080 \
-  -e OPENAI_API_KEY=$OPENAI_API_KEY \
-  -e AGENTFORGE_NODE_TOKEN_SECRET=$AGENTFORGE_NODE_TOKEN_SECRET \
-  -e LOG_LEVEL=info \
+docker run -d --name agentforge-hub -p 8080:8080 \
+  -e AGENTFORGE_ADMIN_TOKEN=replace-me \
+  -e AGENTFORGE_DATA_DIR=/data \
+  -v hub-data:/data \
   agentforge-hub:0.1.0
 ```
 
-### Docker Compose（推荐）
+备份与恢复：
 
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  hub:
-    build: .
-    command: dashboard --port 8080 --host 0.0.0.0
-    ports:
-      - '8080:8080'
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - AGENTFORGE_NODE_TOKEN_SECRET=${AGENTFORGE_NODE_TOKEN_SECRET}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - NODE_ENV=production
-    volumes:
-      - hub-data:/app/data
-      - hub-logs:/app/logs
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/api/health']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-
-volumes:
-  hub-data:
-  hub-logs:
+```bash
+agentforge dashboard backup --out ./hub-backup.sqlite --data-dir .agentforge/hub
+agentforge dashboard restore --from ./hub-backup.sqlite --data-dir .agentforge/hub
 ```
+
+升级时先备份 SQLite，再换镜像；回滚则恢复备份文件后启动旧镜像。
 
 启动：
 
@@ -531,8 +489,15 @@ const result = await framework.orchestrate({
 Capability Hub 管理员使用以下命令生成节点 Token：
 
 ```bash
+export AGENTFORGE_ADMIN_TOKEN=replace-me
 agentforge dashboard token create --node-name "dev-machine-a"
-# 输出：node-token-xxx（一次性显示，需妥善保存）
+# 输出一次性明文 token，Hub 只保存哈希
+```
+
+Hub 未运行时只能用离线初始化，且禁止与在线管理混用：
+
+```bash
+agentforge dashboard token create --offline --data-dir .agentforge/hub --node-name "dev-machine-a"
 ```
 
 Token 轮换：
@@ -646,7 +611,7 @@ function authorizeControlMessage(token: string, message: ControlMessage): boolea
 ### Capability Hub
 
 ```bash
-curl http://localhost:8080/api/health
+curl http://localhost:8080/api/v1/health
 # → {"status":"ok","timestamp":...}
 ```
 

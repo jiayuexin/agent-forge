@@ -1,3 +1,6 @@
+/** Hub 令牌角色 */
+export type HubTokenRole = 'admin' | 'node' | 'readonly';
+
 /** Capability Hub 服务器配置 */
 export interface HubServerConfig {
   /** 监听端口 */
@@ -6,6 +9,8 @@ export interface HubServerConfig {
   host?: string;
   /** 数据持久化目录 */
   dataDir?: string;
+  /** SQLite 数据库路径；默认 `${dataDir}/hub.sqlite` */
+  databasePath?: string;
   /** 管理员令牌；若提供则所有管理接口必须携带 */
   adminToken?: string;
   /** 默认模型注册表 */
@@ -26,8 +31,14 @@ export interface HubToken {
   id: string;
   /** 令牌明文；仅在创建时返回 */
   token?: string;
-  /** 允许的节点 ID；为空表示不限制 */
+  /** 可展示前缀，不含完整密钥 */
+  tokenPrefix?: string;
+  /** 令牌角色 */
+  role: HubTokenRole;
+  /** 允许的节点 ID；node 角色必须非空 */
   nodeIds?: string[];
+  /** 显式权限范围 */
+  scopes?: string[];
   /** 创建时间 */
   createdAt: number;
   /** 过期时间 */
@@ -38,8 +49,10 @@ export interface HubToken {
 
 /** 创建令牌请求 */
 export interface CreateHubTokenRequest {
+  role?: HubTokenRole;
   nodeName?: string;
   nodeIds?: string[];
+  scopes?: string[];
   expiresInHours?: number;
   note?: string;
 }
@@ -48,7 +61,10 @@ export interface CreateHubTokenRequest {
 export interface CreateHubTokenResponse {
   token: string;
   tokenId: string;
-  nodeId: string;
+  tokenPrefix: string;
+  role: HubTokenRole;
+  nodeId?: string;
+  nodeIds: string[];
   expiresAt?: number;
 }
 
@@ -124,8 +140,7 @@ export type NodeStreamRequest = NodeExecuteRequest;
 
 /** 节点配置更新请求 */
 export interface NodeConfigUpdateRequest {
-  allowRemoteExecution?: boolean;
   heartbeatInterval?: number;
-  requireLocalConfirmation?: string[];
   tags?: string[];
+  nodeName?: string;
 }

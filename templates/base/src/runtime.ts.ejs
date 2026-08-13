@@ -8,7 +8,7 @@ export async function connectToHub(agent: ClientAgent, hubUrl: string, token: st
     hubUrl,
     authToken: token,
     nodeName: agent.name,
-    allowRemoteExecution: true,
+    allowRemoteExecution: process.env.AGENTFORGE_ALLOW_REMOTE_EXECUTION === 'true',
     capabilityCacheDir: '.agentforge/capabilities',
   });
   await runtimeClient.start();

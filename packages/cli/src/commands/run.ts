@@ -30,7 +30,7 @@ export function registerRunCommand(program: Command): void {
         authToken: token,
         nodeName: options.nodeName ?? agent.name,
         heartbeatInterval: Number(options.heartbeat),
-        allowRemoteExecution: true,
+        allowRemoteExecution: process.env.AGENTFORGE_ALLOW_REMOTE_EXECUTION === 'true',
         capabilityCacheDir: resolve(clientAgentPath, '.agentforge', 'capabilities'),
       });
 

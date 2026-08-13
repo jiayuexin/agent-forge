@@ -31,9 +31,10 @@ describe('createRuntimeToolAdapters', () => {
       adapters['local-command']!(tool, { cwd: '/workspace', injected: '; rm -rf /' }, context)
     ).resolves.toEqual({ stdout: ' M file.ts\n', stderr: '' });
     expect(agent.authorizeLocalCommand).toHaveBeenCalledWith(tool.endpoint?.target);
-    expect(commandExecutor).toHaveBeenCalledWith('git status --porcelain', {
-      cwd: '/workspace',
-    });
+    expect(commandExecutor).toHaveBeenCalledWith(
+      { executable: 'git', args: ['status', '--porcelain'] },
+      { cwd: '/workspace' }
+    );
   });
 
   it('reports success audit to Hub after local-command execution', async () => {
@@ -165,6 +166,65 @@ describe('createRuntimeToolAdapters', () => {
     expect(adapters['remote-agent']).toBe(remoteAgent);
     expect(adapters['local-command']).toBeTypeOf('function');
     expect(adapters.http).toBeTypeOf('function');
+  });
+
+  it('rejects local-command targets that contain shell metacharacters', async () => {
+    const commandExecutor = vi.fn(async () => ({ stdout: '', stderr: '' }));
+    const adapters = createRuntimeToolAdapters(createAgent(), { commandExecutor });
+    const tool = localCommandTool('echo hello; rm -rf /');
+
+    await expect(adapters['local-command']!(tool, {}, context)).rejects.toMatchObject({
+      code: 'INVALID_TOOL_ENDPOINT',
+    });
+    expect(commandExecutor).not.toHaveBeenCalled();
+  });
+
+  it('rejects cwd values that traverse parent directories', async () => {
+    const commandExecutor = vi.fn(async () => ({ stdout: '', stderr: '' }));
+    const adapters = createRuntimeToolAdapters(createAgent(), { commandExecutor });
+    const tool = localCommandTool('ls');
+
+    await expect(
+      adapters['local-command']!(tool, { cwd: '../etc' }, context)
+    ).rejects.toMatchObject({
+      code: 'INVALID_TOOL_ARGUMENT',
+    });
+    expect(commandExecutor).not.toHaveBeenCalled();
+  });
+
+  it('blocks HTTP tools that target private or metadata addresses', async () => {
+    const fetchImpl = vi.fn();
+    const adapters = createRuntimeToolAdapters(createAgent(), { fetch: fetchImpl });
+    const tool: ToolDefinition = {
+      name: 'metadata',
+      description: 'SSRF probe',
+      parameters: { type: 'object' },
+      endpointType: 'http',
+      endpoint: { target: 'http://169.254.169.254/latest/meta-data', method: 'get' },
+    };
+
+    await expect(adapters.http!(tool, {}, context)).rejects.toMatchObject({
+      code: 'UNSAFE_HTTP_TARGET',
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized HTTP responses', async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response('x'.repeat(64), {
+          headers: { 'content-type': 'text/plain' },
+        })
+    );
+    const adapters = createRuntimeToolAdapters(createAgent(), {
+      fetch: fetchImpl,
+      maxHttpResponseBytes: 8,
+    });
+    const tool = httpTool('get');
+
+    await expect(adapters.http!(tool, {}, context)).rejects.toMatchObject({
+      code: 'HTTP_TOOL_RESPONSE_TOO_LARGE',
+    });
   });
 });
 

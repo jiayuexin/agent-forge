@@ -15,7 +15,6 @@ export default defineConfig({
       exclude: [
         'packages/types/src/**',
         'packages/dashboard/src/**',
-        'packages/cli/src/commands/**',
         'examples/**',
         '**/dist/**',
         '**/node_modules/**',

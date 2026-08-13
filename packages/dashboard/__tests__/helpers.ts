@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createHubServer, type HubServer } from '../server/index.js';
 import type { AgentRuntimeConfig } from '@agentforge/types';
 
@@ -5,12 +8,14 @@ export async function startTestHub(options: { dataDir?: string } = {}): Promise<
   hub: HubServer;
   port: number;
   adminToken: string;
+  dataDir: string;
 }> {
   const adminToken = `test-admin-${Date.now()}`;
+  const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), 'agentforge-hub-'));
   const hub = await createHubServer({
     port: 0,
     host: '127.0.0.1',
-    dataDir: options.dataDir,
+    dataDir,
     adminToken,
   });
 
@@ -25,7 +30,7 @@ export async function startTestHub(options: { dataDir?: string } = {}): Promise<
 
   const address = hub.server.address();
   const port = typeof address === 'object' && address ? address.port : 0;
-  return { hub, port, adminToken };
+  return { hub, port, adminToken, dataDir };
 }
 
 export async function requestJson(
@@ -43,7 +48,10 @@ export async function requestJson(
   return text ? JSON.parse(text) : null;
 }
 
-export function buildRuntimeConfig(port: number, overrides: Partial<AgentRuntimeConfig> = {}): AgentRuntimeConfig {
+export function buildRuntimeConfig(
+  port: number,
+  overrides: Partial<AgentRuntimeConfig> = {}
+): AgentRuntimeConfig {
   return {
     hubUrl: `http://127.0.0.1:${port}`,
     websocketUrl: `ws://127.0.0.1:${port}`,

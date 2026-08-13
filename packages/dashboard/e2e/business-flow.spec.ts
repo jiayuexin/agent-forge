@@ -41,7 +41,7 @@ test.describe.serial('Dashboard business flow', () => {
     await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().includes('/api/client-agents') && response.request().method() === 'POST'
+          response.url().includes('/api/v1/client-agents') && response.request().method() === 'POST'
       ),
       page.locator('form button.ant-btn-primary').click(),
     ]);
@@ -62,17 +62,17 @@ test.describe.serial('Dashboard business flow', () => {
     await expect(page.getByText(capabilityId)).toBeVisible();
   });
 
-  test('lists connected mock node (US6)', async ({ page, request }) => {
+  test('lists connected ClientAgent node (US6)', async ({ page, request }) => {
     test.setTimeout(90_000);
     await login(page);
 
     let nodeId: string | undefined;
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      const response = await request.get('/api/nodes', {
+      const response = await request.get('/api/v1/nodes', {
         headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
       });
       const nodes = (await response.json()) as Array<{ id: string; name: string }>;
-      const node = nodes.find((item) => item.name === 'E2E Mock Node');
+      const node = nodes.find((item) => item.name === 'E2E ClientAgent');
       if (node) {
         nodeId = node.id;
         break;
@@ -97,7 +97,7 @@ test.describe.serial('Dashboard business flow', () => {
       .waitFor({ state: 'visible' });
 
     await page.getByLabel('目标节点').click();
-    await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
+    await page.locator('.ant-select-item-option').filter({ hasText: 'E2E ClientAgent' }).click();
     // Close multi-select dropdown so it does not intercept the submit button.
     await page.keyboard.press('Escape');
     await page.locator('.ant-select-dropdown').waitFor({ state: 'hidden' });
@@ -108,7 +108,7 @@ test.describe.serial('Dashboard business flow', () => {
 
   test('returns failed distribute result for missing node', async ({ request }) => {
     const capabilityId = `e2e-fail-${Date.now()}`;
-    await request.post('/api/capabilities', {
+    await request.post('/api/v1/capabilities', {
       headers: {
         Authorization: `Bearer ${ADMIN_TOKEN}`,
         'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ test.describe.serial('Dashboard business flow', () => {
       },
     });
 
-    const response = await request.post(`/api/capabilities/${capabilityId}/distribute`, {
+    const response = await request.post(`/api/v1/capabilities/${capabilityId}/distribute`, {
       headers: {
         Authorization: `Bearer ${ADMIN_TOKEN}`,
         'Content-Type': 'application/json',
@@ -144,19 +144,18 @@ test.describe.serial('Dashboard business flow', () => {
     test.setTimeout(90_000);
     await login(page);
     await page.goto('/playground');
-    await waitForOnlineNode(page, 'E2E Mock Node');
+    await waitForOnlineNode(page, 'E2E ClientAgent');
     await page.goto('/playground');
 
     await page.locator('.ant-select').first().click();
-    await page.locator('.ant-select-item-option').filter({ hasText: 'E2E Mock Node' }).click();
+    await page.locator('.ant-select-item-option').filter({ hasText: 'E2E ClientAgent' }).click();
 
     await page.getByPlaceholder('输入消息...').fill('请用 markdown 回复');
     await buttonByLabel(page, '发送').click();
 
-    await expect(page.getByRole('heading', { name: 'E2E Reply' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('console.log("hello")')).toBeVisible();
+    await expect(page.getByText(/mock:/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('请用 markdown 回复')).toBeVisible();
     await expect(page.getByText('LLM 调用')).toBeVisible();
-    await expect(page.getByText('工具调用: git-status')).toBeVisible();
   });
 
   test('manages playground sessions', async ({ page }) => {
@@ -187,5 +186,108 @@ test.describe.serial('Dashboard business flow', () => {
     await login(page);
     await buttonByLabel(page, '登录').click();
     await expect(page.getByText('请输入管理员 Token')).toBeVisible();
+  });
+
+  test('covers token lifecycle, audit, capability delete and real remote execute', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    const created = await request.post('/api/v1/admin/tokens', {
+      headers: {
+        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      data: { role: 'readonly', note: 'e2e-readonly' },
+    });
+    expect(created.ok()).toBeTruthy();
+    const tokenBody = (await created.json()) as { tokenId: string; role: string };
+    expect(tokenBody.role).toBe('readonly');
+
+    const listed = await request.get('/api/v1/admin/tokens', {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const tokens = (await listed.json()) as Array<{ id: string }>;
+    expect(tokens.some((item) => item.id === tokenBody.tokenId)).toBe(true);
+
+    const capabilityId = `e2e-delete-${Date.now()}`;
+    await createCapability(page, capabilityId, 'E2E Delete Tool');
+    const deleted = await request.delete(`/api/v1/capabilities/${capabilityId}`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(deleted.ok()).toBeTruthy();
+
+    const nodes = (await (
+      await request.get('/api/v1/nodes', { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } })
+    ).json()) as Array<{ id: string; name: string }>;
+    const node = nodes.find((item) => item.name === 'E2E ClientAgent');
+    expect(node).toBeTruthy();
+    const executed = await request.post(`/api/v1/nodes/${node!.id}/execute`, {
+      headers: {
+        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      data: { type: 'chat', input: { message: 'e2e-execute' } },
+    });
+    expect(executed.ok()).toBeTruthy();
+    await expect(executed.json()).resolves.toMatchObject({
+      success: true,
+      output: { content: expect.stringContaining('e2e-execute') },
+    });
+
+    const pluginId = `e2e-plugin-${Date.now()}`;
+    const pluginCreated = await request.post('/api/v1/capabilities', {
+      headers: {
+        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        id: pluginId,
+        type: 'plugin',
+        name: 'E2E Plugin',
+        description: 'Plugin capability used by e2e install path',
+        downloadUrl: 'https://example.com/e2e-plugin.wasm',
+        signature: 'e2e-signature',
+        keyId: 'e2e-publisher',
+        entry: 'run',
+        allowedCapabilities: [],
+        sandbox: { timeoutMs: 1000, maxMemoryPages: 8 },
+        inputSchema: { type: 'object' },
+      },
+    });
+    expect(pluginCreated.ok()).toBeTruthy();
+    const pluginListed = await request.get('/api/v1/capabilities', {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const capabilities = (await pluginListed.json()) as Array<{ id: string }>;
+    expect(capabilities.some((item) => item.id === pluginId)).toBe(true);
+
+    const disconnected = await request.delete(`/api/v1/nodes/${node!.id}`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(disconnected.ok()).toBeTruthy();
+    let recovered = false;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const listed = (await (
+        await request.get('/api/v1/nodes', { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } })
+      ).json()) as Array<{ id: string; name: string }>;
+      if (listed.some((item) => item.name === 'E2E ClientAgent')) {
+        recovered = true;
+        break;
+      }
+      await page.waitForTimeout(250);
+    }
+    expect(recovered).toBe(true);
+
+    const audit = await request.get('/api/v1/audit?action=node-execute', {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const auditBody = (await audit.json()) as { total: number };
+    expect(auditBody.total).toBeGreaterThan(0);
+
+    const revoked = await request.delete(`/api/v1/admin/tokens/${tokenBody.tokenId}`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(revoked.ok()).toBeTruthy();
   });
 });

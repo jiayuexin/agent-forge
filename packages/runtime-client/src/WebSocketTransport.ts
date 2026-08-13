@@ -7,7 +7,7 @@ import type {
   Logger,
   RuntimeClientStatus,
 } from '@agentforge/types';
-import { CoreError } from '@agentforge/core';
+import { CoreError, buildHubWebSocketProtocols, parseControlMessage } from '@agentforge/core';
 
 export interface WebSocketTransportOptions {
   nodeId: string;
@@ -72,6 +72,7 @@ export class WebSocketTransport extends EventEmitter {
     }
 
     this.intentionalClose = false;
+    this.reconnectAttempt = 0;
     this.connectPromise = new Promise<void>((resolve, reject) => {
       this.connectResolve = resolve;
       this.connectReject = reject;
@@ -119,7 +120,7 @@ export class WebSocketTransport extends EventEmitter {
     this.logger.info(`Connecting to Capability Hub: ${url}`);
 
     try {
-      this.socket = new WebSocket(url);
+      this.socket = new WebSocket(url, buildHubWebSocketProtocols(this.authToken));
     } catch (error) {
       this.handleConnectionError(error);
       return;
@@ -170,7 +171,14 @@ export class WebSocketTransport extends EventEmitter {
       return;
     }
 
-    const message = parsed as ControlMessage;
+    const message = parseControlMessage(parsed);
+    if (!message) {
+      this.emit(
+        'error',
+        new CoreError('INVALID_MESSAGE', 'Incoming WebSocket message failed protocol validation')
+      );
+      return;
+    }
     this.emit('message', message);
   }
 
@@ -212,7 +220,8 @@ export class WebSocketTransport extends EventEmitter {
 
     this.reconnectAttempt += 1;
     const delay =
-      this.reconnect.delayMs * Math.pow(this.reconnect.backoffMultiplier, this.reconnectAttempt - 1);
+      this.reconnect.delayMs *
+      Math.pow(this.reconnect.backoffMultiplier, this.reconnectAttempt - 1);
 
     this.logger.warn(
       `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempt}/${this.reconnect.maxAttempts})`
@@ -239,11 +248,6 @@ export class WebSocketTransport extends EventEmitter {
     const base = this.websocketUrl ?? this.hubUrl.replace(/^http/, 'ws');
     const normalized = base.replace(/\/\/localhost(?=:|\/|$)/, '//127.0.0.1');
     const url = new URL(`/ws/nodes/${this.nodeId}`, normalized);
-
-    if (this.authToken) {
-      url.searchParams.set('token', this.authToken);
-    }
-
     return url.toString();
   }
 }

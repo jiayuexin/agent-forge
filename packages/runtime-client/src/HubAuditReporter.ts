@@ -13,7 +13,7 @@ export interface HubAuditReporterOptions {
 
 export function createHubAuditReporter(options: HubAuditReporterOptions): AuditReporter {
   const fetchImpl = options.fetch ?? fetch;
-  const endpoint = new URL('/api/audit', `${resolveHubHttpOrigin(options.hubUrl)}/`).toString();
+  const endpoint = new URL('/api/v1/audit', `${resolveHubHttpOrigin(options.hubUrl)}/`).toString();
 
   return async (event) => {
     const response = await fetchImpl(endpoint, {

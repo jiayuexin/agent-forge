@@ -77,7 +77,7 @@ export class DashboardEventBroadcaster {
       return true;
     }
     const validation = this.tokenStore.validate(token);
-    return validation.valid;
+    return Boolean(validation.valid && validation.token && validation.token.role !== 'node');
   }
 
   private handleMessage(ws: WebSocket, data: RawData): void {

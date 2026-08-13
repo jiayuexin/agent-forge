@@ -31,6 +31,12 @@ export interface AgentNode {
   };
 }
 
+export const HUB_PROTOCOL_VERSION = 1;
+export const HUB_WS_SUBPROTOCOL = 'agentforge.v1';
+export const HUB_WS_BEARER_PREFIX = 'agentforge.bearer.';
+
+export type HubTaskState = 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+
 export interface AgentRuntimeConfig {
   hubUrl: string;
   websocketUrl?: string;
@@ -52,6 +58,7 @@ export interface AgentRuntimeConfig {
 
 export interface RemoteTask {
   taskId: string;
+  idempotencyKey?: string;
   type: 'execute' | 'stream' | 'chat';
   task: AgentTask;
   source: string;
@@ -60,7 +67,15 @@ export interface RemoteTask {
 }
 
 export interface ControlMessage {
-  type: 'execute' | 'stream' | 'config-update' | 'capability-distribute' | 'ping' | 'stop';
+  type:
+    | 'execute'
+    | 'stream'
+    | 'config-update'
+    | 'capability-distribute'
+    | 'cancel'
+    | 'ping'
+    | 'stop';
+  protocolVersion?: number;
   messageId: string;
   nodeId: string;
   timestamp: number;
@@ -68,7 +83,12 @@ export interface ControlMessage {
     | RemoteTask
     | Partial<AgentRuntimeConfig>
     | CapabilityDistributePayload
+    | CancelTaskPayload
     | Record<string, unknown>;
+}
+
+export interface CancelTaskPayload {
+  taskId: string;
 }
 
 export interface CapabilityDistributePayload {
@@ -85,9 +105,11 @@ export interface AgentMessage {
     | 'metric'
     | 'event'
     | 'capability-ack'
+    | 'config-ack'
     | 'local-approval-request'
     | 'pong'
     | 'error';
+  protocolVersion?: number;
   messageId?: string;
   nodeId: string;
   timestamp: number;
@@ -97,9 +119,15 @@ export interface AgentMessage {
     | AgentNodeStatus
     | AgentMetrics
     | CapabilityAckPayload
+    | ConfigAckPayload
     | LocalApprovalRequest
     | import('./core.js').AgentError
     | Record<string, unknown>;
+}
+
+export interface ConfigAckPayload {
+  status: 'applied' | 'rejected';
+  error?: string;
 }
 
 export interface CapabilityAckPayload {
@@ -126,6 +154,11 @@ export type TaskHandler = (task: RemoteTask) => Promise<AgentResult>;
 export type CapabilityDistributeHandler = (
   payload: CapabilityDistributePayload
 ) => Promise<CapabilityAckPayload>;
+
+export interface RemoteAgentInvoker {
+  execute(nodeId: string, task: AgentTask): Promise<AgentResult>;
+  stream?(nodeId: string, task: AgentTask): AsyncIterable<AgentStreamChunk>;
+}
 
 export interface IAgentRuntimeClient {
   readonly status: RuntimeClientStatus;

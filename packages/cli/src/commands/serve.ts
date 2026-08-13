@@ -22,6 +22,7 @@ export function registerServeCommand(program: Command): void {
         port: Number(options.port),
         host: options.host,
         logger,
+        debugToken: process.env.AGENTFORGE_DEBUG_TOKEN,
       });
 
       console.log(`Debug server listening at ${server.url}`);

@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
 import { toNodeListener } from 'h3';
-import { AuditLog, SimpleLogger } from '@agentforge/core';
+import { SimpleLogger } from '@agentforge/core';
 import { MetricsRegistry } from '@agentforge/http-server';
 import type { HubRuntimeConfig, Logger } from '@agentforge/types';
 import { createHubApp, type HubAppOptions } from './app.js';
@@ -13,6 +13,10 @@ import { GeneratedClientAgentStore } from './services/GeneratedClientAgentStore.
 import { DashboardEventBroadcaster } from './services/DashboardEventBroadcaster.js';
 import { NodeWebSocketServer } from './websocket/NodeWebSocketServer.js';
 import { resolveTemplatesDir } from './lib/paths.js';
+import { openHubRepository } from './storage/sqlite.js';
+import { RepositoryAuditLog } from './storage/RepositoryAuditLog.js';
+import { importLegacyJson } from './storage/importLegacy.js';
+import type { HubRepository } from './storage/HubRepository.js';
 
 export { type HubAppOptions };
 
@@ -20,10 +24,12 @@ export interface HubServerOptions {
   port?: number;
   host?: string;
   dataDir?: string;
+  databasePath?: string;
   adminToken?: string;
   logger?: Logger;
   metrics?: MetricsRegistry;
   staticDir?: string;
+  importLegacy?: boolean;
 }
 
 export interface HubServer {
@@ -34,15 +40,28 @@ export interface HubServer {
   tokenStore: TokenStore;
   generatedAgentStore: GeneratedClientAgentStore;
   dashboardBroadcaster?: DashboardEventBroadcaster;
+  repository: HubRepository;
   stop(): Promise<void>;
 }
 
 export async function createHubServer(options: HubServerOptions = {}): Promise<HubServer> {
   const logger = options.logger ?? new SimpleLogger({ component: 'HubServer' });
   const dataDir = options.dataDir ?? '.agentforge/hub';
+  const databasePath = options.databasePath ?? join(dataDir, 'hub.sqlite');
   const metrics = options.metrics ?? new MetricsRegistry();
+  const dbErrors = metrics.counter('hub_db_errors_total', 'Hub database errors');
+  const repository = openHubRepository(databasePath, { onError: () => dbErrors.inc() });
 
-  const tokenStore = new TokenStore({ dataDir });
+  if (options.importLegacy !== false) {
+    await importLegacyJson(dataDir, repository);
+  }
+
+  const tokenStore = new TokenStore({ repository });
+  const reconnects = metrics.counter('hub_node_reconnects_total', 'ClientAgent node reconnects');
+  const unknownTasks = metrics.counter(
+    'hub_tasks_unknown_total',
+    'Remote tasks that timed out with unknown outcome'
+  );
   const dashboardBroadcaster = new DashboardEventBroadcaster({
     tokenStore,
     adminToken: options.adminToken,
@@ -51,6 +70,9 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
 
   const nodeRegistry = new NodeRegistry({
     logger: logger.child({ component: 'NodeRegistry' }),
+    repository,
+    onReconnect: () => reconnects.inc(),
+    onTaskUnknown: () => unknownTasks.inc(),
     onEvent: (nodeId, message) => {
       dashboardBroadcaster.broadcast({
         type: 'agent-message',
@@ -61,10 +83,10 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     },
   });
 
-  const capabilityStore = new CapabilityStore({ dataDir });
+  const capabilityStore = new CapabilityStore({ repository });
   const templateStore = new ClientAgentTemplateStore({ templatesDir: resolveTemplatesDir() });
-  const generatedAgentStore = new GeneratedClientAgentStore({ dataDir });
-  const auditLog = new AuditLog(join(dataDir, 'audit.log'));
+  const generatedAgentStore = new GeneratedClientAgentStore({ dataDir, repository });
+  const auditLog = new RepositoryAuditLog(repository);
 
   await capabilityStore.load();
   await tokenStore.load();
@@ -73,7 +95,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
   const runtimeConfig: HubRuntimeConfig = {
     port: options.port ?? 8080,
     host: options.host ?? 'localhost',
-    version: '0.0.0',
+    version: '0.1.0',
     logLevel: 'info',
   };
 
@@ -116,16 +138,18 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<H
     tokenStore,
     generatedAgentStore,
     dashboardBroadcaster,
-    stop: () =>
-      new Promise<void>((resolve, reject) => {
-        dashboardBroadcaster.close().catch(reject);
-        wsServer.close().catch(reject);
-        nodeRegistry.destroy();
+    repository,
+    stop: async () => {
+      await Promise.allSettled([dashboardBroadcaster.close(), wsServer.close()]);
+      nodeRegistry.destroy();
+      await new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) reject(error);
           else resolve();
         });
-      }),
+      });
+      repository.close();
+    },
   };
 }
 

@@ -24,7 +24,10 @@ export async function executeNode(id: string, request: NodeExecuteRequest): Prom
   return response.data;
 }
 
-export async function updateNodeConfig(id: string, request: NodeConfigUpdateRequest): Promise<void> {
+export async function updateNodeConfig(
+  id: string,
+  request: NodeConfigUpdateRequest
+): Promise<void> {
   await apiClient.post(`/nodes/${id}/config`, request);
 }
 
@@ -48,7 +51,7 @@ export async function* streamNodeTask(
       },
     },
   };
-  const response = await fetch(`/api/nodes/${id}/stream`, {
+  const response = await fetch(`/api/v1/nodes/${id}/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

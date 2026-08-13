@@ -3,6 +3,8 @@ export interface HubClientOptions {
   adminToken?: string;
 }
 
+const API_PREFIX = '/api/v1';
+
 export class HubClient {
   constructor(private readonly options: HubClientOptions) {}
 
@@ -17,40 +19,51 @@ export class HubClient {
   }
 
   async listCapabilities(): Promise<unknown> {
-    const response = await fetch(`${this.options.baseUrl}/api/capabilities`, {
-      headers: this.headers(),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to list capabilities: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+    return this.request(`${API_PREFIX}/capabilities`);
   }
 
   async publishCapability(capability: unknown): Promise<unknown> {
-    const response = await fetch(`${this.options.baseUrl}/api/capabilities`, {
+    return this.request(`${API_PREFIX}/capabilities`, {
       method: 'POST',
-      headers: this.headers(),
       body: JSON.stringify(capability),
     });
-    if (!response.ok) {
-      throw new Error(`Failed to publish capability: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
   }
 
   async distributeCapability(
     capabilityId: string,
     body: { nodeIds: string[]; action: 'add' | 'update' | 'remove'; targetVersion?: string }
   ): Promise<unknown> {
-    const response = await fetch(`${this.options.baseUrl}/api/capabilities/${capabilityId}/distribute`, {
+    return this.request(`${API_PREFIX}/capabilities/${capabilityId}/distribute`, {
       method: 'POST',
-      headers: this.headers(),
       body: JSON.stringify(body),
     });
+  }
+
+  async createToken(body: Record<string, unknown>): Promise<unknown> {
+    return this.request(`${API_PREFIX}/admin/tokens`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async listTokens(): Promise<unknown> {
+    return this.request(`${API_PREFIX}/admin/tokens`);
+  }
+
+  async revokeToken(tokenId: string): Promise<unknown> {
+    return this.request(`${API_PREFIX}/admin/tokens/${tokenId}`, { method: 'DELETE' });
+  }
+
+  private async request(path: string, init: RequestInit = {}): Promise<unknown> {
+    const response = await fetch(`${this.options.baseUrl}${path}`, {
+      ...init,
+      headers: { ...this.headers(), ...(init.headers as Record<string, string> | undefined) },
+    });
     if (!response.ok) {
-      throw new Error(`Failed to distribute capability: ${response.status} ${response.statusText}`);
+      throw new Error(`Hub request failed: ${response.status} ${response.statusText} (${path})`);
     }
-    return response.json();
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
   }
 }
 

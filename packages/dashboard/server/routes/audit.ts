@@ -1,7 +1,8 @@
 import { createRouter, eventHandler, getQuery } from 'h3';
 import { z } from 'zod';
-import type { AuditLog } from '@agentforge/core';
-import { readValidatedBody } from '@agentforge/http-server';
+import { createHttpError, readValidatedBody } from '@agentforge/http-server';
+import { actorFromAuth, getAuth, requireRoles } from '../middleware/auth.js';
+import type { RepositoryAuditLog } from '../storage/RepositoryAuditLog.js';
 
 const recordSchema = z.object({
   action: z.string().min(1),
@@ -18,12 +19,13 @@ function parseOptionalInt(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function createAuditRoute(auditLog: AuditLog) {
+export function createAuditRoute(auditLog: RepositoryAuditLog) {
   const router = createRouter();
 
   router.get(
     '/',
     eventHandler(async (event) => {
+      requireRoles(event, ['admin', 'readonly']);
       const query = getQuery(event);
       return auditLog.query({
         from: parseOptionalInt(query.from),
@@ -39,8 +41,22 @@ export function createAuditRoute(auditLog: AuditLog) {
   router.post(
     '/',
     eventHandler(async (event) => {
+      const auth = getAuth(event);
+      if (auth.role === 'readonly') {
+        throw createHttpError('FORBIDDEN', 'Readonly tokens cannot write audit events', 403);
+      }
       const body = await readValidatedBody(event, recordSchema);
-      await auditLog.record(body);
+      if (auth.role === 'node' && body.action !== 'local-command') {
+        throw createHttpError(
+          'FORBIDDEN',
+          'Node tokens may only report local-command audit events',
+          403
+        );
+      }
+      await auditLog.record({
+        ...body,
+        actor: actorFromAuth(auth),
+      });
       return { success: true };
     })
   );

@@ -1,7 +1,8 @@
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
-import type { Logger } from '@agentforge/types';
+import { HUB_WS_SUBPROTOCOL, type Logger } from '@agentforge/types';
+import { parseHubWebSocketProtocols } from '@agentforge/core';
 import type { NodeRegistry } from '../services/NodeRegistry.js';
 import type { TokenStore } from '../services/TokenStore.js';
 import type { DashboardEventBroadcaster } from '../services/DashboardEventBroadcaster.js';
@@ -25,16 +26,24 @@ export class NodeWebSocketServer {
     this.tokenStore = options.tokenStore;
     this.dashboardBroadcaster = options.dashboardBroadcaster;
     this.logger = options.logger ?? consoleLogger();
-    this.wss = new WebSocketServer({ noServer: true });
+    this.wss = new WebSocketServer({
+      noServer: true,
+      handleProtocols: (protocols) =>
+        protocols.has(HUB_WS_SUBPROTOCOL) ? HUB_WS_SUBPROTOCOL : false,
+    });
   }
 
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): void {
     try {
-      const { pathname, searchParams } = this.parseUrl(request);
-      const token = searchParams.get('token') ?? '';
+      const { pathname } = this.parseUrl(request);
+      const parsed = parseHubWebSocketProtocols(request.headers['sec-websocket-protocol']);
+      if (!parsed.hasVersion || !parsed.token) {
+        this.destroySocket(socket, 'Missing WebSocket protocol version or bearer token');
+        return;
+      }
 
       if (pathname === '/ws/events') {
-        this.handleDashboardUpgrade(request, socket, head, token);
+        this.handleDashboardUpgrade(request, socket, head, parsed.token);
         return;
       }
 
@@ -45,9 +54,9 @@ export class NodeWebSocketServer {
       }
 
       const nodeId = decodeURIComponent(match[1]);
-      const validation = this.tokenStore.validate(token, { nodeId });
+      const validation = this.tokenStore.validate(parsed.token, { nodeId });
 
-      if (!validation.valid) {
+      if (!validation.valid || (validation.token && validation.token.role === 'readonly')) {
         this.destroySocket(socket, 'Invalid token');
         return;
       }

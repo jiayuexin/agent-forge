@@ -2,6 +2,6 @@ import { eventHandler } from 'h3';
 
 export function createHealthRoute() {
   return eventHandler(() => {
-    return { status: 'ok' };
+    return { status: 'ok', timestamp: Date.now() };
   });
 }

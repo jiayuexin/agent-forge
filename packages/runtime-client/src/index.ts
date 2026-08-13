@@ -10,8 +10,10 @@ export {
 } from './CachedCapabilitySource.js';
 export {
   createRuntimeToolAdapters,
+  spawnLocalCommand,
   type CommandExecutionOptions,
   type CommandExecutor,
+  type CommandSpec,
   type RuntimeToolAdapterOptions,
 } from './RuntimeToolAdapters.js';
 export {

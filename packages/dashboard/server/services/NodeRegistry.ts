@@ -10,17 +10,23 @@ import type {
   CapabilityDistributePayload,
   ControlMessage,
   Logger,
+  RemoteAgentInvoker,
   RemoteTask,
 } from '@agentforge/types';
-import type { RemoteAgentInvoker } from '@agentforge/sdk';
+import { parseAgentMessagePayload } from '@agentforge/core';
 import { createHttpError } from '@agentforge/http-server';
+import { randomUUID } from 'node:crypto';
 import { NodeSession, type NodeSessionEventListener } from './NodeSession.js';
+import type { HubRepository, HubTaskRecord } from '../storage/HubRepository.js';
 
 export interface NodeRegistryOptions {
   heartbeatTimeoutMs?: number;
   cleanupIntervalMs?: number;
   logger?: Logger;
   onEvent?: NodeSessionEventListener;
+  repository?: HubRepository;
+  onReconnect?: () => void;
+  onTaskUnknown?: () => void;
 }
 
 export class NodeRegistry implements RemoteAgentInvoker {
@@ -29,12 +35,18 @@ export class NodeRegistry implements RemoteAgentInvoker {
   private heartbeatTimeoutMs: number;
   private cleanupTimer?: ReturnType<typeof setInterval>;
   private onEvent?: NodeSessionEventListener;
+  private repository?: HubRepository;
+  private onReconnect?: () => void;
+  private onTaskUnknown?: () => void;
 
   constructor(options: NodeRegistryOptions = {}) {
     this.logger = options.logger ?? consoleLogger();
     this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 120000;
     this.cleanupTimer = setInterval(() => this.cleanup(), options.cleanupIntervalMs ?? 30000);
     this.onEvent = options.onEvent;
+    this.repository = options.repository;
+    this.onReconnect = options.onReconnect;
+    this.onTaskUnknown = options.onTaskUnknown;
   }
 
   register(
@@ -50,6 +62,7 @@ export class NodeRegistry implements RemoteAgentInvoker {
   ): NodeSession {
     const existing = this.sessions.get(nodeId);
     if (existing) {
+      this.onReconnect?.();
       existing.close();
     }
 
@@ -111,26 +124,80 @@ export class NodeRegistry implements RemoteAgentInvoker {
 
   async execute(nodeId: string, task: AgentTask): Promise<AgentResult> {
     const session = this.requireSession(nodeId);
+    const idempotencyKey = `${nodeId}:${JSON.stringify(task)}`;
+    const existing = this.repository?.getTask(idempotencyKey);
+    if (existing?.state === 'succeeded' && existing.resultJson) {
+      return JSON.parse(existing.resultJson) as AgentResult;
+    }
+
     const remoteTask: RemoteTask = {
-      taskId: `${nodeId}-${Date.now()}`,
+      taskId: existing?.taskId ?? randomUUID(),
+      idempotencyKey,
       type: 'execute',
       task,
       source: 'hub',
       issuedAt: Date.now(),
     };
-    return session.execute(remoteTask);
+    this.writeTask({
+      taskId: remoteTask.taskId,
+      nodeId,
+      idempotencyKey,
+      state: 'running',
+      updatedAt: Date.now(),
+    });
+    try {
+      const result = await session.execute(remoteTask);
+      this.writeTask({
+        taskId: remoteTask.taskId,
+        nodeId,
+        idempotencyKey,
+        state: 'succeeded',
+        resultJson: JSON.stringify(result),
+        updatedAt: Date.now(),
+      });
+      return result;
+    } catch (error) {
+      const code = (error as Error & { code?: string }).code;
+      const state: HubTaskRecord['state'] = code === 'TASK_UNKNOWN' ? 'unknown' : 'failed';
+      if (state === 'unknown') {
+        this.onTaskUnknown?.();
+      }
+      this.writeTask({
+        taskId: remoteTask.taskId,
+        nodeId,
+        idempotencyKey,
+        state,
+        updatedAt: Date.now(),
+      });
+      throw error;
+    }
   }
 
   async *stream(nodeId: string, task: AgentTask): AsyncIterable<AgentStreamChunk> {
     const session = this.requireSession(nodeId);
     const remoteTask: RemoteTask = {
-      taskId: `${nodeId}-${Date.now()}`,
+      taskId: randomUUID(),
+      idempotencyKey: `${nodeId}:stream:${JSON.stringify(task)}`,
       type: 'stream',
       task,
       source: 'hub',
       issuedAt: Date.now(),
     };
     yield* session.stream(remoteTask);
+  }
+
+  async cancel(nodeId: string, taskId: string): Promise<unknown> {
+    const session = this.requireSession(nodeId);
+    const result = await session.cancel(taskId);
+    const existing = this.repository?.getTaskById(taskId);
+    this.writeTask({
+      taskId,
+      nodeId,
+      idempotencyKey: existing?.idempotencyKey ?? `cancel:${nodeId}:${taskId}`,
+      state: 'cancelled',
+      updatedAt: Date.now(),
+    });
+    return result;
   }
 
   async distribute(
@@ -167,6 +234,10 @@ export class NodeRegistry implements RemoteAgentInvoker {
     this.sessions.clear();
   }
 
+  private writeTask(record: HubTaskRecord): void {
+    this.repository?.upsertTask(record);
+  }
+
   private requireSession(nodeId: string): NodeSession {
     const session = this.sessions.get(nodeId);
     if (!session) {
@@ -190,7 +261,7 @@ export class NodeRegistry implements RemoteAgentInvoker {
 function parseAgentMessage(data: WebSocket.RawData): AgentMessage | null {
   try {
     const text = typeof data === 'string' ? data : data.toString('utf-8');
-    return JSON.parse(text) as AgentMessage;
+    return parseAgentMessagePayload(JSON.parse(text));
   } catch {
     return null;
   }

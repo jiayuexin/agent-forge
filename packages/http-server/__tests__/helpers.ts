@@ -87,6 +87,7 @@ export async function startTestServer(
   const debugServer = createDebugServer(agent, {
     port: 0,
     host: '127.0.0.1',
+    debugToken: 'test-debug',
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -108,7 +109,11 @@ export async function requestJson(
   path: string,
   init?: RequestInit
 ): Promise<unknown> {
-  const response = await fetch(`http://127.0.0.1:${port}${path}`, init);
+  const headers: Record<string, string> = {
+    Authorization: 'Bearer test-debug',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  const response = await fetch(`http://127.0.0.1:${port}${path}`, { ...init, headers });
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }

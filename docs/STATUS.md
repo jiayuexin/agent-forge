@@ -1,7 +1,7 @@
 # 文档状态总表
 
-> **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-17
+> **文档版本**: docs-v0.7
+> **最后更新**: 2026-08-13
 
 | 文档                                                                             | 层级   | 类型     | 文档状态 | 实现状态 |
 | -------------------------------------------------------------------------------- | ------ | -------- | -------- | -------- |
@@ -23,15 +23,15 @@
 | [design/TECH-DESIGN.md](./design/TECH-DESIGN.md)                                 | 第二层 | 设计规格 | 已定稿   | 已完成   |
 | [design/附录-生成示例.md](./design/附录-生成示例.md)                             | 第二层 | 设计规格 | 已定稿   | 已完成   |
 | [ops/README.md](./ops/README.md)                                                 | 第三层 | 索引     | 已定稿   | —        |
-| [ops/GUIDE.md](./ops/GUIDE.md)                                                   | 第三层 | 使用指南 | 已定稿   | 已完成   |
-| [ops/DEPLOY.md](./ops/DEPLOY.md)                                                 | 第三层 | 部署手册 | 已定稿   | 已完成   |
-| [ops/TEST.md](./ops/TEST.md)                                                     | 第三层 | 测试策略 | 已定稿   | 已完成   |
+| [ops/GUIDE.md](./ops/GUIDE.md)                                                   | 第三层 | 使用指南 | 已定稿   | 已实现   |
+| [ops/DEPLOY.md](./ops/DEPLOY.md)                                                 | 第三层 | 部署手册 | 已定稿   | 已实现   |
+| [ops/TEST.md](./ops/TEST.md)                                                     | 第三层 | 测试策略 | 已定稿   | 已实现   |
 | [ops/IMPLEMENTATION.md](./ops/IMPLEMENTATION.md)                                 | 第三层 | 开发计划 | 已定稿   | 已完成   |
 
 ## 图例
 
 - **文档状态**：已定稿 = 设计内容稳定；草案 = 目标行为描述，待实现验证
-- **实现状态**：未开始 = 对应代码尚未开发；已完成 = 对应代码已实现并通过基础测试
+- **实现状态**：未开始 = 对应代码尚未开发；已实现 = 对应代码已落地；已验证 = 已有自动化测试覆盖；生产可用 = 通过发布烟测并按手册可安装
 
 ## 模块实现进度（规划）
 
@@ -49,21 +49,29 @@
 
 ## 实施阶段状态
 
-| 阶段                                        | 描述                                                                         | 状态        |
-| ------------------------------------------- | ---------------------------------------------------------------------------- | ----------- |
-| Phase 0 — Monorepo 初始化                   | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架                          | ✅ 已完成   |
-| Phase 1 — `packages/types`                  | 核心类型定义                                                                 | ✅ 已完成   |
-| Phase 2 — `packages/core`                   | BaseAgent、Provider、生成引擎                                                | ✅ 已完成   |
-| Phase 3 — Templates                         | 基础模板与角色模板                                                           | ✅ 已完成   |
-| Phase 4 — `packages/runtime-client`         | WebSocket 运行时客户端                                                       | ✅ 已完成   |
-| Phase 5 — `packages/sdk`                    | AgentFramework、Pipeline、编排                                               | ✅ 已完成   |
-| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API                                                       | ✅ 已完成   |
-| Phase 7 — `packages/dashboard` 前端         | Capability Hub 可视化面板                                                    | ✅ 已完成   |
-| Phase 8 — `packages/cli`                    | CLI 命令                                                                     | ✅ 已完成   |
-| Phase 9 — 安全层                            | 本地命令授权、Token、签名、审计                                              | ✅ 已完成   |
-| Phase 10 — 可观测性                         | 日志、指标、成本守护已实现；OpenTelemetry 待接入                             | 🟡 部分完成 |
-| Phase 11 — 测试                             | 单元/集成已实现；Playwright E2E 已稳定入门禁；黄金路径回归已纳入 `pnpm test` | 🟡 部分完成 |
-| Phase 12 — CI/CD + Docker                   | CI/Docker 已覆盖 `dev`；npm 独立包 dry-run 就绪，真发受包名冲突阻塞          | 🟡 部分完成 |
+| 阶段                                        | 描述                                                                   | 状态        |
+| ------------------------------------------- | ---------------------------------------------------------------------- | ----------- |
+| Phase 0 — Monorepo 初始化                   | pnpm workspace、tsup、Vitest、ESLint、Prettier 骨架                    | ✅ 已完成   |
+| Phase 1 — `packages/types`                  | 核心类型定义                                                           | ✅ 已完成   |
+| Phase 2 — `packages/core`                   | BaseAgent、Provider、生成引擎                                          | ✅ 已完成   |
+| Phase 3 — Templates                         | 基础模板与角色模板                                                     | ✅ 已完成   |
+| Phase 4 — `packages/runtime-client`         | WebSocket 运行时客户端                                                 | ✅ 已完成   |
+| Phase 5 — `packages/sdk`                    | AgentFramework、Pipeline、编排                                         | ✅ 已完成   |
+| Phase 6 — `packages/http-server` + Hub 后端 | 本地调试服务与 Hub API                                                 | ✅ 已完成   |
+| Phase 7 — `packages/dashboard` 前端         | Capability Hub 可视化面板                                              | ✅ 已完成   |
+| Phase 8 — `packages/cli`                    | CLI 命令                                                               | ✅ 已完成   |
+| Phase 9 — 安全层                            | 本地命令授权、Token、签名、审计                                        | ✅ 已完成   |
+| Phase 10 — 可观测性                         | pino 结构化日志、Prometheus 指标、可选 OTEL tracer                     | ✅ 已实现   |
+| Phase 11 — 测试                             | 单元/集成/CLI/协议/SQLite/RBAC；Playwright E2E；live Provider 默认跳过 | ✅ 已实现   |
+| Phase 12 — CI/CD + Docker                   | Docker Compose 单实例、健康检查、备份恢复；npm 真发仍受包名冲突阻塞    | 🟡 部分完成 |
+
+## 2026-08-13 自托管产品化
+
+- **已实现并有测试**：RBAC（admin/node/readonly）、结构化命令执行、HTTP Tool SSRF 拦截、远程执行默认关闭、Hub 协议版本/ACK/幂等/取消、SQLite 持久化与备份恢复、`/api/v1` 契约。
+- **已验证路径**：CLI `create` → Hub 连接 → 远程 execute；Dashboard Playwright（Token、能力、远程执行、审计）。
+- **生产可用条件**：单实例 Docker Compose 或本地 `agentforge dashboard`，必须设置 `AGENTFORGE_ADMIN_TOKEN`，数据目录可备份。
+- **明确非目标**：多租户 SaaS、Redis/NATS、多实例 WebSocket 路由、微服务、HPA、可视化工作流编辑器。
+- **npm**：`@agentforge/core` / `@agentforge/cli` 在 npmjs 可能被占用；CI dry-run 跳过冲突包。
 
 ## docs-v0.6 能力执行闭环
 
@@ -74,10 +82,12 @@
 - ClientAgent：Hub 下发能力可写入本地缓存；Tool/Skill/Plugin 在更新、删除及重启加载后进入动态执行源。
 - 本轮验证基线为 `pnpm build`、`pnpm type-check`、`pnpm test`、`pnpm lint`；Playwright E2E 由 CI `e2e` job 单独跑且已稳定入门禁。
 
-## 2026-07-17 覆盖率口径对齐
+## 2026-08-13 覆盖率口径
 
-- Vitest 覆盖率统计核心与 Hub 服务端代码；`packages/dashboard/src/**`、`packages/cli/src/commands/**`、`examples/**` 不计入分母。
-- `coverage.thresholds`（statements / branches / functions / lines）全部强制 **≥ 80%**；Dashboard UI 仍由 Playwright E2E 验收。
+- Vitest 覆盖率统计 core/sdk/runtime-client/http-server/Hub 服务端与 CLI commands。
+- `packages/dashboard/src/**` 与 `examples/**` 不计入全局分母；Dashboard UI 由 Playwright 与 browser vitest 验收。
+- `coverage.thresholds`（statements / branches / functions / lines）全部强制 **≥ 80%**。
+- OpenAI/Anthropic live contract 仅在对应 API Key 存在时运行，不进入普通 PR 必跑门禁。
 
 ## 2026-07-16 交付同步（PR #3 → `dev`）
 

@@ -6,11 +6,22 @@ import { AgentRuntimeClient } from '../src/AgentRuntimeClient.js';
 import { AgentStatus, type AgentResult, type AgentStreamChunk } from '@agentforge/types';
 import { createMockAgent, createTestServer, waitFor } from './helpers.js';
 
+vi.mock('@agentforge/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@agentforge/core')>();
+  return {
+    ...actual,
+    askLocalUserConfirmation: vi.fn().mockResolvedValue(true),
+  };
+});
+
+import { askLocalUserConfirmation } from '@agentforge/core';
+
 describe('AgentRuntimeClient', () => {
   let server: ReturnType<typeof createTestServer>;
 
   beforeEach(() => {
     server = createTestServer();
+    vi.mocked(askLocalUserConfirmation).mockResolvedValue(true);
   });
 
   afterEach(async () => {
@@ -87,6 +98,19 @@ describe('AgentRuntimeClient', () => {
     expect(message.timestamp).toBeDefined();
 
     await client.stop();
+  });
+
+  it('drops outbound messages after the transport disconnects', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+    await client.stop();
+
+    expect(() => client.send({ type: 'status', payload: 'offline' })).not.toThrow();
   });
 
   it('handles execute control message and sends result', async () => {
@@ -452,6 +476,60 @@ describe('AgentRuntimeClient', () => {
     await client.stop();
   });
 
+  it('rejects execute and stream with the same confirmation check', async () => {
+    vi.mocked(askLocalUserConfirmation).mockResolvedValue(false);
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+      allowRemoteExecution: true,
+      requireLocalConfirmation: ['refund'],
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+    const clientWs = await server.nextClient();
+
+    clientWs.send(
+      JSON.stringify({
+        type: 'execute',
+        messageId: 'exec-sensitive',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {
+          taskId: 'task-refund',
+          type: 'execute',
+          task: { type: 'refund', input: {} },
+          source: 'dashboard',
+          issuedAt: Date.now(),
+        },
+      })
+    );
+    const executeError = await server.waitForMessage((m) => m.messageId === 'exec-sensitive');
+    expect(executeError.payload).toMatchObject({ code: 'USER_REJECTED' });
+    expect(agent.execute).not.toHaveBeenCalled();
+
+    clientWs.send(
+      JSON.stringify({
+        type: 'stream',
+        messageId: 'stream-sensitive',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {
+          taskId: 'task-refund-stream',
+          type: 'stream',
+          task: { type: 'refund', input: {} },
+          source: 'dashboard',
+          issuedAt: Date.now(),
+        },
+      })
+    );
+    const streamError = await server.waitForMessage((m) => m.messageId === 'stream-sensitive');
+    expect(streamError.payload).toMatchObject({ code: 'USER_REJECTED' });
+    expect(agent.stream).not.toHaveBeenCalled();
+
+    await client.stop();
+  });
+
   it('sends error message when agent.execute throws', async () => {
     const agent = createMockAgent({
       execute: vi.fn().mockRejectedValue(new Error('Execution failed')),
@@ -517,6 +595,48 @@ describe('AgentRuntimeClient', () => {
     await client.stop();
   });
 
+  it('cancels a task and rejects a later execute for the same taskId', async () => {
+    const agent = createMockAgent();
+    const client = new AgentRuntimeClient(agent, {
+      hubUrl: server.url,
+      allowRemoteExecution: true,
+    });
+
+    await client.start();
+    await server.waitForMessage((m) => m.type === 'event');
+    const clientWs = await server.nextClient();
+    clientWs.send(
+      JSON.stringify({
+        type: 'cancel',
+        messageId: 'cancel-1',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: { taskId: 'task-cancel' },
+      })
+    );
+    const cancelled = await server.waitForMessage((m) => m.messageId === 'cancel-1');
+    expect(cancelled.payload).toMatchObject({ status: 'cancelled', taskId: 'task-cancel' });
+
+    clientWs.send(
+      JSON.stringify({
+        type: 'execute',
+        messageId: 'exec-cancelled',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: {
+          taskId: 'task-cancel',
+          type: 'execute',
+          task: { type: 'test', input: {} },
+          source: 'dashboard',
+          issuedAt: Date.now(),
+        },
+      })
+    );
+    const error = await server.waitForMessage((m) => m.messageId === 'exec-cancelled');
+    expect(error.payload).toMatchObject({ code: 'TASK_CANCELLED' });
+    await client.stop();
+  });
+
   it('rejects start when client has been stopped', async () => {
     const agent = createMockAgent();
     const client = new AgentRuntimeClient(agent, {
@@ -531,7 +651,7 @@ describe('AgentRuntimeClient', () => {
     await expect(client.start()).rejects.toMatchObject({ code: 'CLIENT_STOPPED' });
   });
 
-  it('updates config on config-update control message', async () => {
+  it('rejects remote security config updates and acks safe heartbeat changes', async () => {
     const agent = createMockAgent();
     const client = new AgentRuntimeClient(agent, {
       hubUrl: server.url,
@@ -552,11 +672,29 @@ describe('AgentRuntimeClient', () => {
       })
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const rejected = await server.waitForMessage((m) => m.type === 'config-ack');
+    expect(rejected.payload).toMatchObject({ status: 'rejected' });
     expect(
       (client as unknown as { config: { allowRemoteExecution: boolean } }).config
         .allowRemoteExecution
-    ).toBe(true);
+    ).toBe(false);
+
+    clientWs.send(
+      JSON.stringify({
+        type: 'config-update',
+        messageId: 'cfg-2',
+        nodeId: 'agent-1',
+        timestamp: Date.now(),
+        payload: { heartbeatInterval: 1234 },
+      })
+    );
+    const applied = await server.waitForMessage(
+      (m) => m.type === 'config-ack' && (m.payload as { status?: string }).status === 'applied'
+    );
+    expect(applied.payload).toMatchObject({ status: 'applied' });
+    expect(
+      (client as unknown as { config: { heartbeatInterval: number } }).config.heartbeatInterval
+    ).toBe(1234);
 
     await client.stop();
   });
@@ -689,7 +827,7 @@ describe('AgentRuntimeClient', () => {
     await client.stop();
   });
 
-  it('logs warning for unknown control message type', async () => {
+  it('rejects unknown control message types as protocol errors', async () => {
     const agent = createMockAgent();
     const client = new AgentRuntimeClient(agent, {
       hubUrl: server.url,
@@ -698,6 +836,9 @@ describe('AgentRuntimeClient', () => {
     await client.start();
     await server.waitForMessage((m) => m.type === 'event');
 
+    const errorPromise = new Promise<Error>((resolve) => {
+      client.on('error', resolve);
+    });
     const clientWs = await server.nextClient();
     clientWs.send(
       JSON.stringify({
@@ -709,9 +850,7 @@ describe('AgentRuntimeClient', () => {
       })
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(client.status).toBe('connected');
-
+    await expect(errorPromise).resolves.toMatchObject({ code: 'INVALID_MESSAGE' });
     await client.stop();
   });
 

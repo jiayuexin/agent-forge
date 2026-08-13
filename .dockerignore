@@ -1,0 +1,9 @@
+node_modules
+.git
+coverage
+.agentforge
+client-agents
+dist
+*.sqlite
+*.log
+.DS_Store

@@ -4,8 +4,8 @@
 > **文档类型**: 使用指南
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.6
-> **最后更新**: 2026-07-16
-> **实现状态**: 已完成
+> **最后更新**: 2026-08-13
+> **实现状态**: 已实现
 
 ## 目录
 
@@ -66,6 +66,7 @@ agentforge create "一个能执行 Git 命令的本地编程助手"
 agentforge run ./client-agents/my-agent --connect ws://localhost:8080
 
 # 启动 Capability Hub（另一个终端）
+export AGENTFORGE_ADMIN_TOKEN=replace-me
 agentforge dashboard
 ```
 
@@ -148,9 +149,10 @@ agentforge run ./client-agents/my-agent \
 
 ### `agentforge dashboard`
 
-启动 Capability Hub Web 面板。
+启动 Capability Hub Web 面板。必须设置 `AGENTFORGE_ADMIN_TOKEN`。
 
 ```bash
+export AGENTFORGE_ADMIN_TOKEN=replace-me
 agentforge dashboard [options]
 ```
 
@@ -174,10 +176,10 @@ agentforge dashboard [options]
 
 审计 API（需管理员 Token；权威定义见 [design/05 §5.3](../design/05-CLI与API.md)）：
 
-| 端点              | 说明                                                          |
-| ----------------- | ------------------------------------------------------------- |
-| `GET /api/audit`  | 查询审计记录（`from` / `to` / `action` / `limit` / `offset`） |
-| `POST /api/audit` | 写入审计事件（如上报 `local-command`）                        |
+| 端点                 | 说明                                                          |
+| -------------------- | ------------------------------------------------------------- |
+| `GET /api/v1/audit`  | 查询审计记录（`from` / `to` / `action` / `limit` / `offset`） |
+| `POST /api/v1/audit` | 写入审计事件（如上报 `local-command`）                        |
 
 Hub 在能力下发与节点配置变更时自动写入 `capability-distribute` / `config-change`。ClientAgent 通过 `runtime-client` 连接 Hub（含节点 Token）后，执行 `local-command` 会在成功/失败/拒绝时自动 `POST /api/audit` 上报。
 

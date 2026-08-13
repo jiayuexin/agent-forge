@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import { createApp, eventHandler, type H3Event } from 'h3';
 import { toNodeListener } from 'h3';
 import { handleError } from '@agentforge/http-server';
+import type { AuthContext } from '../../server/middleware/auth.js';
 
 export interface RouteServer {
   server: Server;
@@ -11,11 +12,20 @@ export interface RouteServer {
 
 export async function startRouteServer(
   handler: Parameters<(typeof createApp)['use']>[1],
-  mountPath = '/'
+  mountPath = '/',
+  auth: AuthContext | null = { role: 'admin', isAdmin: true }
 ): Promise<RouteServer> {
   const app = createApp({
     onError: (error, event) => handleError(error, event as H3Event),
   });
+  if (auth) {
+    app.use(
+      mountPath,
+      eventHandler((event: H3Event) => {
+        event.context.auth = auth;
+      })
+    );
+  }
   app.use(mountPath, eventHandler(handler));
 
   const server = createServer(toNodeListener(app));

@@ -6,16 +6,13 @@ import type {
   ClientAgentSecurityConfig,
   ToolDefinition,
 } from '@agentforge/types';
-import type {
-  GenerateInput,
-  GenerateResult,
-  ParsedDescription,
-  TemplateData,
-} from './types.js';
+import type { GenerateInput, GenerateResult, ParsedDescription, TemplateData } from './types.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { SkillMatcher } from './SkillMatcher.js';
 import { TemplateEngine } from './TemplateEngine.js';
 import { CodeEmitter } from './CodeEmitter.js';
+import { registerDefaultSkillCatalog } from './defaultSkillCatalog.js';
+import { verifyGeneratedTypeScript } from './GeneratedProjectVerifier.js';
 
 export class AgentGenerator {
   constructor(
@@ -23,7 +20,9 @@ export class AgentGenerator {
     private skillMatcher: SkillMatcher,
     private templateEngine: TemplateEngine,
     private codeEmitter: CodeEmitter
-  ) {}
+  ) {
+    registerDefaultSkillCatalog(this.skillMatcher);
+  }
 
   async generate(input: GenerateInput): Promise<GenerateResult> {
     const template = await this.templateEngine.load(input.templateId ?? 'general');
@@ -68,6 +67,7 @@ export class AgentGenerator {
 
     const templateSet = { ...template, files: rendered };
     const ctx = { template: templateSet, parsed, systemPrompt, tools, config };
+    verifyGeneratedTypeScript(rendered);
 
     if (input.outputDir) {
       return this.codeEmitter.emit(ctx, input.outputDir);
@@ -82,9 +82,7 @@ export class AgentGenerator {
 
   private parseDescription(input: GenerateInput, meta: Partial<AgentTemplate>): ParsedDescription {
     const name =
-      input.name ??
-      input.description.split(/\s+/).slice(0, 3).join('-').toLowerCase() ??
-      'agent';
+      input.name ?? input.description.split(/\s+/).slice(0, 3).join('-').toLowerCase() ?? 'agent';
 
     return {
       role: name,
@@ -106,7 +104,10 @@ export class AgentGenerator {
     return categories;
   }
 
-  private mergeTools(defaultTools: ToolDefinition[], matchedTools: ToolDefinition[]): ToolDefinition[] {
+  private mergeTools(
+    defaultTools: ToolDefinition[],
+    matchedTools: ToolDefinition[]
+  ): ToolDefinition[] {
     const seen = new Set<string>();
     const tools: ToolDefinition[] = [];
 

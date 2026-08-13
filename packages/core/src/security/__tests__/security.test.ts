@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LocalCommandAuth, DEFAULT_READONLY_COMMANDS } from '../LocalCommandAuth.js';
+import {
+  LocalCommandAuth,
+  DEFAULT_READONLY_COMMANDS,
+  parseLocalCommand,
+} from '../LocalCommandAuth.js';
+import { assertSafeHttpTarget, UnsafeHttpTargetError } from '../HttpTargetGuard.js';
 import { sanitizeConfig } from '../sanitizeConfig.js';
 import { isSensitiveTask, askLocalUserConfirmation } from '../SensitiveTaskGuard.js';
 import { AuditLog } from '../AuditLog.js';
@@ -35,6 +40,41 @@ describe('LocalCommandAuth', () => {
   it('extra confirmation commands are considered sensitive', () => {
     const auth = new LocalCommandAuth({ level: 'full', requireConfirmationFor: ['deploy'] });
     expect(auth.authorize('deploy prod').requiresConfirmation).toBe(true);
+  });
+
+  it('rejects shell metacharacters even when the prefix is a readonly command', () => {
+    const auth = new LocalCommandAuth({ level: 'readonly' });
+    expect(auth.authorize('echo hello; rm -rf /').allowed).toBe(false);
+    expect(auth.authorize('ls | cat').allowed).toBe(false);
+    expect(auth.authorize('pwd && id').allowed).toBe(false);
+    expect(auth.authorize('echo $(whoami)').allowed).toBe(false);
+  });
+
+  it('parses executable and args without a shell', () => {
+    expect(parseLocalCommand('git status --porcelain')).toEqual({
+      executable: 'git',
+      args: ['status', '--porcelain'],
+    });
+  });
+});
+
+describe('assertSafeHttpTarget', () => {
+  it('allows public https URLs', () => {
+    expect(assertSafeHttpTarget('https://example.com/search').hostname).toBe('example.com');
+  });
+
+  it('blocks loopback, link-local, and private addresses', () => {
+    const blocked = [
+      'http://127.0.0.1/secret',
+      'http://localhost/admin',
+      'http://169.254.169.254/latest/meta-data',
+      'http://10.0.0.5/internal',
+      'http://192.168.1.1/',
+      'http://172.16.0.1/',
+    ];
+    for (const target of blocked) {
+      expect(() => assertSafeHttpTarget(target)).toThrow(UnsafeHttpTargetError);
+    }
   });
 });
 

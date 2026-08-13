@@ -19,7 +19,7 @@ import type {
   RuntimeClientStatus,
   TaskHandler,
 } from '@agentforge/types';
-import { AgentStatus as Status } from '@agentforge/types';
+import { AgentStatus as Status, HUB_PROTOCOL_VERSION } from '@agentforge/types';
 import {
   CoreError,
   SimpleLogger,
@@ -69,6 +69,8 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
   private capabilityHandler?: CapabilityDistributeHandler;
   private _status: RuntimeClientStatus = 'disconnected';
   private stopped = false;
+  private readonly cancelledTaskIds = new Set<string>();
+  private readonly completedTasks = new Map<string, AgentResult>();
 
   constructor(
     agent: IClientAgent,
@@ -80,6 +82,7 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
     this.agent = agent;
     this.config = {
       heartbeatInterval: 30000,
+      allowRemoteExecution: false,
       reconnect: { enabled: true, maxAttempts: 10, delayMs: 1000, backoffMultiplier: 2 },
       ...config,
     };
@@ -162,7 +165,11 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
     });
 
     this.transport.on('message', (message: ControlMessage) => {
-      void this.handleControlMessage(message);
+      void this.handleControlMessage(message).catch((error: unknown) => {
+        const wrapped = error instanceof Error ? error : new Error(String(error));
+        this.logger.error('Failed to handle control message', wrapped);
+        this.emit('error', wrapped);
+      });
     });
   }
 
@@ -206,11 +213,23 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
   send(message: AgentMessage): void {
     const enriched: AgentMessage = {
       ...message,
+      protocolVersion: message.protocolVersion ?? HUB_PROTOCOL_VERSION,
       nodeId: message.nodeId ?? this.node.id,
       timestamp: message.timestamp ?? Date.now(),
     };
 
-    this.transport.send(enriched);
+    try {
+      this.transport.send(enriched);
+    } catch (error) {
+      if (error instanceof CoreError && error.code === 'TRANSPORT_NOT_CONNECTED') {
+        this.logger.warn('Dropping outbound message because transport is disconnected', {
+          type: message.type,
+          messageId: message.messageId,
+        });
+        return;
+      }
+      throw error;
+    }
   }
 
   onTask(handler: TaskHandler): void {
@@ -254,6 +273,10 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
         await this.handleConfigUpdate(message);
         break;
 
+      case 'cancel':
+        this.handleCancel(message);
+        break;
+
       case 'stop':
         await this.stop();
         break;
@@ -269,12 +292,25 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
       return;
     }
 
-    if (!this.config.allowRemoteExecution) {
-      this.sendError(
-        message.messageId,
-        'REMOTE_EXECUTION_DISABLED',
-        'Remote execution is disabled for this node'
-      );
+    if (!this.assertRemoteExecutionAllowed(message)) {
+      return;
+    }
+
+    const taskKey = message.payload.idempotencyKey ?? message.payload.taskId;
+    const cached = this.completedTasks.get(taskKey);
+    if (cached) {
+      this.send({
+        type: 'result',
+        messageId: message.messageId,
+        nodeId: this.node.id,
+        timestamp: Date.now(),
+        payload: cached,
+      });
+      return;
+    }
+
+    if (this.cancelledTaskIds.has(message.payload.taskId)) {
+      this.sendError(message.messageId, 'TASK_CANCELLED', 'Task was cancelled');
       return;
     }
 
@@ -292,6 +328,12 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
         ? await this.taskHandler(message.payload)
         : await this.agent.execute(message.payload.task);
 
+      if (this.cancelledTaskIds.has(message.payload.taskId)) {
+        this.sendError(message.messageId, 'TASK_CANCELLED', 'Task was cancelled');
+        return;
+      }
+
+      this.completedTasks.set(taskKey, result);
       this.send({
         type: 'result',
         messageId: message.messageId,
@@ -312,13 +354,21 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
       return;
     }
 
-    if (!this.config.allowRemoteExecution) {
-      this.sendError(
-        message.messageId,
-        'REMOTE_EXECUTION_DISABLED',
-        'Remote execution is disabled for this node'
-      );
+    if (!this.assertRemoteExecutionAllowed(message)) {
       return;
+    }
+
+    if (this.cancelledTaskIds.has(message.payload.taskId)) {
+      this.sendError(message.messageId, 'TASK_CANCELLED', 'Task was cancelled');
+      return;
+    }
+
+    if (isSensitiveTask(message.payload.task, this.config.requireLocalConfirmation ?? [])) {
+      const confirmed = await askLocalUserConfirmation(message.payload.task);
+      if (!confirmed) {
+        this.sendError(message.messageId, 'USER_REJECTED', 'User rejected execution');
+        return;
+      }
     }
 
     try {
@@ -424,6 +474,40 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
     }
   }
 
+  private handleCancel(message: ControlMessage): void {
+    const taskId =
+      typeof message.payload === 'object' &&
+      message.payload &&
+      'taskId' in message.payload &&
+      typeof (message.payload as { taskId: unknown }).taskId === 'string'
+        ? (message.payload as { taskId: string }).taskId
+        : undefined;
+    if (!taskId) {
+      this.sendError(message.messageId, 'INVALID_CONTROL_MESSAGE', 'Expected CancelTaskPayload');
+      return;
+    }
+    this.cancelledTaskIds.add(taskId);
+    this.send({
+      type: 'result',
+      messageId: message.messageId,
+      nodeId: this.node.id,
+      timestamp: Date.now(),
+      payload: { status: 'cancelled', taskId },
+    });
+  }
+
+  private assertRemoteExecutionAllowed(message: ControlMessage): boolean {
+    if (this.config.allowRemoteExecution) {
+      return true;
+    }
+    this.sendError(
+      message.messageId,
+      'REMOTE_EXECUTION_DISABLED',
+      'Remote execution is disabled for this node'
+    );
+    return false;
+  }
+
   private async handleConfigUpdate(message: ControlMessage): Promise<void> {
     if (!isPartialAgentRuntimeConfig(message.payload)) {
       this.sendError(
@@ -434,8 +518,39 @@ export class AgentRuntimeClient extends EventEmitter implements IAgentRuntimeCli
       return;
     }
 
-    Object.assign(this.config, message.payload);
-    this.logger.info('Runtime config updated', message.payload);
+    const forbidden = [
+      'allowRemoteExecution',
+      'requireLocalConfirmation',
+      'authToken',
+      'capabilityTrustStoreDir',
+      'hubUrl',
+      'websocketUrl',
+    ] as const;
+    const payload = message.payload;
+    const blocked = forbidden.filter((key) => key in payload);
+    if (blocked.length > 0) {
+      this.send({
+        type: 'config-ack',
+        messageId: message.messageId,
+        nodeId: this.node.id,
+        timestamp: Date.now(),
+        payload: {
+          status: 'rejected',
+          error: `Remote updates cannot change security fields: ${blocked.join(', ')}`,
+        },
+      });
+      return;
+    }
+
+    Object.assign(this.config, payload);
+    this.logger.info('Runtime config updated', payload);
+    this.send({
+      type: 'config-ack',
+      messageId: message.messageId,
+      nodeId: this.node.id,
+      timestamp: Date.now(),
+      payload: { status: 'applied' },
+    });
   }
 
   private buildStatusMessage(): AgentMessage {

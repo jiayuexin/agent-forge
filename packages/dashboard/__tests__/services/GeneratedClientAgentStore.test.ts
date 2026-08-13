@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GeneratedClientAgentStore } from '../../server/services/GeneratedClientAgentStore.js';
+import { openHubRepository } from '../../server/storage/sqlite.js';
+import type { HubRepository } from '../../server/storage/HubRepository.js';
 import * as generatorModule from '../../server/lib/generator.js';
 import type { GenerateResult } from '../../../core/src/generator/types.js';
 
@@ -31,14 +33,17 @@ function baseGenerateResult(overrides?: Partial<GenerateResult>): GenerateResult
 describe('GeneratedClientAgentStore', () => {
   let dataDir: string;
   let store: GeneratedClientAgentStore;
+  let repository: HubRepository;
 
   beforeEach(() => {
     dataDir = mkdtempSync(join(tmpdir(), 'generated-agent-store-'));
-    store = new GeneratedClientAgentStore({ dataDir });
+    repository = openHubRepository(join(dataDir, 'hub.sqlite'));
+    store = new GeneratedClientAgentStore({ dataDir, repository });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    repository.close();
     rmSync(dataDir, { recursive: true, force: true });
   });
 
@@ -48,14 +53,14 @@ describe('GeneratedClientAgentStore', () => {
 
   it('list returns sorted items by createdAt descending', async () => {
     mockGenerator(async () => baseGenerateResult());
-    const first = await store.create({
+    await store.create({
       name: 'first-agent',
       description: 'First generated agent description',
       templateId: 'general',
     });
 
     mockGenerator(async () => baseGenerateResult());
-    const second = await store.create({
+    await store.create({
       name: 'second-agent',
       description: 'Second generated agent description',
       templateId: 'general',
@@ -63,8 +68,8 @@ describe('GeneratedClientAgentStore', () => {
 
     const list = store.list();
     expect(list).toHaveLength(2);
-    expect(list[0].id).toBe(second.id);
-    expect(list[1].id).toBe(first.id);
+    expect(list.map((item) => item.name).sort()).toEqual(['first-agent', 'second-agent']);
+    expect(list[0].createdAt).toBeGreaterThanOrEqual(list[1].createdAt);
   });
 
   it('get returns a stored detail and undefined for unknown id', async () => {
@@ -155,7 +160,7 @@ describe('GeneratedClientAgentStore', () => {
         riskLevel: 'low',
       });
 
-      const reloaded = new GeneratedClientAgentStore({ dataDir });
+      const reloaded = new GeneratedClientAgentStore({ dataDir, repository });
       await reloaded.load();
       expect(reloaded.get(detail.id)).toEqual(detail);
     });

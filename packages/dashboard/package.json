@@ -31,8 +31,6 @@
   "dependencies": {
     "@agentforge/core": "workspace:*",
     "@agentforge/http-server": "workspace:*",
-    "@agentforge/runtime-client": "workspace:*",
-    "@agentforge/sdk": "workspace:*",
     "@agentforge/types": "workspace:*",
     "@ant-design/icons": "^5.5.0",
     "@monaco-editor/react": "^4.6.0",
@@ -44,6 +42,7 @@
     "h3": "^1.12.0",
     "i18next": "^23.2.3",
     "monaco-editor": "^0.50.0",
+    "@opentelemetry/api": "^1.9.0",
     "pino": "^9.0.0",
     "postcss": "^8.4.0",
     "react": "^18.3.1",
@@ -58,10 +57,11 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@agentforge/runtime-client": "workspace:*",
     "@playwright/test": "^1.47.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
-    "@types/node": "^20.12.0",
+    "@types/node": "^22.15.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/ws": "^8.5.0",

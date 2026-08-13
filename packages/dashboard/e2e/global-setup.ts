@@ -1,5 +1,5 @@
 import { AgentRuntimeClient } from '@agentforge/runtime-client';
-import { createE2EMockAgent } from './fixtures/mock-agent.js';
+import { createE2EClientAgent, E2E_NODE_NAME } from './fixtures/e2e-agent.js';
 
 const adminToken = process.env.AGENTFORGE_ADMIN_TOKEN ?? 'admin-token';
 /** Must match packages/dashboard/playwright.config.ts default. */
@@ -10,7 +10,7 @@ async function waitForHealth(timeoutMs = 120_000): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     try {
-      const response = await fetch(`${hubUrl}/api/health`);
+      const response = await fetch(`${hubUrl}/api/v1/health`);
       if (response.ok) return;
     } catch {
       // Hub not ready yet
@@ -25,13 +25,13 @@ export default async function globalSetup(): Promise<void> {
   await waitForHealth();
   console.log('E2E globalSetup: hub healthy, creating node token');
 
-  const tokenResponse = await fetch(`${hubUrl}/api/admin/tokens`, {
+  const tokenResponse = await fetch(`${hubUrl}/api/v1/admin/tokens`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${adminToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ nodeName: 'E2E Mock Node' }),
+    body: JSON.stringify({ nodeName: E2E_NODE_NAME, role: 'node' }),
   });
 
   if (!tokenResponse.ok) {
@@ -39,7 +39,7 @@ export default async function globalSetup(): Promise<void> {
   }
 
   const tokenData = (await tokenResponse.json()) as { token: string; nodeId: string };
-  const agent = createE2EMockAgent({ id: tokenData.nodeId, name: 'E2E Mock Node' });
+  const agent = createE2EClientAgent({ id: tokenData.nodeId, name: E2E_NODE_NAME });
   const runtimeClient = new AgentRuntimeClient(agent, {
     hubUrl,
     websocketUrl: hubUrl.replace(/^http/, 'ws'),
@@ -47,17 +47,18 @@ export default async function globalSetup(): Promise<void> {
     nodeName: agent.name,
     heartbeatInterval: 5000,
     allowRemoteExecution: true,
+    reconnect: { enabled: true, maxAttempts: 30, delayMs: 200, backoffMultiplier: 1 },
   });
 
   runtimeClient.on('error', (error) => {
-    console.error('Mock runtime error', error);
+    console.error('E2E runtime error', error);
   });
 
-  console.log('E2E globalSetup: starting mock runtime client');
+  console.log('E2E globalSetup: starting ClientAgent runtime');
   await runtimeClient.start();
 
-  (globalThis as unknown as { __MOCK_RUNTIME__: AgentRuntimeClient }).__MOCK_RUNTIME__ =
+  (globalThis as unknown as { __E2E_RUNTIME__: AgentRuntimeClient }).__E2E_RUNTIME__ =
     runtimeClient;
 
-  console.log('E2E mock runtime started');
+  console.log('E2E ClientAgent runtime started');
 }

@@ -53,7 +53,7 @@ export function registerCreateCommand(program: Command): void {
           hubUrl,
           authToken: token,
           nodeName: agent.name,
-          allowRemoteExecution: true,
+          allowRemoteExecution: process.env.AGENTFORGE_ALLOW_REMOTE_EXECUTION === 'true',
         });
         await client.start();
         console.log(`ClientAgent connected to ${hubUrl}`);

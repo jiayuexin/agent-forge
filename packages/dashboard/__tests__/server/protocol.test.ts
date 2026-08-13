@@ -141,6 +141,21 @@ describe('Hub protocol integration', () => {
     await runtime.stop();
   });
 
+  it('rejects WebSocket connections without a bearer token', async () => {
+    hubServer = await startTestHub();
+    await new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${hubServer.port}/ws/nodes/no-token`, [
+        'agentforge.v1',
+      ]);
+      ws.on('open', () => {
+        ws.close();
+        reject(new Error('unauthenticated protocol should not connect'));
+      });
+      ws.on('error', () => resolve());
+      ws.on('close', () => resolve());
+    });
+  });
+
   it('rejects incompatible WebSocket protocol versions', async () => {
     hubServer = await startTestHub();
     const token = hubServer.hub.tokenStore.create({ nodeName: 'bad-protocol' });

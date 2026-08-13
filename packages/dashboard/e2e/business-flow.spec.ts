@@ -262,6 +262,31 @@ test.describe.serial('Dashboard business flow', () => {
     const capabilities = (await pluginListed.json()) as Array<{ id: string }>;
     expect(capabilities.some((item) => item.id === pluginId)).toBe(true);
 
+    const updated = await request.put(`/api/v1/capabilities/${pluginId}`, {
+      headers: {
+        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        id: pluginId,
+        type: 'plugin',
+        name: 'E2E Plugin Updated',
+        description: 'Plugin capability used by e2e install path',
+        downloadUrl: 'https://example.com/e2e-plugin.wasm',
+        signature: 'e2e-signature',
+        keyId: 'e2e-publisher',
+        entry: 'run',
+        allowedCapabilities: [],
+        sandbox: { timeoutMs: 1000, maxMemoryPages: 8 },
+        inputSchema: { type: 'object' },
+      },
+    });
+    expect(updated.ok()).toBeTruthy();
+    const pluginDetail = await request.get(`/api/v1/capabilities/${pluginId}`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    await expect(pluginDetail.json()).resolves.toMatchObject({ name: 'E2E Plugin Updated' });
+
     const disconnected = await request.delete(`/api/v1/nodes/${node!.id}`, {
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
     });

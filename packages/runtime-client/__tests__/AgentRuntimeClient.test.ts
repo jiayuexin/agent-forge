@@ -17,10 +17,10 @@ vi.mock('@agentforge/core', async (importOriginal) => {
 import { askLocalUserConfirmation } from '@agentforge/core';
 
 describe('AgentRuntimeClient', () => {
-  let server: ReturnType<typeof createTestServer>;
+  let server: Awaited<ReturnType<typeof createTestServer>>;
 
-  beforeEach(() => {
-    server = createTestServer();
+  beforeEach(async () => {
+    server = await createTestServer();
     vi.mocked(askLocalUserConfirmation).mockResolvedValue(true);
   });
 

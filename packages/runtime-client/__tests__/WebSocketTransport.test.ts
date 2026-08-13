@@ -3,10 +3,10 @@ import { WebSocketTransport } from '../src/WebSocketTransport.js';
 import { createTestServer, waitFor } from './helpers.js';
 
 describe('WebSocketTransport', () => {
-  let server: ReturnType<typeof createTestServer>;
+  let server: Awaited<ReturnType<typeof createTestServer>>;
 
-  beforeEach(() => {
-    server = createTestServer();
+  beforeEach(async () => {
+    server = await createTestServer();
   });
 
   afterEach(async () => {
@@ -81,6 +81,33 @@ describe('WebSocketTransport', () => {
     expect(message.type).toBe('ping');
     expect(message.messageId).toBe('msg-1');
 
+    transport.disconnect();
+  });
+
+  it('reconnects after an unexpected disconnect', async () => {
+    const transport = new WebSocketTransport({
+      nodeId: 'node-1',
+      hubUrl: server.url,
+      reconnect: {
+        enabled: true,
+        maxAttempts: 5,
+        delayMs: 20,
+        backoffMultiplier: 1,
+      },
+    });
+
+    await transport.connect();
+    const first = await server.nextClient();
+    first.close();
+    await waitFor(() => transport.status === 'connected', 3000);
+
+    transport.send({
+      type: 'status',
+      nodeId: 'node-1',
+      timestamp: Date.now(),
+      payload: 'online',
+    });
+    await expect(server.waitForMessage()).resolves.toMatchObject({ type: 'status' });
     transport.disconnect();
   });
 

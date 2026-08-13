@@ -6,11 +6,11 @@ import { createTestServer } from '../../../runtime-client/__tests__/helpers.js';
 
 describe('NodeRegistry', () => {
   let registry: NodeRegistry;
-  let server: ReturnType<typeof createTestServer>;
+  let server: Awaited<ReturnType<typeof createTestServer>>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     registry = new NodeRegistry();
-    server = createTestServer();
+    server = await createTestServer();
   });
 
   afterEach(async () => {

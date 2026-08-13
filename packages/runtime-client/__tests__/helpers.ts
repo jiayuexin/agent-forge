@@ -1,6 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import type { AgentResult, AgentStreamChunk, IClientAgent } from '@agentforge/types';
-import { AgentStatus } from '@agentforge/types';
+import { AgentStatus, HUB_WS_SUBPROTOCOL } from '@agentforge/types';
 import { WebSocketServer, WebSocket } from 'ws';
 import { vi } from 'vitest';
 
@@ -71,11 +71,21 @@ export interface TestServer {
   ): Promise<Record<string, unknown>>;
 }
 
-export function createTestServer(): TestServer {
-  const wss = new WebSocketServer({ port: 0 });
+export async function createTestServer(): Promise<TestServer> {
+  const wss = new WebSocketServer({
+    host: '127.0.0.1',
+    port: 0,
+    handleProtocols: (protocols) =>
+      protocols.has(HUB_WS_SUBPROTOCOL) ? HUB_WS_SUBPROTOCOL : false,
+  });
   const clients: WebSocket[] = [];
   const messageQueue: Array<Record<string, unknown>> = [];
   let messageResolver: ((message: Record<string, unknown>) => void) | undefined;
+
+  await new Promise<void>((resolve, reject) => {
+    wss.once('listening', () => resolve());
+    wss.once('error', reject);
+  });
 
   wss.on('connection', (ws) => {
     clients.push(ws);
@@ -96,10 +106,13 @@ export function createTestServer(): TestServer {
     wss,
     get url() {
       const address = wss.address() as AddressInfo;
-      return `ws://localhost:${address.port}`;
+      return `ws://127.0.0.1:${address.port}`;
     },
     close: () =>
       new Promise((resolve) => {
+        for (const client of wss.clients) {
+          client.terminate();
+        }
         for (const ws of clients) {
           ws.terminate();
         }

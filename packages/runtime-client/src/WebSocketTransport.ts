@@ -90,9 +90,10 @@ export class WebSocketTransport extends EventEmitter {
     this.connectReject = undefined;
 
     if (this.socket) {
-      this.socket.removeAllListeners();
-      this.socket.terminate();
+      const socket = this.socket;
       this.socket = undefined;
+      socket.removeAllListeners();
+      socket.close();
     }
 
     this.setStatus('disconnected');
@@ -110,7 +111,7 @@ export class WebSocketTransport extends EventEmitter {
   }
 
   private doConnect(): void {
-    if (this.socket) {
+    if (this.intentionalClose || this.socket) {
       return;
     }
 
@@ -197,6 +198,10 @@ export class WebSocketTransport extends EventEmitter {
   }
 
   private scheduleReconnect(): void {
+    if (this.intentionalClose) {
+      return;
+    }
+
     if (!this.reconnect.enabled) {
       this.setStatus('error');
       return;

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import type {
   AgentIdentity,
   AgentTemplate,
@@ -53,6 +54,15 @@ export class AgentGenerator {
       requireLocalConfirmation: [],
     };
 
+    const outputDir = input.outputDir ? resolve(input.outputDir) : undefined;
+    const relativeOutput = outputDir ? relative(process.cwd(), outputDir) : undefined;
+    const isInsideRepository =
+      relativeOutput === undefined ||
+      (relativeOutput !== '' &&
+        relativeOutput !== '..' &&
+        !relativeOutput.startsWith(`..${sep}`) &&
+        !isAbsolute(relativeOutput));
+
     const templateData: TemplateData = {
       identity,
       parsed,
@@ -60,7 +70,8 @@ export class AgentGenerator {
       tools,
       config,
       security,
-      versions: { core: '0.0.0', runtimeClient: '0.0.0' },
+      dependencyMode: isInsideRepository ? 'workspace' : 'standalone',
+      versions: { core: '0.1.0', runtimeClient: '0.1.0', types: '0.1.0' },
     };
 
     const rendered = this.templateEngine.render(template, templateData);
@@ -69,8 +80,8 @@ export class AgentGenerator {
     const ctx = { template: templateSet, parsed, systemPrompt, tools, config };
     verifyGeneratedTypeScript(rendered);
 
-    if (input.outputDir) {
-      return this.codeEmitter.emit(ctx, input.outputDir);
+    if (outputDir) {
+      return this.codeEmitter.emit(ctx, outputDir);
     }
 
     return { files: rendered, metadata: parsed };

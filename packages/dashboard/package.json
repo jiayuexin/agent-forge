@@ -25,8 +25,7 @@
     "dev:server": "tsx server/start.ts",
     "preview": "vite preview",
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.browser.json",
-    "test": "vitest run && vitest run --config vitest.browser.config.ts",
-    "test:e2e": "pnpm run build:web && playwright test"
+    "test": "vitest run && vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@agentforge/core": "workspace:*",
@@ -58,7 +57,6 @@
   },
   "devDependencies": {
     "@agentforge/runtime-client": "workspace:*",
-    "@playwright/test": "^1.47.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.15.0",

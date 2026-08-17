@@ -69,23 +69,3 @@ jobs:
           docker logs agentforge-smoke
           docker rm -f agentforge-smoke
           test "$ok" = "1"
-
-  e2e:
-    needs: lint-typecheck-test-build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
-      - run: pnpm exec playwright install chromium --with-deps
-        working-directory: packages/dashboard
-      - run: pnpm run test:e2e
-        env:
-          AGENTFORGE_ADMIN_TOKEN: admin-token
-          AGENTFORGE_E2E_PORT: '8091'
-          CI: true

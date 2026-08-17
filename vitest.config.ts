@@ -20,7 +20,6 @@ export default defineConfig({
         '**/node_modules/**',
         'client-agents/**',
         'templates/**',
-        '**/e2e/**',
         '**/__tests__/**',
         '**/*.d.ts',
         '**/*.config.*',

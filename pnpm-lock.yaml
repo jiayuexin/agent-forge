@@ -202,9 +202,6 @@ importers:
       '@agentforge/runtime-client':
         specifier: workspace:*
         version: link:../runtime-client
-      '@playwright/test':
-        specifier: ^1.47.0
-        version: 1.47.0
       '@testing-library/jest-dom':
         specifier: ^6.5.0
         version: 6.5.0
@@ -2680,17 +2677,6 @@ packages:
     requiresBuild: true
     dev: true
     optional: true
-
-  /@playwright/test@1.47.0:
-    resolution:
-      {
-        integrity: sha512-SgAdlSwYVpToI4e/IH19IHHWvoijAYH5hu2MWSXptRypLSnzj51PcGD+rsOXFayde4P9ZLi+loXVwArg6IUkCA==,
-      }
-    engines: { node: '>=18' }
-    hasBin: true
-    dependencies:
-      playwright: 1.47.0
-    dev: true
 
   /@rc-component/async-validator@5.1.2:
     resolution:
@@ -7470,28 +7456,6 @@ packages:
         integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==,
       }
     engines: { node: '>= 6' }
-
-  /playwright-core@1.47.0:
-    resolution:
-      {
-        integrity: sha512-1DyHT8OqkcfCkYUD9zzUTfg7EfTd+6a8MkD/NWOvjo0u/SCNd5YmY/lJwFvUZOxJbWNds+ei7ic2+R/cRz/PDg==,
-      }
-    engines: { node: '>=18' }
-    hasBin: true
-    dev: true
-
-  /playwright@1.47.0:
-    resolution:
-      {
-        integrity: sha512-jOWiRq2pdNAX/mwLiwFYnPHpEZ4rM+fRSQpRHwEwZlP2PUANvL3+aJOF/bvISMhFD30rqMxUB4RJx9aQbfh4Ww==,
-      }
-    engines: { node: '>=18' }
-    hasBin: true
-    dependencies:
-      playwright-core: 1.47.0
-    optionalDependencies:
-      fsevents: 2.3.2
-    dev: true
 
   /postcss-attribute-case-insensitive@8.0.0(postcss@8.5.15):
     resolution:

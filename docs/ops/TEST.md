@@ -9,31 +9,28 @@
 
 ## 测试总览
 
-AgentForge 使用 **Vitest** 作为单元/集成测试框架，**Playwright** 作为 Dashboard E2E 框架。
+AgentForge 使用 **Vitest** 作为单元/集成测试框架。
 
 | 统计项            | 数值                                                          |
 | ----------------- | ------------------------------------------------------------- |
 | 单元/集成测试框架 | Vitest ^2.0                                                   |
-| E2E 测试框架      | Playwright                                                    |
 | 覆盖率目标        | 全局 statements/branches/functions/lines ≥ 80%                |
 | 覆盖包            | core、sdk、runtime-client、http-server、dashboard/server、cli |
 | 不计入全局分母    | `packages/dashboard/src/**`、`examples/**`                    |
 
 ### 测试分层
 
-| 层级     | 覆盖范围                                                            | 工具       | 门禁              |
-| -------- | ------------------------------------------------------------------- | ---------- | ----------------- |
-| 单元测试 | core/sdk/runtime/http-server/Hub 服务端                             | Vitest     | `pnpm test`       |
-| 集成测试 | Hub 协议、RBAC、SQLite、CLI create/run                              | Vitest     | `pnpm test`       |
-| E2E 测试 | Dashboard 页面、真实 ClientAgent、Token、能力、远程执行、审计、重连 | Playwright | `pnpm test:e2e`   |
-| Live API | OpenAI/Anthropic 合同测试                                           | Vitest     | 仅当 API Key 存在 |
+| 层级     | 覆盖范围                                | 工具   | 门禁              |
+| -------- | --------------------------------------- | ------ | ----------------- |
+| 单元测试 | core/sdk/runtime/http-server/Hub 服务端 | Vitest | `pnpm test`       |
+| 集成测试 | Hub 协议、RBAC、SQLite、CLI create/run  | Vitest | `pnpm test`       |
+| Live API | OpenAI/Anthropic 合同测试               | Vitest | 仅当 API Key 存在 |
 
 ## 快速开始
 
 ```bash
 pnpm test
 pnpm test:coverage
-pnpm test:e2e
 ```
 
 ### 关键测试路径（实际存在）

@@ -17,7 +17,8 @@ const baseData: TemplateData = {
   tools: [],
   config: {},
   security: { localCommandAuth: { level: 'disabled' } },
-  versions: { core: '0.0.0', runtimeClient: '0.0.0' },
+  dependencyMode: 'workspace',
+  versions: { core: '0.0.0', runtimeClient: '0.0.0', types: '0.0.0' },
 };
 
 describe('TemplateEngine', () => {

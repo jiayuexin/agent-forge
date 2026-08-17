@@ -13,13 +13,8 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     setToken(values.token);
   };
 
-  if (token) {
-    return <>{children}</>;
-  }
-
-  return (
-    <>
-      {children}
+  if (!token) {
+    return (
       <Modal
         title={t('login')}
         open
@@ -38,6 +33,8 @@ export function AuthGuard({ children }: { children: ReactNode }) {
           </Form.Item>
         </Form>
       </Modal>
-    </>
-  );
+    );
+  }
+
+  return <>{children}</>;
 }

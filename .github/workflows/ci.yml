@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+jobs:
+  lint-typecheck-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run lint
+      - run: pnpm run type-check
+      - run: pnpm run test
+      - run: pnpm run test:coverage
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  docker:
+    needs: lint-typecheck-test-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: docker build -t agentforge:test .
+      - name: Image vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: agentforge:test
+          format: table
+          exit-code: '0'
+          severity: CRITICAL,HIGH
+      - name: Docker install smoke
+        run: |
+          docker run -d --name agentforge-smoke -p 18080:8080 \
+            -e AGENTFORGE_ADMIN_TOKEN=smoke-token \
+            -e AGENTFORGE_DATA_DIR=/data \
+            agentforge:test
+          ok=0
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:18080/api/v1/health >/dev/null; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          docker logs agentforge-smoke
+          docker rm -f agentforge-smoke
+          test "$ok" = "1"

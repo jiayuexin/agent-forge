@@ -1,10 +1,10 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
 import type { Capability } from '@agentforge/types';
 import { createHttpError } from '@agentforge/http-server';
+import type { HubRepository } from '../storage/HubRepository.js';
 
 export interface CapabilityStoreOptions {
   dataDir?: string;
+  repository?: HubRepository;
 }
 
 interface StoredCapability {
@@ -13,30 +13,28 @@ interface StoredCapability {
 
 export class CapabilityStore {
   private capabilities = new Map<string, StoredCapability>();
-  private dataDir: string;
+  private repository?: HubRepository;
 
   constructor(options: CapabilityStoreOptions = {}) {
-    this.dataDir = options.dataDir ?? '.agentforge/hub';
+    this.repository = options.repository;
   }
 
   async load(): Promise<void> {
-    try {
-      const path = this.filePath();
-      const text = await readFile(path, 'utf-8');
-      const data = JSON.parse(text) as Record<string, StoredCapability>;
-      this.capabilities = new Map(Object.entries(data));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
+    if (!this.repository) {
+      return;
     }
+    this.capabilities = new Map(
+      this.repository.listCapabilities().map((record) => [record.id, { versions: record.versions }])
+    );
   }
 
   async save(): Promise<void> {
-    const path = this.filePath();
-    await mkdir(dirname(path), { recursive: true });
-    const data = Object.fromEntries(this.capabilities);
-    await writeFile(path, JSON.stringify(data, null, 2));
+    if (!this.repository) {
+      return;
+    }
+    this.repository.replaceCapabilities(
+      [...this.capabilities.entries()].map(([id, stored]) => ({ id, versions: stored.versions }))
+    );
   }
 
   list(): Capability[] {
@@ -66,7 +64,11 @@ export class CapabilityStore {
 
   async create(capability: Capability): Promise<void> {
     if (this.capabilities.has(capability.id)) {
-      throw createHttpError('CAPABILITY_EXISTS', `Capability "${capability.id}" already exists`, 409);
+      throw createHttpError(
+        'CAPABILITY_EXISTS',
+        `Capability "${capability.id}" already exists`,
+        409
+      );
     }
     this.capabilities.set(capability.id, { versions: [capability] });
     await this.save();
@@ -74,7 +76,11 @@ export class CapabilityStore {
 
   async update(id: string, capability: Capability): Promise<void> {
     if (id !== capability.id) {
-      throw createHttpError('CAPABILITY_ID_MISMATCH', 'Capability ID in path and body do not match', 400);
+      throw createHttpError(
+        'CAPABILITY_ID_MISMATCH',
+        'Capability ID in path and body do not match',
+        400
+      );
     }
     const stored = this.capabilities.get(id);
     if (!stored) {
@@ -86,6 +92,7 @@ export class CapabilityStore {
     } else {
       stored.versions.push(capability);
     }
+    stored.versions.sort(compareSemverThenOrdinal);
     await this.save();
   }
 
@@ -99,10 +106,22 @@ export class CapabilityStore {
 
   private latest(stored: StoredCapability): Capability | undefined {
     if (stored.versions.length === 0) return undefined;
-    return stored.versions[stored.versions.length - 1];
+    return [...stored.versions].sort(compareSemverThenOrdinal).at(-1);
   }
+}
 
-  private filePath(): string {
-    return join(this.dataDir, 'capabilities.json');
+function compareSemverThenOrdinal(a: Capability, b: Capability): number {
+  const av = parseSemver(a.version);
+  const bv = parseSemver(b.version);
+  if (av && bv) {
+    return av[0] - bv[0] || av[1] - bv[1] || av[2] - bv[2];
   }
+  return 0;
+}
+
+function parseSemver(version: string | undefined): [number, number, number] | undefined {
+  if (!version) return undefined;
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return undefined;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
 }

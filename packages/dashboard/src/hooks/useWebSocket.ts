@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore.js';
 import { useNodeStore } from '../store/nodeStore.js';
 import { useMonitorStore } from '../store/monitorStore.js';
-import type { AgentMessage, AgentNodeStatus } from '@agentforge/types';
+import {
+  HUB_WS_BEARER_PREFIX,
+  HUB_WS_SUBPROTOCOL,
+  type AgentMessage,
+  type AgentNodeStatus,
+} from '@agentforge/types';
 
 export function useDashboardWebSocket() {
   const token = useAuthStore((state) => state.token);
@@ -17,7 +22,10 @@ export function useDashboardWebSocket() {
 
     const host = window.location.host;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${host}/ws/events?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(`${protocol}//${host}/ws/events`, [
+      HUB_WS_SUBPROTOCOL,
+      `${HUB_WS_BEARER_PREFIX}${token}`,
+    ]);
     wsRef.current = ws;
 
     ws.onopen = () => {

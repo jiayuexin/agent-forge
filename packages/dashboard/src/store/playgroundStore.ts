@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { AgentStreamChunk } from '@agentforge/types';
+import type { AgentStreamChunk, CallTrace } from '@agentforge/types';
+import { buildCallTraces, buildStreamContent } from '../lib/callTrace.js';
 
 export interface PlaygroundSession {
   id: string;
@@ -13,6 +14,7 @@ export interface PlaygroundMessage {
   role: 'user' | 'agent';
   content: string;
   chunks: AgentStreamChunk[];
+  traces: CallTrace[];
   duration?: number;
   tokens?: { input: number; output: number; total: number };
   model?: string;
@@ -83,6 +85,7 @@ export const usePlaygroundStore = create<PlaygroundState>((set, get) => ({
       role: 'user',
       content,
       chunks: [],
+      traces: [],
       timestamp: Date.now(),
     };
     set((state) => ({
@@ -102,18 +105,22 @@ export const usePlaygroundStore = create<PlaygroundState>((set, get) => ({
         const messages = [...session.messages];
         const lastMessage = messages[messages.length - 1];
         if (!lastMessage || lastMessage.role !== 'agent') {
+          const chunks = [chunk];
           messages.push({
             id: `msg-${Date.now()}`,
             role: 'agent',
-            content: '',
-            chunks: [chunk],
+            content: buildStreamContent([], chunk),
+            chunks,
+            traces: buildCallTraces(chunks),
             timestamp: Date.now(),
           });
         } else {
+          const chunks = [...lastMessage.chunks, chunk];
           messages[messages.length - 1] = {
             ...lastMessage,
-            chunks: [...lastMessage.chunks, chunk],
-            content: buildContent(lastMessage.chunks, chunk),
+            chunks,
+            content: buildStreamContent(lastMessage.chunks, chunk),
+            traces: buildCallTraces(chunks),
           };
         }
         return { ...session, messages };
@@ -149,10 +156,3 @@ export const usePlaygroundStore = create<PlaygroundState>((set, get) => ({
     }));
   },
 }));
-
-function buildContent(chunks: AgentStreamChunk[], newChunk: AgentStreamChunk): string {
-  const textChunks = [...chunks, newChunk]
-    .filter((chunk) => chunk.type === 'text')
-    .map((chunk) => (chunk as { content?: string }).content ?? '');
-  return textChunks.join('');
-}

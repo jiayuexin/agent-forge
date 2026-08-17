@@ -21,7 +21,7 @@ describe('DebugServer', () => {
     const { server, port } = await startTestServer(agent);
     try {
       const result = await requestJson(port, '/api/health');
-      expect(result).toEqual({ status: 'ok' });
+      expect(result).toMatchObject({ status: 'ok' });
     } finally {
       await server.stop();
     }
@@ -57,6 +57,37 @@ describe('DebugServer', () => {
     }
   });
 
+  it('includes capabilities installed in a ClientAgent local cache', async () => {
+    const cachedCapability = {
+      id: 'tool-cached',
+      type: 'tool',
+      name: 'cached-tool',
+      description: 'Cached tool',
+      endpointType: 'http',
+      endpoint: { target: 'https://example.com/tool', method: 'post' },
+      inputSchema: { type: 'object' },
+    } as const;
+    (
+      agent as MockAgent & {
+        getLocalCapabilityCache(): unknown[];
+      }
+    ).getLocalCapabilityCache = () => [cachedCapability];
+    const { server, port } = await startTestServer(agent);
+
+    try {
+      const result = await requestJson(port, '/api/capabilities');
+      expect(result).toEqual([
+        {
+          name: 'mock-capability',
+          description: 'A mock capability',
+        },
+        cachedCapability,
+      ]);
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('returns prometheus metrics', async () => {
     const metrics = new MetricsRegistry();
     const counter = metrics.counter('agentforge_http_requests_total', 'Total HTTP requests');
@@ -79,7 +110,9 @@ describe('DebugServer', () => {
       const response = await fetch(`http://127.0.0.1:${port}/api/metrics`);
       const text = await response.text();
       expect(text).toContain('# HELP agentforge_http_requests_total Total HTTP requests');
-      expect(text).toContain('agentforge_http_requests_total{method="GET",route="/api/health",status="200"} 1');
+      expect(text).toContain(
+        'agentforge_http_requests_total{method="GET",route="/api/health",status="200"} 1'
+      );
     } finally {
       await debugServer.stop();
     }
@@ -107,7 +140,7 @@ describe('DebugServer', () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-debug' },
         body: JSON.stringify({ type: 'chat', input: { message: 'hello' } }),
       });
       const text = await response.text();
@@ -119,12 +152,36 @@ describe('DebugServer', () => {
     }
   });
 
+  it('writes an SSE error event when the agent stream throws', async () => {
+    agent = new MockAgent({
+      streamHandler: async function* () {
+        yield { type: 'text', content: 'partial', index: 0 };
+        throw new Error('stream exploded');
+      },
+    });
+    const { server, port } = await startTestServer(agent);
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-debug' },
+        body: JSON.stringify({ type: 'chat', input: { message: 'hello' } }),
+      });
+      expect(response.status).toBe(200);
+      const text = await response.text();
+      expect(text).toContain('partial');
+      expect(text).toContain('stream exploded');
+      expect(text).toContain('"type":"error"');
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('rejects invalid execute body', async () => {
     const { server, port } = await startTestServer(agent);
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-debug' },
         body: JSON.stringify({}),
       });
       expect(response.status).toBe(400);

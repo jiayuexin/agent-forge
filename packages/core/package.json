@@ -1,7 +1,6 @@
 {
   "name": "@agentforge/core",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -21,14 +20,23 @@
   "dependencies": {
     "@agentforge/types": "workspace:*",
     "@anthropic-ai/sdk": "^0.24.0",
+    "@extism/extism": "2.0.0-rc13",
+    "ejs": "^3.1.0",
     "ollama": "^0.5.0",
     "openai": "^4.70.0",
-    "ejs": "^3.1.0"
+    "typescript": "^5.4.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/ejs": "^3.1.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^2.1.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

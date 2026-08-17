@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import './locales/i18n';
+import 'antd/dist/reset.css';
 import './index.css';
 import { App } from './App';
 

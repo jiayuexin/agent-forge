@@ -1,0 +1,14 @@
+{
+  "endpointType": "local-command",
+  "endpoint": {
+    "target": "git status --porcelain",
+    "method": "exec"
+  },
+  "inputSchema": {
+    "type": "object"
+  },
+  "id": "../outside",
+  "type": "tool",
+  "name": "outside",
+  "description": "Invalid path"
+}

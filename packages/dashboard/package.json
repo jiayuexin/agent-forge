@@ -1,7 +1,6 @@
 {
   "name": "@agentforge/dashboard",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/server/index.cjs",
   "module": "dist/server/index.js",
@@ -26,14 +25,11 @@
     "dev:server": "tsx server/start.ts",
     "preview": "vite preview",
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.browser.json",
-    "test": "vitest run && vitest run --config vitest.browser.config.ts",
-    "test:e2e": "playwright test"
+    "test": "vitest run && vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@agentforge/core": "workspace:*",
     "@agentforge/http-server": "workspace:*",
-    "@agentforge/runtime-client": "workspace:*",
-    "@agentforge/sdk": "workspace:*",
     "@agentforge/types": "workspace:*",
     "@ant-design/icons": "^5.5.0",
     "@monaco-editor/react": "^4.6.0",
@@ -45,31 +41,42 @@
     "h3": "^1.12.0",
     "i18next": "^23.2.3",
     "monaco-editor": "^0.50.0",
+    "@opentelemetry/api": "^1.9.0",
     "pino": "^9.0.0",
     "postcss": "^8.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^15.0.0",
+    "react-markdown": "^9.0.1",
     "react-router-dom": "^6.26.0",
+    "remark-gfm": "^4.0.0",
     "tailwindcss": "^3.4.0",
     "ws": "^8.18.0",
     "zod": "^3.23.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.47.0",
+    "@agentforge/runtime-client": "workspace:*",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
-    "@types/node": "^20.12.0",
+    "@types/node": "^22.15.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/ws": "^8.5.0",
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^25.0.0",
+    "postcss-nesting": "^12.0.0",
+    "postcss-preset-env": "^11.3.2",
     "tsup": "^8.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.4.0",
     "vite": "^5.4.0",
     "vitest": "^2.1.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

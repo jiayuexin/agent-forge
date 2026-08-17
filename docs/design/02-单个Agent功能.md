@@ -5,7 +5,7 @@
 > **文档状态**: 已定稿
 > **文档版本**: docs-v0.4
 > **最后更新**: 2026-06-23
-> **实现状态**: 未开始
+> **实现状态**: 已完成
 >
 > AgentForge 中的 Agent 分为两种形态：ClientAgent 与 StatelessAgent。两者共享 `IAgent` 接口，但功能侧重不同。
 
@@ -13,15 +13,15 @@
 
 ## 两种形态概览
 
-| 功能 | ClientAgent | StatelessAgent |
-|---|---|---|
-| 运行位置 | 用户机器（守护进程） | SDK 进程内 |
-| 生命周期 | 长期运行 | 随任务创建销毁 |
-| 本地命令执行 | 支持（需授权） | 不支持 |
-| Capability Hub 连接 | 支持 | 不直接连接 |
-| 能力缓存 | 支持 | 不支持 |
-| LLM 调用 | 本地配置 | 由编排器注入配置 |
-| 典型使用 | 终端用户本地助手 | 开发者编排工作流 |
+| 功能                | ClientAgent          | StatelessAgent   |
+| ------------------- | -------------------- | ---------------- |
+| 运行位置            | 用户机器（守护进程） | SDK 进程内       |
+| 生命周期            | 长期运行             | 随任务创建销毁   |
+| 本地命令执行        | 支持（需授权）       | 不支持           |
+| Capability Hub 连接 | 支持                 | 不直接连接       |
+| 能力缓存            | 支持                 | 不支持           |
+| LLM 调用            | 本地配置             | 由编排器注入配置 |
+| 典型使用            | 终端用户本地助手     | 开发者编排工作流 |
 
 ---
 
@@ -31,14 +31,14 @@
 
 ClientAgent 作为本地守护进程运行，生命周期比 StatelessAgent 更长：
 
-| 方法 | 说明 | 示例 |
-|---|---|---|
-| `init()` | 初始化 Agent，加载配置、连接模型、注册工具 | `await agent.init({ identity: {...}, model: {...}, systemPrompt: '...' })` |
-| `startDaemon()` | 启动本地守护进程 | `await agent.startDaemon()` |
-| `execute()` | 执行任务 | `await agent.execute(task)` |
-| `stream()` | 流式执行任务 | `for await (const chunk of agent.stream(task))` |
-| `stopDaemon()` | 停止守护进程 | `await agent.stopDaemon()` |
-| `destroy()` | 销毁 Agent，释放资源 | `await agent.destroy()` |
+| 方法            | 说明                                       | 示例                                                                       |
+| --------------- | ------------------------------------------ | -------------------------------------------------------------------------- |
+| `init()`        | 初始化 Agent，加载配置、连接模型、注册工具 | `await agent.init({ identity: {...}, model: {...}, systemPrompt: '...' })` |
+| `startDaemon()` | 启动本地守护进程                           | `await agent.startDaemon()`                                                |
+| `execute()`     | 执行任务                                   | `await agent.execute(task)`                                                |
+| `stream()`      | 流式执行任务                               | `for await (const chunk of agent.stream(task))`                            |
+| `stopDaemon()`  | 停止守护进程                               | `await agent.stopDaemon()`                                                 |
+| `destroy()`     | 销毁 Agent，释放资源                       | `await agent.destroy()`                                                    |
 
 ### 2.2 智能对话
 
@@ -50,7 +50,7 @@ ClientAgent 作为本地守护进程运行，生命周期比 StatelessAgent 更�
 const result = await agent.execute({
   type: 'chat',
   input: { message: '帮我查一下订单 ORD-001' },
-  context: { conversationId: 'conv-001', userId: 'U123' }
+  context: { conversationId: 'conv-001', userId: 'U123' },
 });
 ```
 
@@ -75,12 +75,12 @@ ClientAgent 可在授权后调用本地终端/PowerShell 执行命令。
 
 **授权级别**：
 
-| 级别 | 说明 |
-|---|---|
-| `disabled` | 默认状态，禁止执行任何命令 |
-| `readonly` | 只允许只读命令（如 `ls`、`ps`、`git status`） |
-| `whitelist` | 只允许白名单内的命令 |
-| `full` | 开放命令执行，敏感命令需二次确认 |
+| 级别        | 说明                                          |
+| ----------- | --------------------------------------------- |
+| `disabled`  | 默认状态，禁止执行任何命令                    |
+| `readonly`  | 只允许只读命令（如 `ls`、`ps`、`git status`） |
+| `whitelist` | 只允许白名单内的命令                          |
+| `full`      | 开放命令执行，敏感命令需二次确认              |
 
 ### 2.5 连接 Capability Hub
 
@@ -89,6 +89,7 @@ await agent.connectToHub('wss://hub.example.com', authToken);
 ```
 
 连接后 ClientAgent：
+
 - 注册为节点
 - 上报状态、指标、事件
 - 接收远程任务
@@ -112,21 +113,21 @@ await agent.connectToHub('wss://hub.example.com', authToken);
 
 ### 2.7 事件系统
 
-| 事件 | 触发时机 |
-|---|---|
-| `agent:init` | 初始化完成 |
-| `agent:ready` | 就绪 |
-| `agent:execute:start` | 任务执行前 |
-| `agent:execute:end` | 任务执行完成 |
-| `agent:tool:call` | 工具被调用前 |
-| `agent:tool:result` | 工具返回结果 |
-| `agent:llm:chunk` | LLM 流式输出 chunk |
-| `agent:llm:error` | LLM 调用失败 |
-| `agent:capability:installed` | 能力安装完成 |
-| `agent:hub:connected` | 连接 Hub 成功 |
-| `agent:hub:disconnected` | 与 Hub 断开 |
-| `agent:error` | 发生错误 |
-| `agent:destroy` | 销毁前 |
+| 事件                         | 触发时机           |
+| ---------------------------- | ------------------ |
+| `agent:init`                 | 初始化完成         |
+| `agent:ready`                | 就绪               |
+| `agent:execute:start`        | 任务执行前         |
+| `agent:execute:end`          | 任务执行完成       |
+| `agent:tool:call`            | 工具被调用前       |
+| `agent:tool:result`          | 工具返回结果       |
+| `agent:llm:chunk`            | LLM 流式输出 chunk |
+| `agent:llm:error`            | LLM 调用失败       |
+| `agent:capability:installed` | 能力安装完成       |
+| `agent:hub:connected`        | 连接 Hub 成功      |
+| `agent:hub:disconnected`     | 与 Hub 断开        |
+| `agent:error`                | 发生错误           |
+| `agent:destroy`              | 销毁前             |
 
 ### 2.8 状态管理
 
@@ -140,8 +141,8 @@ UNINITIALIZED → INITIALIZING → READY → DAEMON_RUNNING ⇄ RUNNING
                            DESTROYED（不可逆）
 ```
 
-| 状态 | 说明 |
-|---|---|
+| 状态             | 说明                              |
+| ---------------- | --------------------------------- |
 | `daemon-running` | 守护进程已启动，等待远程/本地任务 |
 
 ### 2.9 安全配置
@@ -160,6 +161,20 @@ ClientAgent 的安全配置存储在 `.agentforge/security.json`：
 }
 ```
 
+### 2.9.1 本地调试 HTTP（可选）
+
+生产路径为 `agentforge run` 连接 Capability Hub。本地开发可选用 `agentforge serve` 暴露调试 HTTP API：
+
+| 端点                | 方法 | 说明                                    |
+| ------------------- | ---- | --------------------------------------- |
+| `/api/execute`      | POST | 同步执行任务                            |
+| `/api/stream`       | POST | 流式执行任务（SSE）                     |
+| `/api/status`       | GET  | 详细状态（版本、uptime、Provider 就绪） |
+| `/api/health`       | GET  | 轻量探活（Docker/K8s liveness）         |
+| `/api/capabilities` | GET  | 查看能力声明                            |
+
+完整说明见 [05-CLI与API.md §5.4](./05-CLI与API.md#54-clientagent-调试-http-api) 与 [§5.3.1](./05-CLI与API.md#531-健康检查端点说明)。
+
 ---
 
 ## StatelessAgent 功能
@@ -168,12 +183,12 @@ ClientAgent 的安全配置存储在 `.agentforge/security.json`：
 
 StatelessAgent 在 SDK 进程内创建，任务完成后销毁：
 
-| 方法 | 说明 |
-|---|---|
-| `init()` | 初始化，注入能力清单 |
-| `execute()` | 执行单次任务 |
-| `stream()` | 流式执行 |
-| `destroy()` | 立即销毁，释放资源 |
+| 方法        | 说明                 |
+| ----------- | -------------------- |
+| `init()`    | 初始化，注入能力清单 |
+| `execute()` | 执行单次任务         |
+| `stream()`  | 流式执行             |
+| `destroy()` | 立即销毁，释放资源   |
 
 ### 2.11 LLM 编排执行
 
@@ -187,7 +202,7 @@ framework.register('reviewer', CodeReviewAgent);
 // PlannerAgent 根据能力清单自动生成计划
 const result = await framework.orchestrate({
   type: 'chat',
-  input: { message: 'review 这段代码并生成 commit message' }
+  input: { message: 'review 这段代码并生成 commit message' },
 });
 ```
 

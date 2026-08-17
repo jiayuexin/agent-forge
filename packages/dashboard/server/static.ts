@@ -48,6 +48,9 @@ export function createStaticHandler(options: StaticFileOptions) {
       setResponseHeader(event, 'Content-Type', mime);
       return send(event, content);
     } catch {
+      if (extname(rawPath) || rawPath.startsWith('/json')) {
+        throw createError({ statusCode: 404, statusMessage: 'Not Found' });
+      }
       const indexHtml = await readFile(resolve(root, 'index.html'));
       setResponseHeader(event, 'Content-Type', 'text/html; charset=utf-8');
       return send(event, indexHtml);

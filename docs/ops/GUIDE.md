@@ -1,13 +1,11 @@
 # AgentForge 使用文档
 
-> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
->
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 使用指南
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
-> **实现状态**: 未开始
+> **文档版本**: docs-v0.6
+> **最后更新**: 2026-08-13
+> **实现状态**: 已实现
 
 ## 目录
 
@@ -29,11 +27,31 @@
 
 ## 快速开始
 
+### 5 分钟黄金路径（推荐先跑）
+
+本地安装 Tool 并真实执行（无需 Hub / API Key）：
+
+```bash
+pnpm install && pnpm build
+node examples/golden-path/run-local.mjs
+# 或：pnpm demo:golden-path
+```
+
+成功时输出含 `GOLDEN_PATH_OK`。完整说明与 create → Hub → 下发见 [examples/golden-path/README.md](../../examples/golden-path/README.md)。
+
+离线能力（US8）：Hub 不可达时仍执行已缓存 Tool：
+
+```bash
+node examples/golden-path/run-offline.mjs
+```
+
+成功时输出含 `HUB_UNREACHABLE`、`RUNTIME_NOT_CONNECTED`、`OFFLINE_CAPABILITY_OK`。
+
 ### 环境要求
 
 - Node.js ≥ 18.0.0
 - pnpm ≥ 8.0.0（开发时需要）
-- 至少一个 LLM Provider 的 API Key
+- 至少一个 LLM Provider 的 API Key（`agentforge create` / Skill / Hub 远程执行需要）
 
 ### 30 秒创建你的第一个 ClientAgent
 
@@ -48,6 +66,7 @@ agentforge create "一个能执行 Git 命令的本地编程助手"
 agentforge run ./client-agents/my-agent --connect ws://localhost:8080
 
 # 启动 Capability Hub（另一个终端）
+export AGENTFORGE_ADMIN_TOKEN=replace-me
 agentforge dashboard
 ```
 
@@ -63,15 +82,15 @@ agentforge dashboard
 agentforge create <description> [options]
 ```
 
-| 参数 | 说明 | 默认值 |
-|---|---|---|
-| `<description>` | Agent 的自然语言描述（必填） | — |
-| `-n, --name [name]` | ClientAgent 名称 | 从描述自动推导 |
-| `-t, --template [template]` | 指定模板 ID | 自动匹配 |
-| `-m, --model [model]` | 模型名称 | `gpt-4o` |
-| `-o, --output [path]` | 输出目录 | `./client-agents/<name>` |
-| `--run` | 生成后直接启动守护进程 | `false` |
-| `--confirm-high-risk` | 跳过高风险模板确认提示 | `false` |
+| 参数                        | 说明                         | 默认值                   |
+| --------------------------- | ---------------------------- | ------------------------ |
+| `<description>`             | Agent 的自然语言描述（必填） | —                        |
+| `-n, --name [name]`         | ClientAgent 名称             | 从描述自动推导           |
+| `-t, --template [template]` | 指定模板 ID                  | 自动匹配                 |
+| `-m, --model [model]`       | 模型名称                     | `gpt-4o`                 |
+| `-o, --output [path]`       | 输出目录                     | `./client-agents/<name>` |
+| `--run`                     | 生成后直接启动守护进程       | `false`                  |
+| `--confirm-high-risk`       | 跳过高风险模板确认提示       | `false`                  |
 
 **示例：**
 
@@ -110,13 +129,13 @@ agentforge create "本地编程助手" --run --connect ws://localhost:8080
 agentforge run <client-agent-path> [options]
 ```
 
-| 参数 | 说明 | 默认值 |
-|---|---|---|
-| `<client-agent-path>` | ClientAgent 目录路径（必填） | — |
-| `--connect [hub-url]` | Capability Hub WebSocket 端点 | `ws://localhost:8080` |
-| `--token [auth-token]` | 节点认证令牌 | — |
-| `--node-name [name]` | 节点显示名称 | 自动生成 |
-| `--heartbeat [ms]` | 心跳间隔 | `30000` |
+| 参数                   | 说明                          | 默认值                |
+| ---------------------- | ----------------------------- | --------------------- |
+| `<client-agent-path>`  | ClientAgent 目录路径（必填）  | —                     |
+| `--connect [hub-url]`  | Capability Hub WebSocket 端点 | `ws://localhost:8080` |
+| `--token [auth-token]` | 节点认证令牌                  | —                     |
+| `--node-name [name]`   | 节点显示名称                  | 自动生成              |
+| `--heartbeat [ms]`     | 心跳间隔                      | `30000`               |
 
 **示例：**
 
@@ -130,16 +149,39 @@ agentforge run ./client-agents/my-agent \
 
 ### `agentforge dashboard`
 
-启动 Capability Hub Web 面板。
+启动 Capability Hub Web 面板。必须设置 `AGENTFORGE_ADMIN_TOKEN`。
 
 ```bash
+export AGENTFORGE_ADMIN_TOKEN=replace-me
 agentforge dashboard [options]
 ```
 
-| 参数 | 说明 | 默认值 |
-|---|---|---|
-| `--port [port]` | Hub 端口 | `8080` |
+| 参数            | 说明     | 默认值      |
+| --------------- | -------- | ----------- |
+| `--port [port]` | Hub 端口 | `8080`      |
 | `--host [host]` | 监听地址 | `localhost` |
+
+启动后访问 `http://localhost:8080`，主要页面：
+
+| 页面             | 路径                    | 功能                                 |
+| ---------------- | ----------------------- | ------------------------------------ |
+| 首页             | `/`                     | 统计概览、快速操作                   |
+| ClientAgent 模板 | `/client-agents`        | 查看、管理已生成模板                 |
+| 创建 ClientAgent | `/client-agents/create` | 可视化创建表单，实时预览 Prompt      |
+| 节点列表         | `/nodes`                | 已连接 ClientAgent 节点与状态        |
+| 能力管理         | `/capabilities`         | 能力市场、下发与版本                 |
+| 调试台           | `/playground`           | 三栏调试：对话 + 调用链路 + 工具面板 |
+| 监控             | `/monitor`              | 节点状态、实时指标                   |
+| 审计             | `/audit`                | 审计日志查询（默认最近 90 天）       |
+
+审计 API（需管理员 Token；权威定义见 [design/05 §5.3](../design/05-CLI与API.md)）：
+
+| 端点                 | 说明                                                          |
+| -------------------- | ------------------------------------------------------------- |
+| `GET /api/v1/audit`  | 查询审计记录（`from` / `to` / `action` / `limit` / `offset`） |
+| `POST /api/v1/audit` | 写入审计事件（如上报 `local-command`）                        |
+
+Hub 在能力下发与节点配置变更时自动写入 `capability-distribute` / `config-change`。ClientAgent 通过 `runtime-client` 连接 Hub（含节点 Token）后，执行 `local-command` 会在成功/失败/拒绝时自动 `POST /api/audit` 上报。
 
 ---
 
@@ -151,11 +193,21 @@ agentforge dashboard [options]
 agentforge serve [client-agent-path] [options]
 ```
 
-| 参数 | 说明 | 默认值 |
-|---|---|---|
+| 参数                  | 说明                 | 默认值            |
+| --------------------- | -------------------- | ----------------- |
 | `[client-agent-path]` | ClientAgent 目录路径 | `./client-agents` |
-| `--port [port]` | 服务端口 | `3001` |
-| `--host [host]` | 监听地址 | `localhost` |
+| `--port [port]`       | 服务端口             | `3001`            |
+| `--host [host]`       | 监听地址             | `localhost`       |
+
+本地调试 HTTP 端点（权威定义见 [design/05 §5.4](../design/05-CLI与API.md#54-clientagent-调试-http-api)）：
+
+| 端点                    | 说明                                                                     |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `POST /api/execute`     | 同步执行任务                                                             |
+| `POST /api/stream`      | 流式执行（SSE）                                                          |
+| `GET /api/status`       | 详细状态，响应 `{ "status": "ready" \| "degraded" \| "unhealthy", ... }` |
+| `GET /api/health`       | 轻量探活（Docker/K8s liveness），响应 `{ "status": "ok" }`               |
+| `GET /api/capabilities` | 本地能力声明                                                             |
 
 ---
 
@@ -169,6 +221,8 @@ agentforge capability list                          # 列出 Hub 上的能力
 agentforge capability install <capability-id>     # 安装能力到本地缓存
 agentforge capability distribute <capability-id> --node [node-id]  # 下发到指定节点
 ```
+
+ClientAgent 安装后会把 Tool、Skill 与 Plugin 纳入动态能力源；重启时从本地 manifest 恢复。Tool 通过显式端点适配器执行，Skill 使用受限 Tool 子集，Plugin 必须是签名 WASM 且在 Worker-backed WASI 中运行。`GET /api/capabilities` 同时返回 Agent 声明和本地缓存能力。
 
 ---
 
@@ -184,12 +238,12 @@ agentforge batch <config-file>
 # client-agents.yaml
 agents:
   - name: dev-assistant
-    description: "能执行 Git 命令和本地终端操作的编程助手"
+    description: '能执行 Git 命令和本地终端操作的编程助手'
     templateId: dev-assistant
     model: gpt-4o
 
   - name: code-reviewer
-    description: "审查代码质量，检查潜在 Bug 和安全问题"
+    description: '审查代码质量，检查潜在 Bug 和安全问题'
     templateId: code-reviewer
     model: claude-sonnet-4-6
 ```
@@ -204,10 +258,10 @@ agents:
 agentforge list [options]
 ```
 
-| 参数 | 说明 | 默认值 |
-|---|---|---|
-| `--output [format]` | 输出格式：`table` / `json` / `yaml` | `table` |
-| `--path [dir]` | 扫描目录 | `./client-agents` |
+| 参数                | 说明                                | 默认值            |
+| ------------------- | ----------------------------------- | ----------------- |
+| `--output [format]` | 输出格式：`table` / `json` / `yaml` | `table`           |
+| `--path [dir]`      | 扫描目录                            | `./client-agents` |
 
 **示例：**
 
@@ -259,13 +313,10 @@ const result = await framework
 ### 与 ClientAgent 通信
 
 ```typescript
-const clientProxy = await framework.connectToClientAgent(
-  'client-dev-machine-a1b2c3d',
-  {
-    hubUrl: 'wss://hub.example.com',
-    token: process.env.HUB_ADMIN_TOKEN,
-  },
-);
+const clientProxy = await framework.connectToClientAgent('client-dev-machine-a1b2c3d', {
+  hubUrl: 'wss://hub.example.com',
+  token: process.env.HUB_ADMIN_TOKEN,
+});
 
 const result = await clientProxy.execute({
   type: 'chat',
@@ -293,28 +344,28 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 
 授权级别：
 
-| 级别 | 说明 |
-|---|---|
-| `disabled` | 禁止执行任何命令 |
-| `readonly` | 只允许只读命令 |
-| `whitelist` | 只允许白名单内的命令 |
-| `full` | 开放命令执行，敏感命令需二次确认 |
+| 级别        | 说明                             |
+| ----------- | -------------------------------- |
+| `disabled`  | 禁止执行任何命令                 |
+| `readonly`  | 只允许只读命令                   |
+| `whitelist` | 只允许白名单内的命令             |
+| `full`      | 开放命令执行，敏感命令需二次确认 |
 
 ---
 
 ## 环境变量
 
-| 变量 | 必填 | 作用域 | 说明 | 默认值 |
-|---|---|---|---|---|
-| `OPENAI_API_KEY` | 使用 OpenAI 时 | Provider | OpenAI API 密钥 | — |
-| `ANTHROPIC_API_KEY` | 使用 Anthropic 时 | Provider | Anthropic API 密钥 | — |
-| `OLLAMA_BASE_URL` | 使用 Ollama 时 | Provider | Ollama 服务地址 | `http://localhost:11434` |
-| `AGENTFORGE_NODE_TOKEN` | ClientAgent 连接 Hub 时 | runtime-client | 节点认证令牌 | — |
-| `AGENTFORGE_HUB_URL` | ClientAgent 连接 Hub 时 | runtime-client | Capability Hub 端点 | — |
-| `AGENTFORGE_PORT` | `serve` / `dashboard` | CLI / http-server | 服务端口 | `3001`（serve）/ `8080`（dashboard） |
-| `AGENTFORGE_NODE_TOKEN_SECRET` | Capability Hub 签发节点 Token 时 | dashboard | 用于签名/校验节点 Token 的密钥 | — |
-| `LOG_LEVEL` | ❌ | 全局 | `debug` / `info` / `warn` / `error` | `info` |
-| `MONTHLY_COST_LIMIT` | ❌ | Framework | 月度成本守护阈值（USD） | — |
+| 变量                           | 必填                             | 作用域            | 说明                                | 默认值                               |
+| ------------------------------ | -------------------------------- | ----------------- | ----------------------------------- | ------------------------------------ |
+| `OPENAI_API_KEY`               | 使用 OpenAI 时                   | Provider          | OpenAI API 密钥                     | —                                    |
+| `ANTHROPIC_API_KEY`            | 使用 Anthropic 时                | Provider          | Anthropic API 密钥                  | —                                    |
+| `OLLAMA_BASE_URL`              | 使用 Ollama 时                   | Provider          | Ollama 服务地址                     | `http://localhost:11434`             |
+| `AGENTFORGE_NODE_TOKEN`        | ClientAgent 连接 Hub 时          | runtime-client    | 节点认证令牌                        | —                                    |
+| `AGENTFORGE_HUB_URL`           | ClientAgent 连接 Hub 时          | runtime-client    | Capability Hub 端点                 | —                                    |
+| `AGENTFORGE_PORT`              | `serve` / `dashboard`            | CLI / http-server | 服务端口                            | `3001`（serve）/ `8080`（dashboard） |
+| `AGENTFORGE_NODE_TOKEN_SECRET` | Capability Hub 签发节点 Token 时 | dashboard         | 用于签名/校验节点 Token 的密钥      | —                                    |
+| `LOG_LEVEL`                    | ❌                               | 全局              | `debug` / `info` / `warn` / `error` | `info`                               |
+| `MONTHLY_COST_LIMIT`           | ❌                               | Framework         | 月度成本守护阈值（USD）             | —                                    |
 
 ---
 
@@ -325,6 +376,7 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 **现象：** `agentforge run` 后日志显示 `WebSocket connection failed`。
 
 **排查：**
+
 - 检查 Hub 是否已启动：`agentforge dashboard`
 - 检查 `--connect` 地址是否正确（默认 `ws://localhost:8080`）
 - 检查防火墙/网络是否允许 WebSocket 连接
@@ -335,6 +387,7 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 **现象：** 连接成功后立即断开，日志显示 `Authentication failed`。
 
 **排查：**
+
 - 确认 `--token` 或 `AGENTFORGE_NODE_TOKEN` 与 Hub 配置的 Token 一致
 - 确认 Token 未过期
 - 确认 Token 只能用于当前 `nodeId`，不能复用到其他节点
@@ -344,6 +397,7 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 **现象：** Agent 返回 `Local command execution is disabled`。
 
 **排查：**
+
 - 检查 `.agentforge/security.json` 中 `localCommandAuth.level` 是否为 `disabled`
 - 将级别调整为 `readonly` / `whitelist` / `full`
 - 敏感命令需确认 `requireConfirmationFor` 标签
@@ -353,6 +407,7 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 **现象：** `agentforge create` 报错或生成的项目无法编译。
 
 **排查：**
+
 - 检查 API Key 是否设置：`echo $OPENAI_API_KEY`
 - 检查描述是否过短（要求 ≥ 10 字）
 - 检查输出目录是否已存在同名 Agent
@@ -363,6 +418,7 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 **现象：** `agentforge serve` 或 `agentforge dashboard` 报错 `EADDRINUSE`。
 
 **排查：**
+
 - 查找占用进程：`lsof -i :3001` 或 `lsof -i :8080`
 - 使用 `--port` 指定其他端口
 
@@ -371,6 +427,7 @@ ClientAgent 的本地命令执行默认禁用。授权配置存储在 `.agentfor
 **现象：** Agent 执行时返回 `Provider error`。
 
 **排查：**
+
 - 检查对应 Provider 的 API Key 环境变量
 - 检查网络是否能访问 Provider 端点
 - 检查 `baseUrl` 配置（代理、Ollama 地址等）

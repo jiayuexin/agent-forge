@@ -9,10 +9,12 @@ import type {
   AgentStreamChunk,
   CapabilityAckPayload,
   CapabilityDistributePayload,
+  ConfigAckPayload,
   ControlMessage,
   Logger,
   RemoteTask,
 } from '@agentforge/types';
+import { HUB_PROTOCOL_VERSION } from '@agentforge/types';
 import { createHttpError } from '@agentforge/http-server';
 
 interface PendingRequest {
@@ -85,6 +87,7 @@ export class NodeSession {
     const messageId = this.nextMessageId();
     const message: ControlMessage = {
       type: 'execute',
+      protocolVersion: HUB_PROTOCOL_VERSION,
       messageId,
       nodeId: this.node.id,
       timestamp: Date.now(),
@@ -97,6 +100,7 @@ export class NodeSession {
     const messageId = this.nextMessageId();
     const message: ControlMessage = {
       type: 'stream',
+      protocolVersion: HUB_PROTOCOL_VERSION,
       messageId,
       nodeId: this.node.id,
       timestamp: Date.now(),
@@ -141,10 +145,14 @@ export class NodeSession {
     }
   }
 
-  distribute(payload: CapabilityDistributePayload, timeoutMs = 30000): Promise<CapabilityAckPayload> {
+  distribute(
+    payload: CapabilityDistributePayload,
+    timeoutMs = 30000
+  ): Promise<CapabilityAckPayload> {
     const messageId = this.nextMessageId();
     const message: ControlMessage = {
       type: 'capability-distribute',
+      protocolVersion: HUB_PROTOCOL_VERSION,
       messageId,
       nodeId: this.node.id,
       timestamp: Date.now(),
@@ -157,6 +165,7 @@ export class NodeSession {
     const messageId = this.nextMessageId();
     const message: ControlMessage = {
       type: 'config-update',
+      protocolVersion: HUB_PROTOCOL_VERSION,
       messageId,
       nodeId: this.node.id,
       timestamp: Date.now(),
@@ -168,6 +177,7 @@ export class NodeSession {
   ping(): void {
     const message: ControlMessage = {
       type: 'ping',
+      protocolVersion: HUB_PROTOCOL_VERSION,
       messageId: this.nextMessageId(),
       nodeId: this.node.id,
       timestamp: Date.now(),
@@ -179,12 +189,26 @@ export class NodeSession {
   stop(): void {
     const message: ControlMessage = {
       type: 'stop',
+      protocolVersion: HUB_PROTOCOL_VERSION,
       messageId: this.nextMessageId(),
       nodeId: this.node.id,
       timestamp: Date.now(),
       payload: {},
     };
     this.send(message);
+  }
+
+  cancel(taskId: string, timeoutMs = 10000): Promise<unknown> {
+    const messageId = this.nextMessageId();
+    const message: ControlMessage = {
+      type: 'cancel',
+      protocolVersion: HUB_PROTOCOL_VERSION,
+      messageId,
+      nodeId: this.node.id,
+      timestamp: Date.now(),
+      payload: { taskId },
+    };
+    return this.request(messageId, message, timeoutMs);
   }
 
   handleMessage(message: AgentMessage): void {
@@ -202,9 +226,28 @@ export class NodeSession {
         this.node.metrics = message.payload as AgentNode['metrics'];
         this.node.lastHeartbeat = Date.now();
         return;
-      case 'event':
+      case 'event': {
         this.node.lastHeartbeat = Date.now();
+        const payload = message.payload as { event?: string; node?: Partial<AgentNode> };
+        if (payload.event === 'node:register' && payload.node) {
+          if (payload.node.name) {
+            this.node.name = payload.node.name;
+          }
+          if (payload.node.agentId) {
+            this.node.agentId = payload.node.agentId;
+          }
+          if (payload.node.tags) {
+            this.node.tags = payload.node.tags;
+          }
+          if (payload.node.capabilities) {
+            this.node.capabilities = payload.node.capabilities;
+          }
+          if (payload.node.hostInfo) {
+            this.node.hostInfo = payload.node.hostInfo;
+          }
+        }
         return;
+      }
       case 'stream-chunk': {
         const queue = this.streams.get(message.messageId ?? '');
         if (!queue) return;
@@ -219,12 +262,34 @@ export class NodeSession {
       }
       case 'result':
       case 'capability-ack':
+      case 'config-ack':
       case 'error': {
+        const streamQueue = this.streams.get(message.messageId ?? '');
+        if (message.type === 'error' && streamQueue) {
+          const error = message.payload as { code: string; message: string };
+          streamQueue.done = true;
+          streamQueue.error = new Error(`${error.code}: ${error.message}`);
+          this.resolveStreamWaiters(streamQueue);
+          return;
+        }
         const pending = this.pending.get(message.messageId ?? '');
-        if (!pending) return;
+        if (!pending) {
+          this.logger.info('Ignoring late agent message after timeout', {
+            type: message.type,
+            messageId: message.messageId,
+          });
+          return;
+        }
         if (message.type === 'error') {
           const error = message.payload as { code: string; message: string };
           pending.reject(new Error(`${error.code}: ${error.message}`));
+        } else if (message.type === 'config-ack') {
+          const ack = message.payload as ConfigAckPayload;
+          if (ack.status === 'rejected') {
+            pending.reject(createError('CONFIG_REJECTED', ack.error ?? 'Config update rejected'));
+          } else {
+            pending.resolve(ack);
+          }
         } else {
           pending.resolve(message.payload);
         }
@@ -259,7 +324,12 @@ export class NodeSession {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(messageId);
-        reject(createError('REQUEST_TIMEOUT', `Request ${messageId} timed out after ${timeoutMs}ms`));
+        reject(
+          createError(
+            'TASK_UNKNOWN',
+            `Request ${messageId} timed out after ${timeoutMs}ms; task outcome is unknown`
+          )
+        );
       }, timeoutMs);
 
       this.pending.set(messageId, {

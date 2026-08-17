@@ -1,0 +1,15 @@
+{
+  "id": "tool:echo",
+  "type": "tool",
+  "name": "echo",
+  "description": "Echo a fixed demo string via local-command",
+  "endpointType": "local-command",
+  "endpoint": {
+    "target": "echo hello-agentforge",
+    "method": "exec"
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

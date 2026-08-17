@@ -16,6 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { usePlaygroundStore } from '../store/playgroundStore.js';
 import { useNodeStore } from '../store/nodeStore.js';
 import { streamNodeTask } from '../api/nodes.js';
+import { MarkdownMessage } from '../components/playground/MarkdownMessage.js';
+import { CallTracePanel } from '../components/playground/CallTracePanel.js';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -49,6 +51,9 @@ export function Playground() {
   }, [fetchNodes, createSession, currentSessionId]);
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
+  const lastAgentMessage = [...(currentSession?.messages ?? [])]
+    .reverse()
+    .find((message) => message.role === 'agent');
 
   const handleSend = async () => {
     if (!input.trim() || !selectedNodeId) {
@@ -56,18 +61,28 @@ export function Playground() {
       return;
     }
 
-    addUserMessage(input);
+    const messageText = input;
+    addUserMessage(messageText);
     setInput('');
 
     const startTime = Date.now();
     try {
-      for await (const chunk of streamNodeTask(selectedNodeId, {
-        type: 'chat',
-        input: { message: input },
-      })) {
+      for await (const chunk of streamNodeTask(
+        selectedNodeId,
+        {
+          type: 'chat',
+          input: { message: messageText },
+        },
+        {
+          model: config.model,
+          temperature: config.temperature,
+          maxTokens: config.maxTokens,
+          enabledTools: config.enabledToolIds,
+        }
+      )) {
         appendChunk(chunk);
       }
-      finishStream({ duration: Date.now() - startTime });
+      finishStream({ duration: Date.now() - startTime, model: config.model });
     } catch (error) {
       message.error(error instanceof Error ? error.message : String(error));
       finishStream();
@@ -76,7 +91,6 @@ export function Playground() {
 
   return (
     <div className="h-[calc(100vh-140px)] flex gap-4">
-      {/* Left panel */}
       <Card className="w-64 flex flex-col" title="会话与配置">
         <Button type="primary" block className="mb-4" onClick={createSession}>
           新会话
@@ -134,17 +148,18 @@ export function Playground() {
         </div>
       </Card>
 
-      {/* Center panel */}
       <Card className="flex-1 flex flex-col" title={t('playground')}>
         <div className="flex-1 overflow-y-auto space-y-4 p-2">
           {currentSession?.messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <Space>
+              <Space align="start">
                 {msg.role === 'agent' && <Avatar icon={<RobotOutlined />} />}
-                <div className={`max-w-md p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}>
-                  <Typography.Text className={msg.role === 'user' ? '!text-white' : ''}>
-                    {msg.content}
-                  </Typography.Text>
+                <div className={`max-w-lg p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}>
+                  {msg.role === 'user' ? (
+                    <Typography.Text className="!text-white">{msg.content}</Typography.Text>
+                  ) : (
+                    <MarkdownMessage content={msg.content} />
+                  )}
                 </div>
                 {msg.role === 'user' && <Avatar icon={<UserOutlined />} />}
               </Space>
@@ -173,24 +188,12 @@ export function Playground() {
         </div>
       </Card>
 
-      {/* Right panel */}
       <Card className="w-72" title="统计与调用链">
-        {currentSession?.messages[currentSession.messages.length - 1]?.role === 'agent' && (
-          <div className="space-y-2">
-            <Typography.Text strong>本次调用</Typography.Text>
-            <div>耗时: {currentSession.messages[currentSession.messages.length - 1].duration}ms</div>
-            <div>模型: {currentSession.messages[currentSession.messages.length - 1].model || config.model}</div>
-          </div>
-        )}
-        <div className="mt-4">
-          <Typography.Text strong>调用链</Typography.Text>
-          <div className="text-sm text-gray-500 mt-2">
-            <div>System Prompt 构建 ✅</div>
-            <div>LLM 调用 ✅</div>
-            <div>工具调用: -</div>
-            <div>结构化输出解析 ✅</div>
-          </div>
-        </div>
+        <CallTracePanel
+          traces={lastAgentMessage?.traces ?? []}
+          duration={lastAgentMessage?.duration}
+          model={lastAgentMessage?.model ?? config.model}
+        />
         <div className="mt-4">
           <Typography.Text strong>Mock 工具</Typography.Text>
           <div className="text-sm text-gray-500 mt-2">暂不支持动态 Mock 工具</div>

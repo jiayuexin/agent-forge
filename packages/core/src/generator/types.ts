@@ -38,7 +38,8 @@ export interface TemplateData {
   tools: ToolDefinition[];
   config: Partial<ClientAgentConfig>;
   security: ClientAgentSecurityConfig;
-  versions: { core: string; runtimeClient: string };
+  dependencyMode: 'workspace' | 'standalone';
+  versions: { core: string; runtimeClient: string; types: string };
 }
 
 export interface EmitContext {

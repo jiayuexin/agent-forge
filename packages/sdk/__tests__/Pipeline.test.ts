@@ -4,7 +4,10 @@ import { ModelNotFoundError } from '../src/errors.js';
 import type { AgentResult, AgentTask, IAgent, ModelConfig } from '@agentforge/types';
 import { AgentStatus } from '@agentforge/types';
 
-function createMockAgent(name: string, handler: (task: AgentTask) => Promise<AgentResult> | AgentResult): IAgent {
+function createMockAgent(
+  name: string,
+  handler: (task: AgentTask) => Promise<AgentResult> | AgentResult
+): IAgent {
   return {
     id: `id-${name}`,
     name,
@@ -20,9 +23,6 @@ function createMockAgent(name: string, handler: (task: AgentTask) => Promise<Age
       yield { type: 'done', index: 1 };
     },
     async destroy() {},
-    use() {
-      return this;
-    },
     on() {
       return this;
     },
@@ -41,7 +41,10 @@ function createRuntime(agents: Record<string, IAgent>) {
     },
     resolveModel: vi.fn((model?: string, defaultModel?: string) => {
       if (model === 'unknown') throw new ModelNotFoundError(model);
-      return { provider: 'mock', modelName: String(model ?? defaultModel ?? 'mock') } as ModelConfig;
+      return {
+        provider: 'mock',
+        modelName: String(model ?? defaultModel ?? 'mock'),
+      } as ModelConfig;
     }),
     emit: vi.fn(),
   };
@@ -110,12 +113,10 @@ describe('Pipeline', () => {
       })),
     };
 
-    const pipeline = new Pipeline()
-      .attachRuntime(createRuntime(agents))
-      .parallel([
-        { name: 'left', agent: 'left', task: 'run-left' },
-        { name: 'right', agent: 'right', task: 'run-right' },
-      ]);
+    const pipeline = new Pipeline().attachRuntime(createRuntime(agents)).parallel([
+      { name: 'left', agent: 'left', task: 'run-left' },
+      { name: 'right', agent: 'right', task: 'run-right' },
+    ]);
 
     const result = await pipeline.run();
     expect(result.success).toBe(true);
@@ -194,12 +195,10 @@ describe('Pipeline', () => {
       })),
     };
 
-    const pipeline = new Pipeline()
-      .attachRuntime(createRuntime(agents))
-      .fork([
-        { name: 'x-branch', agent: 'x', task: 'run-x' },
-        { name: 'y-branch', agent: 'y', task: 'run-y' },
-      ]);
+    const pipeline = new Pipeline().attachRuntime(createRuntime(agents)).fork([
+      { name: 'x-branch', agent: 'x', task: 'run-x' },
+      { name: 'y-branch', agent: 'y', task: 'run-y' },
+    ]);
 
     const result = await pipeline.run();
     expect(result.success).toBe(true);
@@ -254,13 +253,11 @@ describe('Pipeline', () => {
       })),
     };
 
-    const pipeline = new Pipeline()
-      .attachRuntime(createRuntime(agents))
-      .add('step1', {
-        agent: 'a',
-        task: 'hello',
-        intercept: () => ({ action: 'stop' }),
-      });
+    const pipeline = new Pipeline().attachRuntime(createRuntime(agents)).add('step1', {
+      agent: 'a',
+      task: 'hello',
+      intercept: () => ({ action: 'stop' }),
+    });
 
     const result = await pipeline.run();
     expect(result.success).toBe(true);

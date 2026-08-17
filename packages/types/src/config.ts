@@ -74,5 +74,6 @@ export interface FrameworkConfig {
   maxTokensPerModel?: Record<string, number>;
   maxCostPerAgent?: Record<string, number>;
   maxToolCalls?: number;
+  maxCapabilityDepth?: number;
   onError?: (error: import('./core.js').AgentError) => void;
 }

@@ -1,29 +1,49 @@
 import type { Logger } from '@agentforge/types';
 
 export class SimpleLogger implements Logger {
-  private context: Record<string, unknown>;
+  private readonly context: Record<string, unknown>;
 
   constructor(context: Record<string, unknown> = {}) {
-    this.context = context;
+    this.context = { ...context };
   }
 
   debug(message: string, ...args: unknown[]): void {
-    console.debug(message, ...args, this.context);
+    this.write('debug', message, args);
   }
 
   info(message: string, ...args: unknown[]): void {
-    console.info(message, ...args, this.context);
+    this.write('info', message, args);
   }
 
   warn(message: string, ...args: unknown[]): void {
-    console.warn(message, ...args, this.context);
+    this.write('warn', message, args);
   }
 
   error(message: string, ...args: unknown[]): void {
-    console.error(message, ...args, this.context);
+    this.write('error', message, args);
   }
 
   child(context: Record<string, unknown>): Logger {
     return new SimpleLogger({ ...this.context, ...context });
+  }
+
+  private write(level: string, message: string, args: unknown[]): void {
+    const payload = {
+      level,
+      time: new Date().toISOString(),
+      message,
+      ...this.context,
+      ...(args.length > 0 ? { args } : {}),
+    };
+    const line = JSON.stringify(payload);
+    if (level === 'error') {
+      console.error(line);
+      return;
+    }
+    if (level === 'warn') {
+      console.warn(line);
+      return;
+    }
+    console.log(line);
   }
 }

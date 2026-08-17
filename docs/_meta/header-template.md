@@ -30,7 +30,20 @@
 
 ## 第三层 · 操作手册（ops/）
 
-文件最顶部加目标行为提示，再接元信息头：
+文件最顶部使用标准元信息头（Phase 0–12 核心能力已实现）：
+
+```markdown
+> **文档层级**: 第三层 · 操作手册
+> **文档类型**: 使用指南 | 部署手册 | 测试策略
+> **文档状态**: 已定稿
+> **文档版本**: docs-v0.6
+> **最后更新**: 2026-07-13
+> **实现状态**: 已完成
+```
+
+API 权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)，实现进度见 [STATUS.md](../STATUS.md)。
+
+旧模板（已废弃）：
 
 ```markdown
 > ⚠️ **目标行为文档**：本文描述 v1 预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
@@ -45,11 +58,11 @@
 
 ## 链接路径约定
 
-| 引用方向 | 路径写法 |
-|---|---|
-| 同层 design 内互引 | `./04-集成与编排.md` |
-| product → design | `../design/TECH-DESIGN.md` |
-| product → product | `./08-需求与路线图.md` |
-| design → product | `../product/PRD.md` |
-| ops → design | `../design/05-CLI与API.md` |
-| hub → 各层 | `product/PRD.md`、`design/01-核心设计.md`、`ops/GUIDE.md` |
+| 引用方向           | 路径写法                                                  |
+| ------------------ | --------------------------------------------------------- |
+| 同层 design 内互引 | `./04-集成与编排.md`                                      |
+| product → design   | `../design/TECH-DESIGN.md`                                |
+| product → product  | `./08-需求与路线图.md`                                    |
+| design → product   | `../product/PRD.md`                                       |
+| ops → design       | `../design/05-CLI与API.md`                                |
+| hub → 各层         | `product/PRD.md`、`design/01-核心设计.md`、`ops/GUIDE.md` |

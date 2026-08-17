@@ -28,7 +28,10 @@ describe('Hub nodes API', () => {
     hubServer = await startTestHub();
     const response = await fetch(`http://127.0.0.1:${hubServer.port}/api/nodes/unknown/execute`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${hubServer.adminToken}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${hubServer.adminToken}`,
+      },
       body: JSON.stringify({}),
     });
     expect(response.status).toBe(400);
@@ -41,14 +44,24 @@ describe('Hub nodes API', () => {
     const result = await requestJson(hubServer.port, '/api/config', hubServer.adminToken);
     expect(result).toMatchObject({
       host: '127.0.0.1',
-      version: '0.0.0',
+      version: '0.1.0',
     });
   });
 
-  it('returns prometheus metrics', async () => {
+  it('returns prometheus metrics for admin tokens', async () => {
+    hubServer = await startTestHub();
+    const response = await fetch(`http://127.0.0.1:${hubServer.port}/api/metrics`, {
+      headers: { Authorization: `Bearer ${hubServer.adminToken}` },
+    });
+    const text = await response.text();
+    expect(response.status).toBe(200);
+    expect(text).toContain('hub_http_requests_total');
+    expect(text).toContain('hub_connected_nodes');
+  });
+
+  it('rejects metrics without a token', async () => {
     hubServer = await startTestHub();
     const response = await fetch(`http://127.0.0.1:${hubServer.port}/api/metrics`);
-    const text = await response.text();
-    expect(text).toBe('');
+    expect(response.status).toBe(401);
   });
 });

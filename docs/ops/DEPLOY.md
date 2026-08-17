@@ -1,13 +1,15 @@
 # AgentForge 部署文档
 
-> ⚠️ **目标行为文档**：本文描述预期用法，当前项目处于设计阶段，命令与 API 尚未实现。权威规格见 [05-CLI与API.md](../design/05-CLI与API.md)。
->
 > **文档层级**: 第三层 · 操作手册
 > **文档类型**: 部署手册
 > **文档状态**: 已定稿
-> **文档版本**: docs-v0.4
-> **最后更新**: 2026-06-24
-> **实现状态**: 未开始
+> **文档版本**: docs-v0.8
+> **最后更新**: 2026-08-13
+> **实现状态**: 已实现（单实例自托管）
+
+**v1 发布形态**：单团队、单 Hub 实例、SQLite 持久化。推荐路径是本地 CLI 或 `docker compose up`。多副本 Kubernetes / HPA / Redis / NATS **不是** v1 范围，下文 K8s 章节仅作远期参考，不要按生产指南执行。
+
+首版 SLO（单实例）：Hub 可用性 99.5%；远程任务成功率 ≥99%；非 LLM 控制面 p95 <200ms；审计写入成功率 100%。应对权限拒绝、任务堆积、数据库错误和节点反复重连配置告警（Prometheus 指标：`hub_auth_failures_total`、`hub_tasks_unknown_total`、`hub_db_errors_total`、`hub_node_reconnects_total`）。
 
 ## 目录
 
@@ -22,6 +24,7 @@
 - [健康检查](#健康检查)
 - [可观测性](#可观测性)
 - [备份与恢复](#备份与恢复)
+- [npm 包发布](#npm-包发布)
 - [升级与回滚](#升级与回滚)
 - [灾难恢复](#灾难恢复)
 
@@ -29,12 +32,12 @@
 
 ## 部署模式总览
 
-| 模式 | 适用场景 | 复杂度 | 说明 |
-|---|---|---|---|
-| ClientAgent 本地安装包 | 终端用户 | 低 | 生成后打包为可执行文件/安装包 |
-| Capability Hub Docker | 生产环境 | 中 | 独立容器部署 Hub 后端 + 前端 |
-| Capability Hub Kubernetes | 大规模生产 | 高 | 多副本 + HPA + 滚动更新 |
-| SDK 嵌入 | 开发者 | 最低 | `npm install @agentforge/sdk` 后编排 |
+| 模式                      | 适用场景   | 复杂度 | 说明                                 |
+| ------------------------- | ---------- | ------ | ------------------------------------ |
+| ClientAgent 本地安装包    | 终端用户   | 低     | 生成后打包为可执行文件/安装包        |
+| Capability Hub Docker     | 生产环境   | 中     | 独立容器部署 Hub 后端 + 前端         |
+| Capability Hub Kubernetes | 大规模生产 | 高     | 多副本 + HPA + 滚动更新              |
+| SDK 嵌入                  | 开发者     | 最低   | `npm install @agentforge/sdk` 后编排 |
 
 ---
 
@@ -42,7 +45,7 @@
 
 ### 必需
 
-- Node.js ≥ 18.0.0
+- Node.js ≥ 22.0.0（Hub 使用内置 `node:sqlite`）
 - 至少一个 LLM Provider 的 API Key
 
 ### 可选
@@ -75,11 +78,11 @@ npm run build
 
 推荐使用以下工具打包为可执行文件/安装包：
 
-| 工具 | 输出格式 | 适用平台 |
-|---|---|---|
-| [pkg](https://github.com/vercel/pkg) | 单文件可执行文件 | Linux / macOS / Windows |
-| [electron-forge](https://www.electronforge.io/) | `.dmg` / `.exe` / `.AppImage` | 带 GUI 的桌面应用 |
-| [nexe](https://github.com/nexe/nexe) | 单文件可执行文件 | Linux / macOS / Windows |
+| 工具                                            | 输出格式                      | 适用平台                |
+| ----------------------------------------------- | ----------------------------- | ----------------------- |
+| [pkg](https://github.com/vercel/pkg)            | 单文件可执行文件              | Linux / macOS / Windows |
+| [electron-forge](https://www.electronforge.io/) | `.dmg` / `.exe` / `.AppImage` | 带 GUI 的桌面应用       |
+| [nexe](https://github.com/nexe/nexe)            | 单文件可执行文件              | Linux / macOS / Windows |
 
 **使用 `pkg` 打包示例：**
 
@@ -107,79 +110,33 @@ npx pkg ./dist/main.js --targets node18-linux-x64,node18-macos-x64,node18-win-x6
 
 ## 模式二：Capability Hub Docker 部署
 
-### Dockerfile 示例
+仓库根目录已提供 `Dockerfile` 与 `docker-compose.yml`。镜像以非 root 用户运行，持久化目录为 `/data`（`VOLUME`），健康检查为 `GET /api/v1/health`。
 
-```dockerfile
-# Dockerfile
-FROM node:20-slim AS builder
-WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages ./packages
-RUN npm install -g pnpm
-RUN pnpm install --frozen-lockfile
-RUN pnpm run build
-
-FROM node:20-slim
-WORKDIR /app
-COPY --from=builder /app/packages/dashboard/dist ./dashboard/dist
-COPY --from=builder /app/packages/dashboard/server ./server
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/dashboard/package.json ./
-EXPOSE 8080
-CMD ["node", "./server/index.js"]
+```bash
+export AGENTFORGE_ADMIN_TOKEN=replace-me
+docker compose up --build -d
+curl -fsS http://127.0.0.1:8080/api/v1/health
 ```
 
-### 构建镜像
+单独构建：
 
 ```bash
 docker build -t agentforge-hub:0.1.0 .
-```
-
-### 运行 Hub
-
-```bash
-docker run -d \
-  --name agentforge-hub \
-  -p 8080:8080 \
-  -e OPENAI_API_KEY=$OPENAI_API_KEY \
-  -e AGENTFORGE_NODE_TOKEN_SECRET=$AGENTFORGE_NODE_TOKEN_SECRET \
-  -e LOG_LEVEL=info \
+docker run -d --name agentforge-hub -p 8080:8080 \
+  -e AGENTFORGE_ADMIN_TOKEN=replace-me \
+  -e AGENTFORGE_DATA_DIR=/data \
+  -v hub-data:/data \
   agentforge-hub:0.1.0
 ```
 
-### Docker Compose（推荐）
+备份与恢复：
 
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  hub:
-    build: .
-    command: dashboard --port 8080 --host 0.0.0.0
-    ports:
-      - "8080:8080"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - AGENTFORGE_NODE_TOKEN_SECRET=${AGENTFORGE_NODE_TOKEN_SECRET}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - NODE_ENV=production
-    volumes:
-      - hub-data:/app/data
-      - hub-logs:/app/logs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-
-volumes:
-  hub-data:
-  hub-logs:
+```bash
+agentforge dashboard backup --out ./hub-backup.sqlite --data-dir .agentforge/hub
+agentforge dashboard restore --from ./hub-backup.sqlite --data-dir .agentforge/hub
 ```
+
+升级时先备份 SQLite，再换镜像；回滚则恢复备份文件后启动旧镜像。
 
 启动：
 
@@ -245,9 +202,9 @@ metadata:
   namespace: agentforge
 type: Opaque
 stringData:
-  openai-api-key: "sk-xxx"
-  anthropic-api-key: "sk-ant-xxx"
-  node-token-secret: "hub-node-token-secret"
+  openai-api-key: 'sk-xxx'
+  anthropic-api-key: 'sk-ant-xxx'
+  node-token-secret: 'hub-node-token-secret'
 ```
 
 ```yaml
@@ -258,9 +215,9 @@ metadata:
   name: agentforge-config
   namespace: agentforge
 data:
-  LOG_LEVEL: "info"
-  NODE_ENV: "production"
-  AGENTFORGE_PORT: "8080"
+  LOG_LEVEL: 'info'
+  NODE_ENV: 'production'
+  AGENTFORGE_PORT: '8080'
 ```
 
 ### Deployment
@@ -319,11 +276,11 @@ spec:
               mountPath: /app/logs
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: '512Mi'
+              cpu: '500m'
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              memory: '2Gi'
+              cpu: '2000m'
           livenessProbe:
             httpGet:
               path: /api/health
@@ -370,9 +327,9 @@ metadata:
   name: agentforge-hub
   namespace: agentforge
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
 spec:
   ingressClassName: nginx
   tls:
@@ -532,8 +489,15 @@ const result = await framework.orchestrate({
 Capability Hub 管理员使用以下命令生成节点 Token：
 
 ```bash
+export AGENTFORGE_ADMIN_TOKEN=replace-me
 agentforge dashboard token create --node-name "dev-machine-a"
-# 输出：node-token-xxx（一次性显示，需妥善保存）
+# 输出一次性明文 token，Hub 只保存哈希
+```
+
+Hub 未运行时只能用离线初始化，且禁止与在线管理混用：
+
+```bash
+agentforge dashboard token create --offline --data-dir .agentforge/hub --node-name "dev-machine-a"
 ```
 
 Token 轮换：
@@ -548,10 +512,10 @@ agentforge dashboard token create --node-name "dev-machine-a"
 
 Token 权限：
 
-| Token 类型 | 权限 |
-|---|---|
-| 节点 Token | 只能操作自身 `nodeId`：上报状态、接收任务、确认能力下发 |
-| 管理员 Token | 管理全部节点、发布能力、查看审计日志 |
+| Token 类型   | 权限                                                    |
+| ------------ | ------------------------------------------------------- |
+| 节点 Token   | 只能操作自身 `nodeId`：上报状态、接收任务、确认能力下发 |
+| 管理员 Token | 管理全部节点、发布能力、查看审计日志                    |
 
 ### TLS / mTLS
 
@@ -611,18 +575,18 @@ function authorizeControlMessage(token: string, message: ControlMessage): boolea
 
 ### 环境变量
 
-| 变量 | 作用域 | 必填 | 说明 | 默认值 |
-|---|---|---|---|---|
-| `OPENAI_API_KEY` | 全局 | 使用 OpenAI 时 | OpenAI API 密钥 | — |
-| `ANTHROPIC_API_KEY` | 全局 | 使用 Anthropic 时 | Anthropic API 密钥 | — |
-| `OLLAMA_BASE_URL` | 全局 | 使用 Ollama 时 | Ollama 服务地址 | `http://localhost:11434` |
-| `AGENTFORGE_HUB_URL` | ClientAgent | 连接 Hub 时 | Capability Hub 端点 | — |
-| `AGENTFORGE_NODE_TOKEN` | ClientAgent | 连接 Hub 时 | 节点认证令牌 | — |
-| `AGENTFORGE_NODE_TOKEN_SECRET` | Hub | 签发 Token 时 | Hub 签发节点 Token 的密钥 | — |
-| `AGENTFORGE_PORT` | `serve` / `dashboard` | ❌ | 服务端口 | `3001`（serve）/ `8080`（dashboard） |
-| `LOG_LEVEL` | 全局 | ❌ | `debug` / `info` / `warn` / `error` | `info` |
-| `MONTHLY_COST_LIMIT` | Framework | ❌ | 月度成本守护阈值（USD） | — |
-| `NODE_ENV` | Hub | ❌ | `development` / `production` | `development` |
+| 变量                           | 作用域                | 必填              | 说明                                | 默认值                               |
+| ------------------------------ | --------------------- | ----------------- | ----------------------------------- | ------------------------------------ |
+| `OPENAI_API_KEY`               | 全局                  | 使用 OpenAI 时    | OpenAI API 密钥                     | —                                    |
+| `ANTHROPIC_API_KEY`            | 全局                  | 使用 Anthropic 时 | Anthropic API 密钥                  | —                                    |
+| `OLLAMA_BASE_URL`              | 全局                  | 使用 Ollama 时    | Ollama 服务地址                     | `http://localhost:11434`             |
+| `AGENTFORGE_HUB_URL`           | ClientAgent           | 连接 Hub 时       | Capability Hub 端点                 | —                                    |
+| `AGENTFORGE_NODE_TOKEN`        | ClientAgent           | 连接 Hub 时       | 节点认证令牌                        | —                                    |
+| `AGENTFORGE_NODE_TOKEN_SECRET` | Hub                   | 签发 Token 时     | Hub 签发节点 Token 的密钥           | —                                    |
+| `AGENTFORGE_PORT`              | `serve` / `dashboard` | ❌                | 服务端口                            | `3001`（serve）/ `8080`（dashboard） |
+| `LOG_LEVEL`                    | 全局                  | ❌                | `debug` / `info` / `warn` / `error` | `info`                               |
+| `MONTHLY_COST_LIMIT`           | Framework             | ❌                | 月度成本守护阈值（USD）             | —                                    |
+| `NODE_ENV`                     | Hub                   | ❌                | `development` / `production`        | `development`                        |
 
 ### ClientAgent 安全配置
 
@@ -647,13 +611,16 @@ function authorizeControlMessage(token: string, message: ControlMessage): boolea
 ### Capability Hub
 
 ```bash
-curl http://localhost:8080/api/health
+curl http://localhost:8080/api/v1/health
 # → {"status":"ok","timestamp":...}
 ```
 
 ### ClientAgent 调试服务
 
 ```bash
+curl http://localhost:3001/api/status
+# → {"status":"ready","uptime":3600,"timestamp":...}
+
 curl http://localhost:3001/api/health
 # → {"status":"ok"}
 ```
@@ -667,7 +634,12 @@ curl http://localhost:3001/api/health
 生产环境使用 pino 输出 JSON 结构化日志：
 
 ```json
-{"level":"info","msg":"ClientAgent connected to Hub","nodeId":"client-dev-machine-a1b2c3d","hubUrl":"wss://hub.example.com"}
+{
+  "level": "info",
+  "msg": "ClientAgent connected to Hub",
+  "nodeId": "client-dev-machine-a1b2c3d",
+  "hubUrl": "wss://hub.example.com"
+}
 ```
 
 开发环境使用 `pino-pretty` 格式化输出：
@@ -748,6 +720,59 @@ kubectl -n agentforge exec deploy/agentforge-hub -- \
 
 ---
 
+## npm 包发布
+
+根包 `@agentforge/root` 保持 `private: true`，不发布。以下七个 workspace 包统一版本 **0.1.0**，以 `publishConfig.access: public` 发布到 npm scoped 作用域：
+
+| 顺序 | 包名                                             | 说明                                      |
+| ---- | ------------------------------------------------ | ----------------------------------------- |
+| 1    | `@agentforge/types`                              | 零运行时依赖的类型定义                    |
+| 2    | `@agentforge/core`                               | 核心运行时                                |
+| 3    | `@agentforge/sdk` / `@agentforge/runtime-client` | SDK 与客户端运行时（可并行，均依赖 core） |
+| 4    | `@agentforge/http-server`                        | HTTP/WebSocket 服务                       |
+| 5    | `@agentforge/dashboard`                          | Hub 面板 + 后端                           |
+| 6    | `@agentforge/cli`                                | CLI（依赖上述包）                         |
+
+`pnpm -r publish` 会按依赖拓扑自动排序；本表仅作人工核对参考。
+
+### 版本策略
+
+- 七个可发布包保持 **同一 workspace 版本号**（当前 `0.1.0`）。
+- 发版时一并 bump，避免跨包 `workspace:*` 解析不一致。
+- 包产物仅包含 `files: ["dist"]`；发布前必须先 `pnpm build`。
+
+### 本地 dry-run
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm publish:dry-run
+# 全量 pack：pnpm publish:pack
+# 五包 publish dry-run（排除 npmjs 已占用的 core/cli）
+```
+
+### GitHub Actions
+
+使用 `.github/workflows/publish.yml`（`workflow_dispatch`）：
+
+1. 默认 `dry_run=true`：只跑 dry-run，不需要 `NPM_TOKEN`。
+2. `dry_run=false`：真实发布，需仓库 Secret `NPM_TOKEN`。
+
+本轮验收以 dry-run 通过为准，不强制真实发布到 npm。
+
+### 已知阻塞：包名冲突
+
+npmjs 上已存在第三方包（与本仓库无关）：
+
+- `@agentforge/core`（当前约 `0.16.74`，LangGraph agent framework）
+- `@agentforge/cli`（同上作者线）
+
+因此：
+
+1. 本仓库仍以 workspace 统一版本 `0.1.0` 做发布就绪配置。
+2. `pnpm publish:dry-run`：对全部七包执行 `npm pack --dry-run`；并对 **未占用** 的五包执行 `pnpm publish --dry-run`（排除 core/cli）。
+3. **真实发布** `@agentforge/core` / `@agentforge/cli` 前必须先解决命名：更换 scope/包名，或取得 npm 包所有权。其余五包在具备 `NPM_TOKEN` 与 scope 权限后可发布。
+
 ## 升级与回滚
 
 ### 升级流程
@@ -798,11 +823,11 @@ kubectl -n agentforge rollout status deployment/agentforge-hub
 
 ### RPO / RTO 建议
 
-| 组件 | RPO | RTO | 说明 |
-|---|---|---|---|
-| ClientAgent 配置 | 24h | 30min | 备份 `.agentforge/` 目录 |
-| Capability Hub 数据 | 1h | 1h | 持久化卷 + 定期快照 |
-| 能力市场包 | 0 | 2h | 能力包存储在对象存储，多副本 |
+| 组件                | RPO | RTO   | 说明                         |
+| ------------------- | --- | ----- | ---------------------------- |
+| ClientAgent 配置    | 24h | 30min | 备份 `.agentforge/` 目录     |
+| Capability Hub 数据 | 1h  | 1h    | 持久化卷 + 定期快照          |
+| 能力市场包          | 0   | 2h    | 能力包存储在对象存储，多副本 |
 
 ### 故障场景
 

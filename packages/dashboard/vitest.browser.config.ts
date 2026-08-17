@@ -10,10 +10,11 @@ export default defineConfig({
     },
   },
   test: {
+    name: '@agentforge/dashboard-browser',
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/__tests__/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    exclude: ['e2e/**', 'dist/**', 'node_modules/**'],
+    exclude: ['dist/**', 'node_modules/**'],
   },
 });

@@ -91,9 +91,16 @@ export interface AgentError {
   details?: unknown;
 }
 
+export interface ToolCallRequest {
+  name: string;
+  args: Record<string, unknown>;
+  callId: string;
+}
+
 export interface Message {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  toolCalls?: ToolCallRequest[];
   toolCallId?: string;
   toolName?: string;
   timestamp?: number;

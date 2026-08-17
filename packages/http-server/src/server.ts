@@ -10,6 +10,7 @@ export interface DebugServerOptions {
   host?: string;
   logger?: Logger;
   metrics?: MetricsRegistry;
+  debugToken?: string;
 }
 
 export interface DebugServer {
@@ -21,7 +22,7 @@ export interface DebugServer {
 export function createDebugServer(agent: IAgent, options: DebugServerOptions = {}): DebugServer {
   const logger = options.logger ?? new SimpleLogger({ component: 'DebugServer' });
   const metrics = options.metrics ?? new MetricsRegistry();
-  const app = createBaseApp({ agent, metrics, logger });
+  const app = createBaseApp({ agent, metrics, logger, debugToken: options.debugToken });
 
   const listener = toNodeListener(app);
   const server = createServer(listener);

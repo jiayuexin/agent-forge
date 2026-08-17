@@ -5,7 +5,6 @@ import {
   Descriptions,
   Form,
   Input,
-  Switch,
   Button,
   Tag,
   Typography,
@@ -39,9 +38,7 @@ export function NodeDetail() {
   useEffect(() => {
     if (node) {
       form.setFieldsValue({
-        allowRemoteExecution: true,
         heartbeatInterval: 30000,
-        requireLocalConfirmation: '',
         tags: node.tags?.join(', ') ?? '',
       });
     }
@@ -71,9 +68,7 @@ export function NodeDetail() {
   const handleConfigUpdate = async () => {
     const values = await form.validateFields();
     const request: NodeConfigUpdateRequest = {
-      allowRemoteExecution: values.allowRemoteExecution,
       heartbeatInterval: values.heartbeatInterval,
-      requireLocalConfirmation: values.requireLocalConfirmation,
       tags: values.tags ? values.tags.split(',').map((s: string) => s.trim()) : [],
     };
     await updateConfig(id!, request);
@@ -102,7 +97,11 @@ export function NodeDetail() {
 
       <Card title="已安装能力" className="mt-6">
         {node.capabilities?.length ? (
-          node.capabilities.map((cap) => <Tag key={typeof cap === 'string' ? cap : cap.id}>{typeof cap === 'string' ? cap : cap.name}</Tag>)
+          node.capabilities.map((cap) => (
+            <Tag key={typeof cap === 'string' ? cap : cap.id}>
+              {typeof cap === 'string' ? cap : cap.name}
+            </Tag>
+          ))
         ) : (
           <Typography.Text type="secondary">未安装能力</Typography.Text>
         )}
@@ -120,21 +119,13 @@ export function NodeDetail() {
             执行
           </Button>
         </Form>
-        {result && (
-          <pre className="mt-4 whitespace-pre-wrap bg-gray-50 p-4 rounded">{result}</pre>
-        )}
+        {result && <pre className="mt-4 whitespace-pre-wrap bg-gray-50 p-4 rounded">{result}</pre>}
       </Card>
 
       <Card title="配置更新" className="mt-6">
         <Form form={form} layout="vertical">
-          <Form.Item name="allowRemoteExecution" label="允许远程执行" valuePropName="checked">
-            <Switch />
-          </Form.Item>
           <Form.Item name="heartbeatInterval" label="心跳间隔（毫秒）">
             <InputNumber min={5000} />
-          </Form.Item>
-          <Form.Item name="requireLocalConfirmation" label="需本地确认的操作">
-            <Input placeholder="用逗号分隔" />
           </Form.Item>
           <Form.Item name="tags" label="标签">
             <Input placeholder="用逗号分隔" />

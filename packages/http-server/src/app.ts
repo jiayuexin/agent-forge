@@ -9,19 +9,24 @@ import { createStatusRoute } from './routes/status.js';
 import { createCapabilitiesRoute } from './routes/capabilities.js';
 import { createExecuteRoute } from './routes/execute.js';
 import { createStreamRoute } from './routes/stream.js';
+import { requireDebugToken } from './middleware/debug-auth.js';
 
 export interface BaseAppOptions {
   agent: IAgent;
   metrics: MetricsRegistry;
   logger: Logger;
   prefix?: string;
+  debugToken?: string;
 }
 
 export function createBaseApp(options: BaseAppOptions) {
-  const { agent, metrics, logger, prefix = '/api' } = options;
+  const { agent, metrics, logger, prefix = '/api', debugToken } = options;
+
+  const requestCounter = metrics.counter('http_requests_total', 'Total HTTP requests');
 
   const app = createApp({
     onRequest: eventHandler((event) => {
+      requestCounter.inc({ method: event.method ?? 'GET', service: 'debug-server' });
       logRequest(event, logger);
     }),
     onError: (error, event) => {
@@ -36,7 +41,15 @@ export function createBaseApp(options: BaseAppOptions) {
   router.get(`${prefix}/metrics`, createMetricsRoute(metrics));
   router.get(`${prefix}/status`, createStatusRoute(agent));
   router.get(`${prefix}/capabilities`, createCapabilitiesRoute(agent));
+  router.post(
+    `${prefix}/execute`,
+    eventHandler((event) => requireDebugToken(debugToken)(event))
+  );
   router.post(`${prefix}/execute`, createExecuteRoute(agent));
+  router.post(
+    `${prefix}/stream`,
+    eventHandler((event) => requireDebugToken(debugToken)(event))
+  );
   router.post(`${prefix}/stream`, createStreamRoute(agent));
 
   app.use(router);

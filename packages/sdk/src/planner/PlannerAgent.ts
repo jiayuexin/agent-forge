@@ -3,6 +3,7 @@ import type {
   AgentConfig,
   AgentResult,
   AgentTask,
+  Capability,
   CapabilityRegistry,
   ExecutionPlan,
   IPlannerAgent,
@@ -14,14 +15,16 @@ import type {
 import { buildPlanningPrompt, buildReplanningPrompt } from './prompts.js';
 
 export type PlannerAgentConfig = PlannerConfig & AgentConfig;
+export type PlannerCapabilityFilter = (capability: Capability) => boolean;
 
-export class PlannerAgent
-  extends BaseAgent<PlannerAgentConfig>
-  implements IPlannerAgent
-{
+export class PlannerAgent extends BaseAgent<PlannerAgentConfig> implements IPlannerAgent {
   readonly registry: CapabilityRegistry;
 
-  constructor(config: PlannerAgentConfig, registry: CapabilityRegistry) {
+  constructor(
+    config: PlannerAgentConfig,
+    registry: CapabilityRegistry,
+    private readonly capabilityFilter: PlannerCapabilityFilter = () => true
+  ) {
     super(config);
     this.registry = registry;
   }
@@ -36,7 +39,7 @@ export class PlannerAgent
 
   async replan(failedStep: StepResult, context: PlanContext): Promise<ExecutionPlan> {
     const task = context.task;
-    const capabilities = this.registry.list();
+    const capabilities = this.listAvailableCapabilities();
     const remainingSteps = context.remainingSteps.map((s) => s.id);
     const completedSteps = context.completedSteps.map((s) => s.stepId);
 
@@ -66,7 +69,7 @@ export class PlannerAgent
   }
 
   protected async doExecute(task: AgentTask): Promise<AgentResult> {
-    const capabilities = this.registry.list();
+    const capabilities = this.listAvailableCapabilities();
     const prompt = buildPlanningPrompt(task, capabilities);
 
     const response = await this.provider?.chat({
@@ -101,6 +104,10 @@ export class PlannerAgent
     const end = trimmed.lastIndexOf('}');
     const json = start >= 0 && end > start ? trimmed.slice(start, end + 1) : trimmed;
     return JSON.parse(json);
+  }
+
+  private listAvailableCapabilities(): Capability[] {
+    return this.registry.list().filter(this.capabilityFilter);
   }
 
   private normalizePlan(plan: ExecutionPlan, options?: PlanOptions): ExecutionPlan {

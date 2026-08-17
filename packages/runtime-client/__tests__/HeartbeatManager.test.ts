@@ -4,11 +4,11 @@ import { HeartbeatManager } from '../src/HeartbeatManager.js';
 import { createTestServer, waitFor } from './helpers.js';
 
 describe('HeartbeatManager', () => {
-  let server: ReturnType<typeof createTestServer>;
+  let server: Awaited<ReturnType<typeof createTestServer>>;
   let transport: WebSocketTransport;
 
   beforeEach(async () => {
-    server = createTestServer();
+    server = await createTestServer();
     transport = new WebSocketTransport({
       nodeId: 'node-1',
       hubUrl: server.url,
@@ -104,7 +104,7 @@ describe('HeartbeatManager', () => {
     await server.close();
     await waitFor(() => transport.status === 'disconnected');
 
-    const newServer = createTestServer();
+    const newServer = await createTestServer();
     transport.disconnect();
 
     // Reconnect transport manually to new server

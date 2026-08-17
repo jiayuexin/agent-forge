@@ -7,11 +7,18 @@
     "build": "tsc"
   },
   "dependencies": {
+<% if (dependencyMode === 'workspace') { -%>
     "@agentforge/core": "workspace:*",
     "@agentforge/runtime-client": "workspace:*",
     "@agentforge/types": "workspace:*"
+<% } else { -%>
+    "@agentforge/core": "<%= versions.core %>",
+    "@agentforge/runtime-client": "<%= versions.runtimeClient %>",
+    "@agentforge/types": "<%= versions.types %>"
+<% } -%>
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"
   }

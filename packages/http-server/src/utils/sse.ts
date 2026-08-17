@@ -16,7 +16,22 @@ export async function sendAgentStream(
       event.node.res.write(line);
     }
     event.node.res.write('data: [DONE]\n\n');
+  } catch (error) {
+    if (event.node.res.writableEnded) {
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    event.node.res.write(
+      `data: ${JSON.stringify({
+        type: 'error',
+        content: message,
+        error: { code: 'STREAM_ERROR', message },
+        index: 0,
+      })}\n\n`
+    );
   } finally {
-    event.node.res.end();
+    if (!event.node.res.writableEnded) {
+      event.node.res.end();
+    }
   }
 }

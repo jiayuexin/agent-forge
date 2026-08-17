@@ -4,11 +4,13 @@ import type {
   ChatResponse,
   ChatChunk,
   IProvider,
+  Message,
   ModelConfig,
   OpenAIModelConfig,
   ToolCallRequest,
   ToolDefinition,
 } from '@agentforge/types';
+import { CoreError } from '../errors.js';
 
 export class OpenAIProvider implements IProvider {
   readonly provider = 'openai';
@@ -28,10 +30,11 @@ export class OpenAIProvider implements IProvider {
   }
 
   async chat(params: ChatParams): Promise<ChatResponse> {
+    const tools = params.tools?.map(toOpenAITool);
     const response = await this.client.chat.completions.create({
       model: this.config.modelName,
-      messages: params.messages as OpenAI.Chat.ChatCompletionMessageParam[],
-      tools: params.tools?.map(toOpenAITool),
+      messages: params.messages.map(toOpenAIMessage),
+      ...(tools?.length ? { tools } : {}),
       temperature: params.temperature,
       max_tokens: params.maxTokens,
       stop: params.stop,
@@ -54,10 +57,11 @@ export class OpenAIProvider implements IProvider {
   }
 
   async *chatStream(params: ChatParams): AsyncIterable<ChatChunk> {
+    const tools = params.tools?.map(toOpenAITool);
     const stream = await this.client.chat.completions.create({
       model: this.config.modelName,
-      messages: params.messages as OpenAI.Chat.ChatCompletionMessageParam[],
-      tools: params.tools?.map(toOpenAITool),
+      messages: params.messages.map(toOpenAIMessage),
+      ...(tools?.length ? { tools } : {}),
       temperature: params.temperature,
       max_tokens: params.maxTokens,
       stop: params.stop,
@@ -96,6 +100,39 @@ export class OpenAIProvider implements IProvider {
   }
 }
 
+function toOpenAIMessage(message: Message): OpenAI.Chat.ChatCompletionMessageParam {
+  switch (message.role) {
+    case 'system':
+      return { role: 'system', content: message.content };
+    case 'user':
+      return { role: 'user', content: message.content };
+    case 'assistant': {
+      const toolCalls = message.toolCalls?.map((call) => ({
+        id: call.callId,
+        type: 'function' as const,
+        function: {
+          name: call.name,
+          arguments: JSON.stringify(call.args),
+        },
+      }));
+      return {
+        role: 'assistant',
+        content: toolCalls?.length && message.content === '' ? null : message.content,
+        ...(toolCalls?.length ? { tool_calls: toolCalls } : {}),
+      };
+    }
+    case 'tool':
+      if (!message.toolCallId) {
+        throw new CoreError('INVALID_TOOL_MESSAGE', 'OpenAI tool messages require toolCallId');
+      }
+      return {
+        role: 'tool',
+        content: message.content,
+        tool_call_id: message.toolCallId,
+      };
+  }
+}
+
 function toOpenAITool(tool: ToolDefinition): OpenAI.Chat.ChatCompletionTool {
   return {
     type: 'function',
@@ -107,20 +144,30 @@ function toOpenAITool(tool: ToolDefinition): OpenAI.Chat.ChatCompletionTool {
   };
 }
 
-function toToolCallRequest(
-  toolCall: OpenAI.Chat.ChatCompletionMessageToolCall
-): ToolCallRequest {
+function toToolCallRequest(toolCall: OpenAI.Chat.ChatCompletionMessageToolCall): ToolCallRequest {
   return {
     name: toolCall.function.name,
-    args: parseJson(toolCall.function.arguments),
+    args: parseToolArgs(toolCall.function.arguments, toolCall.function.name),
     callId: toolCall.id,
   };
 }
 
-function parseJson(value: string): Record<string, unknown> {
+function parseToolArgs(value: string, toolName: string): Record<string, unknown> {
   try {
-    return JSON.parse(value) as Record<string, unknown>;
-  } catch {
-    return {};
+    const parsed: unknown = JSON.parse(value);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch (error) {
+    throw new CoreError(
+      'INVALID_TOOL_ARGUMENTS',
+      `OpenAI returned invalid arguments for tool "${toolName}"`,
+      { value, error }
+    );
   }
+  throw new CoreError(
+    'INVALID_TOOL_ARGUMENTS',
+    `OpenAI returned invalid arguments for tool "${toolName}"`,
+    { value }
+  );
 }

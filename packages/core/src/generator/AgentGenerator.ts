@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import type {
   AgentIdentity,
   AgentTemplate,
@@ -6,16 +7,13 @@ import type {
   ClientAgentSecurityConfig,
   ToolDefinition,
 } from '@agentforge/types';
-import type {
-  GenerateInput,
-  GenerateResult,
-  ParsedDescription,
-  TemplateData,
-} from './types.js';
+import type { GenerateInput, GenerateResult, ParsedDescription, TemplateData } from './types.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { SkillMatcher } from './SkillMatcher.js';
 import { TemplateEngine } from './TemplateEngine.js';
 import { CodeEmitter } from './CodeEmitter.js';
+import { registerDefaultSkillCatalog } from './defaultSkillCatalog.js';
+import { verifyGeneratedTypeScript } from './GeneratedProjectVerifier.js';
 
 export class AgentGenerator {
   constructor(
@@ -23,7 +21,9 @@ export class AgentGenerator {
     private skillMatcher: SkillMatcher,
     private templateEngine: TemplateEngine,
     private codeEmitter: CodeEmitter
-  ) {}
+  ) {
+    registerDefaultSkillCatalog(this.skillMatcher);
+  }
 
   async generate(input: GenerateInput): Promise<GenerateResult> {
     const template = await this.templateEngine.load(input.templateId ?? 'general');
@@ -54,6 +54,15 @@ export class AgentGenerator {
       requireLocalConfirmation: [],
     };
 
+    const outputDir = input.outputDir ? resolve(input.outputDir) : undefined;
+    const relativeOutput = outputDir ? relative(process.cwd(), outputDir) : undefined;
+    const isInsideRepository =
+      relativeOutput === undefined ||
+      (relativeOutput !== '' &&
+        relativeOutput !== '..' &&
+        !relativeOutput.startsWith(`..${sep}`) &&
+        !isAbsolute(relativeOutput));
+
     const templateData: TemplateData = {
       identity,
       parsed,
@@ -61,16 +70,18 @@ export class AgentGenerator {
       tools,
       config,
       security,
-      versions: { core: '0.0.0', runtimeClient: '0.0.0' },
+      dependencyMode: isInsideRepository ? 'workspace' : 'standalone',
+      versions: { core: '0.1.0', runtimeClient: '0.1.0', types: '0.1.0' },
     };
 
     const rendered = this.templateEngine.render(template, templateData);
 
     const templateSet = { ...template, files: rendered };
     const ctx = { template: templateSet, parsed, systemPrompt, tools, config };
+    verifyGeneratedTypeScript(rendered);
 
-    if (input.outputDir) {
-      return this.codeEmitter.emit(ctx, input.outputDir);
+    if (outputDir) {
+      return this.codeEmitter.emit(ctx, outputDir);
     }
 
     return { files: rendered, metadata: parsed };
@@ -82,9 +93,7 @@ export class AgentGenerator {
 
   private parseDescription(input: GenerateInput, meta: Partial<AgentTemplate>): ParsedDescription {
     const name =
-      input.name ??
-      input.description.split(/\s+/).slice(0, 3).join('-').toLowerCase() ??
-      'agent';
+      input.name ?? input.description.split(/\s+/).slice(0, 3).join('-').toLowerCase() ?? 'agent';
 
     return {
       role: name,
@@ -106,7 +115,10 @@ export class AgentGenerator {
     return categories;
   }
 
-  private mergeTools(defaultTools: ToolDefinition[], matchedTools: ToolDefinition[]): ToolDefinition[] {
+  private mergeTools(
+    defaultTools: ToolDefinition[],
+    matchedTools: ToolDefinition[]
+  ): ToolDefinition[] {
     const seen = new Set<string>();
     const tools: ToolDefinition[] = [];
 

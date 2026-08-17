@@ -2,6 +2,7 @@ import type {
   AgentNode,
   AgentResult,
   AgentStreamChunk,
+  DebugConfig,
   NodeConfigUpdateRequest,
   NodeExecuteRequest,
 } from '@agentforge/types';
@@ -23,7 +24,10 @@ export async function executeNode(id: string, request: NodeExecuteRequest): Prom
   return response.data;
 }
 
-export async function updateNodeConfig(id: string, request: NodeConfigUpdateRequest): Promise<void> {
+export async function updateNodeConfig(
+  id: string,
+  request: NodeConfigUpdateRequest
+): Promise<void> {
   await apiClient.post(`/nodes/${id}/config`, request);
 }
 
@@ -33,16 +37,27 @@ export async function unregisterNode(id: string): Promise<void> {
 
 export async function* streamNodeTask(
   id: string,
-  request: NodeExecuteRequest
+  request: NodeExecuteRequest,
+  debugConfig?: DebugConfig
 ): AsyncIterable<AgentStreamChunk> {
   const token = useAuthStore.getState().token;
-  const response = await fetch(`/api/nodes/${id}/stream`, {
+  const body: NodeExecuteRequest = {
+    ...request,
+    context: {
+      ...request.context,
+      metadata: {
+        ...request.context?.metadata,
+        debugConfig,
+      },
+    },
+  };
+  const response = await fetch(`/api/v1/nodes/${id}/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token ?? ''}`,
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok || !response.body) {
